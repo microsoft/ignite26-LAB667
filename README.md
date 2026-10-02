@@ -57,7 +57,7 @@ For development, lesson maintenance, and deployment guidance, see
 
 Open this repository with **Code > Codespaces > Create codespace**. The
 [development container](.devcontainer/devcontainer.json) includes Python 3.12,
-Azure CLI (`az`), Azure Developer CLI (`azd`), Bicep, and Docker with Compose.
+Azure CLI (`az`), Azure Developer CLI (`azd`), Bicep, Git LFS, and Docker with Compose.
 
 For an existing Codespace, run **Codespaces: Rebuild Container** from the
 VS Code command palette to apply the configuration. This restarts the
