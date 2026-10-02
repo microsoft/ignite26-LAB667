@@ -1,0 +1,145 @@
+{
+  "quests": [
+    {
+      "id": 1,
+      "name": "The Mission Run",
+      "begin": {
+        "prompt": "You wake up outside a taqueria on Valencia Street with a paper conference badge in your pocket and no memory of how you got here. The smell of carnitas rolls out of the open door, a delivery bike rattles past, and your phone lights up: 9:15am. Build starts at 10:00 at Fort Mason. You have forty-five minutes, a half-charged battery, and a city that suddenly feels like a maze.",
+        "flavor": "A street musician is playing a bright, looping melody near the curb. Behind you, a mural of impossible colors seems to point north, as if the wall itself is trying to hurry you along."
+      },
+      "missions": [
+        {
+          "id": "mission-to-hayes-valley",
+          "type": "move",
+          "start_address": "515 Valencia St, San Francisco, CA 94110, United States",
+          "start_lat": 37.7649,
+          "start_lng": -122.4216,
+          "end_address": "544 Hayes St, San Francisco, CA 94102, United States",
+          "end_lat": 37.7766,
+          "end_lng": -122.4253,
+          "arrival_prompt": "The Mission is already fully awake: cafe lines, bus brakes, shop gates rolling open. Somewhere in Hayes Valley, someone is holding the next clue, and every minute you spend deciding how to move makes Build feel farther away.",
+          "complete_prompt": "You reach Hayes Valley with the sound of traffic still in your ears. A vintage shop owner spots your badge before you can say a word and waves you inside. 'Good. You made it. Someone left a bag for you, and they were very specific that you should not be late.'"
+        },
+        {
+          "id": "hayes-valley-code",
+          "type": "question",
+          "mission": "In the city guide, which Valencia Street cocktail bar is described as a neighborhood cocktail bar done right?",
+          "arrival_prompt": "The vintage shop owner clears a space between stacks of denim jackets and slides over a dog-eared city guide. 'Your next clue is not a code on a scrap of paper,' she says. 'It is something a local would know from this guide. You started on Valencia Street. Find the cocktail bar described as a neighborhood cocktail bar done right, and tell me its name.'",
+          "complete_prompt": "The shop owner smiles and folds the guide shut. 'Exactly. You read the city instead of just running through it. Now go - Fort Mason is not getting any closer.'",
+          "valid_answers": [
+            "ABV"
+          ]
+        },
+        {
+          "id": "final-to-fort-mason",
+          "type": "move",
+          "start_address": "544 Hayes St, San Francisco, CA 94102, United States",
+          "start_lat": 37.7766,
+          "start_lng": -122.4253,
+          "end_address": "2 Marina Blvd, San Francisco, CA 94123, United States",
+          "end_lat": 37.8062,
+          "end_lng": -122.4329,
+          "arrival_prompt": "The clue is solved, but the clock is suddenly rude: Fort Mason is still across town. Hayes Street glints in the morning light, and every passing car, bike, and pedestrian looks like a possible answer.",
+          "complete_prompt": "You arrive at Fort Mason just as the morning crowd starts moving through the gates. The bay flashes behind the buildings, the doors swing open, and the pressure in your chest finally releases. Welcome to Build."
+        }
+      ],
+      "end": {
+        "prompt": "You made it to Build with the city still clinging to your shoes: murals, shop bells, traffic, and one solved mystery behind you. The quest is complete."
+      }
+    },
+    {
+      "id": 2,
+      "name": "Chinatown Express",
+      "begin": {
+        "prompt": "You find yourself on Grant Avenue in Chinatown, standing beneath rows of paper lanterns that sway gently above the street. Market stalls crowd the sidewalk with crates of oranges, herbs, and red envelopes, and a handwritten note stuck to your badge says: Fort Mason, before 10:00. A sign says it is 2.3 miles away. Build starts in forty-five minutes.",
+        "flavor": "A cable car bell rings somewhere downhill. The air smells like fresh buns, incense, and rain on warm pavement."
+      },
+      "missions": [
+        {
+          "id": "mission-to-north-beach",
+          "type": "move",
+          "start_address": "601 Grant Ave, San Francisco, CA 94108, United States",
+          "start_lat": 37.7919,
+          "start_lng": -122.4063,
+          "end_address": "261 Columbus Ave, San Francisco, CA 94133, United States",
+          "end_lat": 37.7974,
+          "end_lng": -122.4068,
+          "arrival_prompt": "Chinatown folds around you in bright signs, steep streets, and shop windows packed with lucky cats and porcelain bowls. North Beach is close enough to feel possible, but the city is all angles here, and the wrong choice could burn precious minutes.",
+          "complete_prompt": "You step into North Beach and the city changes texture: espresso, old books, narrow sidewalks, and the hush of stories waiting behind glass. A figure leaning outside City Lights bookstore looks up from a notebook. 'You made it. I was starting to worry the hill had swallowed you.'"
+        },
+        {
+          "id": "north-beach-code",
+          "type": "question",
+          "mission": "In the city guide, what North Beach cocktail bar is described as serving classic cocktails in a beautiful 1907 bar?",
+          "arrival_prompt": "The stranger outside City Lights opens a marked-up city guide to the bars and nightlife chapter. 'North Beach likes to hide its clues in plain sight,' they say. 'Find the cocktail bar in the guide that serves classic cocktails in a beautiful 1907 bar. That name is your proof you are paying attention.'",
+          "complete_prompt": "The stranger grins and taps the margin beside the entry. 'There it is. Classic North Beach. Now do not linger over the menu - Fort Mason is waiting, and the clock has no patience for poets.'",
+          "valid_answers": [
+            "Comstock Saloon"
+          ]
+        },
+        {
+          "id": "final-to-fort-mason",
+          "type": "move",
+          "start_address": "261 Columbus Ave, San Francisco, CA 94133, United States",
+          "start_lat": 37.7974,
+          "start_lng": -122.4068,
+          "end_address": "2 Marina Blvd, San Francisco, CA 94123, United States",
+          "end_lat": 37.8062,
+          "end_lng": -122.4329,
+          "arrival_prompt": "The bookstore clue is solved, but the route is not. Fort Mason waits beyond the waterfront, and North Beach is busy enough to turn every decision into a gamble.",
+          "complete_prompt": "You walk through the Fort Mason gates with just enough breath left to laugh. A volunteer scans your badge, looks at the trail of city dust on your shoes, and waves you through. Welcome to Build."
+        }
+      ],
+      "end": {
+        "prompt": "You made it to Build after lanterns, bookstores, steep streets, and one very suspicious pile of papers. The quest is complete."
+      }
+    },
+    {
+      "id": 3,
+      "name": "Waterfront Route",
+      "begin": {
+        "prompt": "You are standing at the Ferry Building with the bay wind tugging at your jacket and a conference badge clipped crookedly to your shirt. Fog rolls in low over the water, softening the bridges and turning the morning silver. The clock tower reads 9:18am. Fort Mason is up the waterfront, and Build starts in forty-two minutes.",
+        "flavor": "A ferry horn echoes across the water. Gulls wheel overhead like they know the route and are refusing to share it."
+      },
+      "missions": [
+        {
+          "id": "mission-to-fishermans-wharf",
+          "type": "move",
+          "start_address": "1 Ferry Building, San Francisco, CA 94111, United States",
+          "start_lat": 37.7956,
+          "start_lng": -122.3934,
+          "end_address": "160 Jefferson St, San Francisco, CA 94133, United States",
+          "end_lat": 37.8087,
+          "end_lng": -122.4159,
+          "arrival_prompt": "The Embarcadero stretches ahead in a ribbon of water, traffic, joggers, and breakfast crowds. Fisherman's Wharf is up the waterfront, close enough to picture but far enough that the wrong route could turn the bay into a wall.",
+          "complete_prompt": "You reach Fisherman's Wharf with salt in the air and sourdough drifting from every direction. A fisherman in waders spots your badge immediately and lifts a hand. 'There you are. I was told someone would come through looking half-lost and fully late.'"
+        },
+        {
+          "id": "fishermans-wharf-code",
+          "type": "question",
+          "mission": "In the city guide, what hands-on science museum at Pier 15 on the Embarcadero has influenced science education worldwide since 1969?",
+          "arrival_prompt": "The fisherman hauls a salt-stained city guide from a crate and flips to the waterfront chapter with one thick finger. 'You came up the Embarcadero, so this one is fair,' he says. 'There is a hands-on science museum at Pier 15 that has been shaping science education since 1969. Tell me the name, and I will know you read the waterline correctly.'",
+          "complete_prompt": "The fisherman snaps the guide shut and gives you a satisfied nod. 'That's it. Clean find. Now finish the run before the fog changes its mind.'",
+          "valid_answers": [
+            "Exploratorium"
+          ]
+        },
+        {
+          "id": "final-to-fort-mason",
+          "type": "move",
+          "start_address": "160 Jefferson St, San Francisco, CA 94133, United States",
+          "start_lat": 37.8087,
+          "start_lng": -122.4159,
+          "end_address": "2 Marina Blvd, San Francisco, CA 94123, United States",
+          "end_lat": 37.8062,
+          "end_lng": -122.4329,
+          "arrival_prompt": "The final stretch is all waterfront nerves: gulls, bike bells, traffic lights, and the bay flashing beside you whenever the fog tears open. Fort Mason is the finish line, but you still have to choose how to get there.",
+          "complete_prompt": "Fort Mason comes into view with the bay glittering behind you and the last of the fog peeling away from the piers. You cross the final distance, badge ready, pulse high, and step into the day you were trying to reach. Welcome to Build."
+        }
+      ],
+      "end": {
+        "prompt": "You made it to Build by following the waterfront through fog, gulls, paper clues, and one stubborn clock. The quest is complete."
+      }
+    }
+  ]
+}

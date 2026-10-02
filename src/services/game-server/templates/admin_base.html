@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="csrf-token" content="{{ csrf_token | default('') }}" />
+  <title>{% block title %}Mission control | Lost in the City{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/admin.css" />
+</head>
+<body {% block body_attrs %}{% endblock %}>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a href="/" class="brand" aria-label="Lost in the City home">
+      <span class="brand-mark" aria-hidden="true">LC<span>.</span></span>
+      <span>Lost in the city<small>Game master console</small></span>
+    </a>
+    {% if username %}
+    <nav class="account-nav" aria-label="Account">
+      <span class="identity"><span class="status-dot"></span>{{ username }}</span>
+      <a href="/password" class="button button-quiet">Password</a>
+      <button type="button" id="logout" class="button button-quiet">Sign out</button>
+    </nav>
+    {% else %}
+    <span class="console-label">OPERATOR ACCESS</span>
+    {% endif %}
+  </header>
+  {% if username and not must_change_password %}
+  <nav class="primary-nav" aria-label="Admin navigation">
+    <a href="/" {% if request and request.url.path == '/' %}aria-current="page"{% endif %}>Games</a>
+    <a href="/games/new" {% if request and request.url.path == '/games/new' %}aria-current="page"{% endif %}>Create game</a>
+    {% if role == 'admin' %}<a href="/users" {% if request and request.url.path == '/users' %}aria-current="page"{% endif %}>Users</a>{% endif %}
+    <span class="role-label">{{ 'Administrator' if role == 'admin' else 'Game editor' }}</span>
+  </nav>
+  {% endif %}
+  <main id="main" class="{% block main_class %}workspace{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="footer"><span>Lost in San Francisco</span><span>Multi-agent adventures. Human oversight.</span></footer>
+  <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+  <dialog id="confirm-dialog" class="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-description">
+    <form method="dialog">
+      <span class="eyebrow">PLEASE CONFIRM</span>
+      <h2 id="confirm-title">Are you sure?</h2>
+      <p id="confirm-description"></p>
+      <div class="actions">
+        <button class="button button-quiet" value="cancel" autofocus>Cancel</button>
+        <button id="confirm-action" class="button button-danger" value="confirm">Confirm</button>
+      </div>
+    </form>
+  </dialog>
+  <script src="/static/js/admin_common.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

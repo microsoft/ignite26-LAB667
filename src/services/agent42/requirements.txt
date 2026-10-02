@@ -1,0 +1,9 @@
+agent-framework>=1.19.0
+agent-framework-a2a>=1.0.0b260918
+agent-framework-foundry>=1.13.1
+a2a-sdk[http-server]>=1.2.1
+azure-identity
+azure-storage-blob
+httpx
+python-dotenv
+uvicorn

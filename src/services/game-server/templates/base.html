@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Lost in the City{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#141414',
+            paper: '#f7f3ea',
+            sea: '#0e6f73',
+            coral: '#d9583b',
+            gold: '#e0a72e'
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}min-h-screen bg-paper text-ink antialiased{% endblock %}"{% block body_attrs %}{% endblock %}>
+  {% block content %}{% endblock %}
+  {% block scripts %}{% endblock %}
+</body>
+</html>

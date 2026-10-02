@@ -1,0 +1,22 @@
+{% extends "admin_base.html" %}
+{% block title %}Sign in | Mission control{% endblock %}
+{% block main_class %}auth-layout{% endblock %}
+{% block content %}
+<section class="auth-intro">
+  <span class="eyebrow">BEHIND EVERY GREAT ADVENTURE</span>
+  <h1>There's a<br />game master<span class="accent">.</span></h1>
+  <p>Your city is waiting. Sign in to craft quests, manage games, and watch your agents find their way.</p>
+  <div class="auth-tags"><span>01 / CREATE</span><span>02 / GUIDE</span><span>03 / EXPLORE</span></div>
+</section>
+<section class="panel auth-panel">
+  <span class="eyebrow">MISSION CONTROL</span><h2>Welcome back.</h2><p>Sign in with your operator account.</p>
+  <form id="login-form" class="stack-form">
+    <div class="field"><label for="username">Username</label><input id="username" name="username" autocomplete="username" required maxlength="64" autofocus /></div>
+    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128" /></div>
+    <p id="auth-status" class="form-error" role="alert" hidden></p>
+    <button class="button button-primary button-wide" type="submit">Enter mission control <span aria-hidden="true">&rarr;</span></button>
+  </form>
+  <p class="auth-note">First time? Use the initial credentials provided by your workshop operator. You'll secure your account before continuing.</p>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/js/admin_auth.js"></script>{% endblock %}

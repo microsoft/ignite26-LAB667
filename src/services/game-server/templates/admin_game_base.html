@@ -1,0 +1,20 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ game.display_name }} | Mission control{% endblock %}
+{% block body_attrs %}data-slug="{{ game.slug }}"{% endblock %}
+{% block content %}
+<a class="back-link" href="/">&larr; All games</a>
+<header class="game-heading">
+  <div><span class="eyebrow">GAME OPERATIONS / {{ game.slug }}</span><h1>{{ game.display_name }}</h1>
+    <p>{% if game_page == "edit" %}Build the next adventure. Keep today's players on their own story.{% else %}Follow the players. Run the room.{% endif %}</p></div>
+  <a class="button button-quiet" href="{{ dashboard_url }}/{{ game.slug }}/dashboard" target="_blank" rel="noopener">Open player display &nearr;</a>
+</header>
+<nav class="game-tabs" aria-label="Game pages">
+  <a href="/games/{{ game.slug }}" {% if game_page == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
+  <a href="/games/{{ game.slug }}/edit" {% if game_page == "edit" %}aria-current="page"{% endif %}>Edit game</a>
+</nav>
+{% block game_content %}{% endblock %}
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/admin_map.js"></script>
+{% block game_scripts %}{% endblock %}
+{% endblock %}

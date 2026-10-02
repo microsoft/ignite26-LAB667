@@ -1,29 +1,3 @@
-## Before you're done
-
-This repo has been created for your Microsoft Ignite 2026 session. Here's how to get it ready.
-
-**Easiest path — use the agent (recommended):**
-
-- Open GitHub Copilot Chat and say `help me initialize repo`. The agent will walk you through getting the README populated.
-- When you're ready to publish, say `help me finalize repo`. The agent will clean up unused folders, validate everything, and remove this "Before you're done" section and other extra stuff that attendees don't need to see.
-- Curious how it works? Read the [agent workflow](.github/AGENT-WORKFLOW.md).
-
-**Doing it manually?**
-
-Fill in the sections below yourself, then:
-
-- Delete any placeholder folders you don't need (`data/`, `infra/`, etc.)
-- Delete this "Before you're done" section
-- Delete `.github/agents/`, `.github/tests/`, `.github/copilot-instructions.md`, and `.github/AGENT-WORKFLOW.md` — these are template tooling, not part of your published repo
-
-**Folder conventions:**
-
-- Attendee step-by-step guidance goes in `instructions/`. If you use MkDocs or a docs site instead, put it in `docs/` and link to it from this README.
-- Reference material and background reading go in `docs/`.
-- You can add a `.devcontainer/` folder if needed.
-
----
-
 <a name="start-building"></a>
 
 <p align="center">
@@ -33,6 +7,10 @@ Fill in the sections below yourself, then:
 # [Microsoft Ignite 2026](https://ignite.microsoft.com)
 
 ## 🔥LAB667: Building multi-agent systems. Lost in San Francisco
+
+> This session repository is still being prepared. Session details and setup
+> steps below remain to be completed before publication.
+
 ### Session description
 
 Add your session description here. Keep it concise — 2-3 sentences about what attendees will learn and why it matters.
@@ -56,6 +34,61 @@ If you're learning at your own pace:
 2. Set up your environment
 3. Follow the session guidance in [`instructions/`](instructions/README.md), or
    use the linked docs-site entry point when this repository uses that pattern
+
+### Repository layout
+
+| Folder | Contents |
+| --- | --- |
+| [src/](src/README.md) | Shared game services, Agent42, and the reference player agent |
+| [instructions/](instructions/README.md) | Numbered attendee walkthrough and screenshots |
+| [data/](data/README.md) | San Francisco city-guide source material for retrieval |
+| [docs/](docs/README.md) | Workshop overview, local setup, gameplay, and authoring references |
+| [infra/](infra/README.md) | azd shared-service deployment and inactive legacy workflows |
+| [skillable/](skillable/README.md) | Skillable-specific documentation and infrastructure |
+| [scripts/](scripts/README.md) | Workshop export and local load-testing utilities |
+
+For the existing workshop setup and service run commands, see the
+[workshop overview](docs/workshop-overview.md).
+
+For development, lesson maintenance, and deployment guidance, see
+[Contributing](CONTRIBUTING.md).
+
+### Develop in Codespaces
+
+Open this repository with **Code > Codespaces > Create codespace**. The
+[development container](.devcontainer/devcontainer.json) includes Python 3.12,
+Azure CLI (`az`), Azure Developer CLI (`azd`), Bicep, and Docker with Compose.
+
+For an existing Codespace, run **Codespaces: Rebuild Container** from the
+VS Code command palette to apply the configuration. This restarts the
+development environment; save your work first. Local VS Code users can use
+**Dev Containers: Reopen in Container** with Docker running.
+
+The container checks tool versions after creation, but does not sign in,
+deploy resources, install application dependencies, or start the services.
+See [local development](CONTRIBUTING.md#local-development) for service setup.
+Keep forwarded ports **Private**, including the admin port.
+
+### Deploy the shared services
+
+With Azure Developer CLI and Docker installed, run from the repository root:
+
+```bash
+azd auth login
+azd env new lab667-dev
+azd up
+```
+
+In Codespaces, if browser sign-in cannot complete, use
+`azd auth login --use-device-code`. Azure CLI has its own login:
+`az login --use-device-code` when you need `az` commands against your subscription.
+
+This deploys the MCP server, dashboard, admin UI, and Agent42, including storage,
+Maps, and a dedicated `gpt-5.6-luna` model. Attendee model/search resources remain
+separate. **Sign in to the admin UI with `admin` / `admin` and change the
+password before managing games.** Restrict access until this setup is complete.
+Review [deployment prerequisites, costs, and access limitations](infra/README.md)
+before running it.
 
 ### 🎯 Learning outcomes
 

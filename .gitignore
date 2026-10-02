@@ -3,6 +3,9 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Azure Developer CLI local environment and deployment state
+.azure/
+
 # User-specific files
 *.rsuser
 *.suo

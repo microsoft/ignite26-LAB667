@@ -1,0 +1,29 @@
+name: Mirror workshop to public repo
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'instructions/**'
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    name: Push instructions/ to GlobalAICommunity/lab530-skillable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Push instructions/ to public repo
+        uses: cpina/github-action-push-to-another-repository@main
+        env:
+          API_TOKEN_GITHUB: ${{ secrets.WORKSHOP_MIRROR_TOKEN }}
+        with:
+          source-directory: 'instructions'
+          destination-github-username: 'GlobalAICommunity'
+          destination-repository-name: 'lab530-skillable'
+          target-branch: 'main'
+          user-email: 'actions@github.com'
+          user-name: 'workshop-bot'
+          commit-message: 'Sync workshop from ${{ github.repository }}@${{ github.sha }}'

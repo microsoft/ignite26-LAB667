@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: lost-in-san-francisco
+infra:
+  provider: bicep
+  path: infra
+  module: main
+hooks:
+  postdeploy:
+    posix:
+      shell: sh
+      run: |
+        if [ "${CODESPACES:-false}" = "true" ]; then
+          bash scripts/clean-local-docker.sh --apply
+        else
+          echo "Automatic Docker cleanup is Codespaces-only; use scripts/clean-local-docker.sh manually."
+        fi
+      continueOnError: true
+      interactive: false
+services:
+  mcp:
+    project: src/services/game-server
+    language: docker
+    host: containerapp
+    docker:
+      path: Dockerfile.mcp
+      context: .
+      platform: linux/amd64
+  dashboard:
+    project: src/services/game-server
+    language: docker
+    host: containerapp
+    docker:
+      path: Dockerfile.dashboard
+      context: .
+      platform: linux/amd64
+  admin:
+    project: src/services/game-server
+    language: docker
+    host: containerapp
+    docker:
+      path: Dockerfile.admin
+      context: .
+      platform: linux/amd64
+  agent42:
+    project: src/services/agent42
+    language: docker
+    host: containerapp
+    docker:
+      path: Dockerfile
+      context: .
+      platform: linux/amd64

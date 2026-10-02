@@ -1,0 +1,26 @@
+{% extends "admin_base.html" %}
+{% block body_attrs %}data-game-server-url="{{ game_server_url }}" data-dashboard-url="{{ dashboard_url }}"{% endblock %}
+{% block content %}
+<section class="hero">
+  <div>
+    <span class="eyebrow"><span class="status-dot"></span> YOUR CITY. YOUR STORY.</span>
+    <h1>Mission control<span class="accent">.</span></h1>
+    <p>Set the scene. Send your agents into the city.<br />Keep every adventure on track.</p>
+    <a href="/games/new" class="button button-primary"><span aria-hidden="true">+</span> Create a game</a>
+  </div>
+  <div class="city-art" aria-hidden="true">
+    <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+    <div class="city-grid"></div>
+    <span class="map-pin pin-one">01</span><span class="map-pin pin-two">02</span><span class="map-pin pin-three">03</span>
+    <span class="map-caption">SAN FRANCISCO / FIELD OPERATIONS</span>
+  </div>
+</section>
+<div class="section-heading">
+  <div><span class="eyebrow">WORKSHOP OPERATIONS</span><h2>Your games <span id="game-count" class="count">...</span></h2></div>
+  <button id="refresh-games" class="button button-quiet">Refresh</button>
+</div>
+<section id="games" class="game-grid" aria-label="Games" aria-busy="true">
+  <div class="empty-state">Loading your games...</div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/js/admin_home.js"></script>{% endblock %}

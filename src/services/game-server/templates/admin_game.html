@@ -1,0 +1,41 @@
+{% extends "admin_game_base.html" %}
+{% block game_content %}
+<div class="endpoint"><span class="eyebrow">MCP ENDPOINT</span><code id="mcp-endpoint">{{ game_server_url }}/{{ game.slug }}/mcp</code><button id="copy-endpoint" class="button button-quiet">Copy URL</button></div>
+<div class="section-heading">
+  <div><span class="eyebrow">LIVE WORKSHOP</span><h2>Field operations</h2><p id="live-version" class="muted">Loading publication status...</p></div>
+  <div class="actions"><label for="version-filter">Story version</label><select id="version-filter"><option value="all">All published versions</option></select><button id="refresh-players" class="button button-quiet">Refresh now</button></div>
+</div>
+<section class="metrics metrics-five" aria-label="Player summary">
+  <div class="metric"><span>Total players</span><strong id="player-count">-</strong></div>
+  <div class="metric"><span>Registered</span><strong id="registered-count">-</strong></div>
+  <div class="metric"><span>Playing</span><strong id="active-count">-</strong></div>
+  <div class="metric"><span>Completed</span><strong id="completed-count">-</strong></div>
+  <div class="metric"><span>Abandoned</span><strong id="abandoned-count">-</strong></div>
+</section>
+<section class="panel map-panel" id="dashboard-map-panel">
+  <div class="panel-heading"><div><span class="eyebrow">THE CITY AT A GLANCE</span><h2>Published stories &amp; player positions</h2></div>
+    <div class="actions"><button id="fit-map" class="button button-quiet">Fit all points</button><button id="fullscreen-map" class="button button-quiet">Fullscreen map</button></div></div>
+  <p>Dashed lines show story connections, not travel routes. Player markers show recorded story positions, not live GPS.</p>
+  <div id="game-map" class="game-map" aria-label="Published game locations"></div>
+  <p id="map-status" class="map-status" role="status">Loading map...</p>
+  <div id="map-legend" class="map-legend"></div>
+</section>
+<section class="panel">
+  <div class="panel-heading"><div><span class="eyebrow">IN THE FIELD</span><h2>Player progress</h2></div><span class="badge">REFRESHES EVERY 10S</span></div>
+  <p id="players-status" class="muted" role="status"></p>
+  <div id="players" class="table-wrap" tabindex="0" aria-label="Players">Loading players...</div>
+</section>
+<section class="panel">
+  <div class="panel-heading"><div><span class="eyebrow">THE FINISH LINE</span><h2>Leaderboard</h2></div><span class="badge">TOP 10</span></div>
+  <div id="leaderboard" class="table-wrap" tabindex="0" aria-label="Leaderboard">Loading leaderboard...</div>
+</section>
+<details class="panel danger-panel danger-details"><summary>Game controls &amp; destructive actions</summary>
+  <p>Resetting a player removes their run. They must register again and will receive the latest published story.</p>
+  <button id="reset-all" class="button button-danger">Reset all players</button>
+</details>
+<dialog id="player-dialog" class="player-dialog" aria-labelledby="player-detail-title">
+  <form method="dialog"><div class="panel-heading"><h2 id="player-detail-title">Player details</h2><button class="button button-quiet">Close</button></div></form>
+  <div id="player-detail"></div>
+</dialog>
+{% endblock %}
+{% block game_scripts %}<script src="/static/js/admin_game.js"></script>{% endblock %}

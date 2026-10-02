@@ -1,0 +1,140 @@
+name: Trigger auto deployment for game-server
+
+# When this action will be executed
+on:
+  # Automatically trigger it when detected changes in repo
+  push:
+    branches:
+      [ main ]
+    paths:
+    - 'src/services/game-server/**'
+    - 'infra/legacy-workflows/game-server.yml'
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  REGISTRY_URL: lab530.azurecr.io
+  RESOURCE_GROUP: lab530_RG
+  MCP_CONTAINER_APP_NAME: game-server-mcp
+  DASHBOARD_CONTAINER_APP_NAME: game-server-dashboard
+  ADMIN_CONTAINER_APP_NAME: game-server-admin
+  # Optional repository variables for custom domains shown in the admin UI.
+  GAME_SERVER_URL: ${{ vars.GAME_SERVER_URL }}
+  DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # This is required for requesting the OIDC JWT Token
+      contents: read # Required when GH token is used to authenticate with private repo
+
+    steps:
+      - name: Checkout to the branch
+        uses: actions/checkout@v6
+
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AGENT42_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AGENT42_AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AGENT42_AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build and push MCP container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}/src/services/game-server
+          dockerfilePath: Dockerfile.mcp
+          registryUrl: ${{ env.REGISTRY_URL }}
+          registryUsername: ${{ secrets.AGENT42_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.AGENT42_REGISTRY_PASSWORD }}
+          containerAppName: ${{ env.MCP_CONTAINER_APP_NAME }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToBuild: ${{ env.REGISTRY_URL }}/game-server-mcp:${{ github.sha }}
+
+      - name: Build and push dashboard container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}/src/services/game-server
+          dockerfilePath: Dockerfile.dashboard
+          registryUrl: ${{ env.REGISTRY_URL }}
+          registryUsername: ${{ secrets.AGENT42_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.AGENT42_REGISTRY_PASSWORD }}
+          containerAppName: ${{ env.DASHBOARD_CONTAINER_APP_NAME }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToBuild: ${{ env.REGISTRY_URL }}/game-server-dashboard:${{ github.sha }}
+
+      - name: Build and push admin container image to registry
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          appSourcePath: ${{ github.workspace }}/src/services/game-server
+          dockerfilePath: Dockerfile.admin
+          registryUrl: ${{ env.REGISTRY_URL }}
+          registryUsername: ${{ secrets.AGENT42_REGISTRY_USERNAME }}
+          registryPassword: ${{ secrets.AGENT42_REGISTRY_PASSWORD }}
+          containerAppName: ${{ env.ADMIN_CONTAINER_APP_NAME }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToBuild: ${{ env.REGISTRY_URL }}/game-server-admin:${{ github.sha }}
+
+      - name: Configure admin public service URLs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          resolve_public_url() {
+            local app_name="$1"
+            local configured_url="$2"
+
+            normalize_url() {
+              local value="${1%/}"
+              if [[ "${value}" == http://* || "${value}" == https://* ]]; then
+                echo "${value}"
+              else
+                echo "https://${value}"
+              fi
+            }
+
+            if [[ -n "${configured_url}" ]]; then
+              normalize_url "${configured_url}"
+              return
+            fi
+
+            local custom_domain
+            custom_domain=$(az containerapp show \
+              --name "${app_name}" \
+              --resource-group "${RESOURCE_GROUP}" \
+              --query "properties.configuration.ingress.customDomains[0].name" \
+              --output tsv)
+
+            if [[ -n "${custom_domain}" ]]; then
+              normalize_url "${custom_domain}"
+              return
+            fi
+
+            local fqdn
+            fqdn=$(az containerapp show \
+              --name "${app_name}" \
+              --resource-group "${RESOURCE_GROUP}" \
+              --query "properties.configuration.ingress.fqdn" \
+              --output tsv)
+
+            if [[ -n "${fqdn}" ]]; then
+              normalize_url "${fqdn}"
+              return
+            fi
+
+            echo "Unable to resolve a public URL for ${app_name}." >&2
+            exit 1
+          }
+
+          mcp_url=$(resolve_public_url "${MCP_CONTAINER_APP_NAME}" "${GAME_SERVER_URL:-}")
+          dashboard_url=$(resolve_public_url "${DASHBOARD_CONTAINER_APP_NAME}" "${DASHBOARD_URL:-}")
+
+          az containerapp update \
+            --name "${ADMIN_CONTAINER_APP_NAME}" \
+            --resource-group "${RESOURCE_GROUP}" \
+            --set-env-vars \
+              GAME_SERVER_URL="${mcp_url}" \
+              DASHBOARD_URL="${dashboard_url}"

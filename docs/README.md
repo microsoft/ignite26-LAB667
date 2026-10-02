@@ -1,10 +1,14 @@
-# Docs
+# Supporting documentation
 
-<!-- IGNITE TEMPLATE PLACEHOLDER: remove this folder when the session needs no additional documentation. -->
+- [Project contributor guide](../CONTRIBUTING.md)
+- [Workshop overview and local setup](workshop-overview.md)
+- [Gameplay and agent interactions](gameplay.md)
+- [Deployment notes](deployment-notes.md)
+- [Authoring conventions](authoring/common-knowledge.md)
+- [Skillable export reference](../skillable/docs/skillable.md)
 
-Use this folder for supporting documentation such as reference material and
-architecture/context.
+The authoring references document the existing lab environment. Skillable
+documentation and infrastructure live in [skillable/](../skillable/README.md).
 
-If this repository intentionally uses MkDocs or another docs-site pattern,
-attendee instructions can remain here. Link the attendee entry point clearly
-from the root README.
+Attendee steps live in [instructions/](../instructions/README.md); runnable
+applications live in [src/](../src/README.md).

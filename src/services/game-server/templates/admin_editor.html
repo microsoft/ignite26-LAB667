@@ -1,0 +1,53 @@
+{% extends "admin_game_base.html" %}
+{% block game_content %}
+<section class="editor-toolbar panel">
+  <div><span class="eyebrow">STORY STUDIO</span><h2 id="draft-title">Loading draft...</h2><span id="draft-status" role="status" class="muted"></span></div>
+  <div class="actions">
+    <button id="reload-draft" class="button button-quiet" disabled>Reload</button>
+    <button id="save-draft" class="button button-quiet" disabled>Save draft</button>
+    <button id="publish-draft" class="button button-primary" disabled>Publish</button>
+  </div>
+</section>
+<div class="studio-controls">
+  <div class="segmented" role="group" aria-label="Editor view">
+    <button data-view="story" aria-pressed="false">Story</button>
+    <button data-view="split" aria-pressed="true">Story + map</button>
+    <button data-view="map" aria-pressed="false">Full map</button>
+  </div>
+  <div class="actions">
+    <label class="preview-toggle"><input type="checkbox" id="story-preview" /> Story preview</label>
+    <button id="import-json" class="button button-quiet" disabled>Import JSON</button>
+    <input id="json-file" type="file" accept=".json,application/json" hidden />
+    <button id="export-json" class="button button-quiet" disabled>Export JSON</button>
+  </div>
+</div>
+<div id="validation-summary" class="validation-summary" role="status" hidden></div>
+<div id="story-studio" class="story-studio" data-view="split" aria-busy="true">
+  <aside class="quest-rail panel" aria-label="Quests">
+    <span class="eyebrow">YOUR QUESTS</span><div id="quest-list"></div>
+    <button id="add-quest" class="button button-quiet button-wide" disabled>+ Add quest</button>
+  </aside>
+  <section id="story-pane" class="story-pane" aria-label="Story timeline"><div class="empty-state">Loading story...</div></section>
+  <section class="panel map-panel studio-map" id="editor-map-panel">
+    <div class="panel-heading"><h2>Story locations</h2><button id="fullscreen-map" class="button button-quiet">Fullscreen</button></div>
+    <div class="field"><label for="map-quest-filter">Show on map</label><select id="map-quest-filter"><option value="all">All quests</option></select></div>
+    <div class="map-tools"><button id="fit-map" class="button button-quiet">Fit all points</button><span class="muted">Select a point to find its scene</span></div>
+    <div id="game-map" class="game-map" aria-label="Draft story locations"></div>
+    <p id="map-status" class="map-status" role="status">Loading map...</p>
+    <div id="map-legend" class="map-legend"></div>
+    <p class="map-caption-text">Dashed lines show story order, not driving or walking directions. Missing coordinates are never guessed.</p>
+  </section>
+</div>
+<details class="panel advanced-editor"><summary>Advanced: raw JSON &amp; seed content</summary>
+  <p>Changes here are not applied until you validate and confirm them. Unknown JSON fields are preserved by the visual editor.</p>
+  <label for="raw-quests">Draft JSON</label><textarea id="raw-quests" class="code-editor" spellcheck="false"></textarea>
+  <div class="actions"><button id="apply-json" class="button button-quiet" disabled>Validate &amp; apply JSON</button><button id="import-seed" class="button button-quiet" disabled>Import seed quests</button></div>
+</details>
+<dialog id="import-dialog" class="confirm-dialog" aria-labelledby="import-title">
+  <form method="dialog"><span class="eyebrow">REVIEW BEFORE REPLACING</span><h2 id="import-title">Import story</h2>
+    <div id="import-summary"></div><p>This replaces the draft in the editor only. Save it, then publish when ready. Existing players are unaffected.</p>
+    <div class="actions"><button value="cancel" class="button button-quiet" autofocus>Cancel</button><button value="confirm" class="button button-primary">Replace editor draft</button></div>
+  </form>
+</dialog>
+{% endblock %}
+{% block game_scripts %}<script src="/static/js/admin_editor.js"></script>{% endblock %}

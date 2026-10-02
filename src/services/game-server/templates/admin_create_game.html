@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+{% block title %}Create a game | Mission control{% endblock %}
+{% block content %}
+<a class="back-link" href="/">&larr; All games</a>
+<header class="game-heading">
+  <div><span class="eyebrow">BUILD SOMETHING NEW</span><h1>Create a game<span class="accent">.</span></h1>
+    <p>The next adventure starts here.</p></div>
+</header>
+<section class="panel create-panel" aria-labelledby="create-heading">
+  <div><h2 id="create-heading">Start with a draft.</h2>
+    <p>Give your game a name and a unique route. You'll go straight to the story editor to add quests and missions. Your game starts as a draft: publish it when you're ready for players.</p></div>
+  <form id="new-game-form" class="form-grid">
+    <div class="field"><label for="new-name">Game name</label><input id="new-name" name="display_name" placeholder="Lost in San Francisco" maxlength="150" required autofocus /></div>
+    <div class="field"><label for="new-slug">URL slug</label><input id="new-slug" name="slug" placeholder="san-francisco" pattern="[a-z0-9][a-z0-9_-]{0,62}" maxlength="63" aria-describedby="slug-help" required />
+      <small id="slug-help">Lowercase letters, numbers, dashes or underscores. Start with a letter or number. “new” is reserved.</small></div>
+    <div class="form-footer"><p id="add-status" class="form-error" role="alert" hidden></p></div>
+    <div class="form-footer"><button type="submit" class="button button-primary">Create game <span aria-hidden="true">&rarr;</span></button><a href="/" class="button button-quiet">Cancel</a></div>
+  </form>
+</section>
+{% endblock %}
+{% block scripts %}<script src="/static/js/admin_create_game.js"></script>{% endblock %}
