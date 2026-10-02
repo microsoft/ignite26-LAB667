@@ -111,13 +111,13 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
         with patch.dict(os.environ, {"AGENT42_URL": URL}), patch.object(
             agent_agent42, "A2AAgent", side_effect=remote_agent
         ):
-            remote = agent_agent42.build_agent42_agent()
-            session = remote.create_session()
-            for question in ("First trip", "Second trip"):
-                self.assertEqual((await remote.run(question, session=session)).text, REPLY)
-            tool = agent_agent42.build_agent42_tool()
-            result = await tool.invoke(question="A third trip")
-            self.assertEqual([content.text for content in result], [REPLY])
+            async with agent_agent42.build_agent42_agent() as remote:
+                session = remote.create_session()
+                for question in ("First trip", "Second trip"):
+                    self.assertEqual((await remote.run(question, session=session)).text, REPLY)
+                tool = agent_agent42.build_agent42_tool(remote)
+                result = await tool.invoke(question="A third trip")
+                self.assertEqual([content.text for content in result], [REPLY])
         self.assertEqual(self.agent.run.await_count, 3)
 
     async def test_execution_failure_is_a_protocol_error(self) -> None:

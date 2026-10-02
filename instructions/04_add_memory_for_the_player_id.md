@@ -12,16 +12,21 @@ other imports:
 ```python
 import json
 from pathlib import Path
+from typing import Any
 
-from agent_framework import ContextProvider, tool
+from agent_framework import AgentSession, ContextProvider, SessionContext, SupportsAgentRun, tool
 ```
 
 In **agent.py**, add the memory file constant near the top of the file, after the
-imports and before **load_dotenv(override=True)**:
+imports and before **main()**. Keep the existing **load_dotenv(...)** call inside
+**main()**:
 
 ```python
-MEMORY_FILE = Path("memory.json")
+MEMORY_FILE = Path(__file__).resolve().with_name("memory.json")
 ```
+
+The memory file lives beside **agent.py**, not in whichever folder the terminal
+happens to use.
 
 > [!Hint] A context provider is a small hook that runs before the model gets a
 > turn. It can add useful context to the agent instructions, such as remembered
@@ -31,16 +36,25 @@ MEMORY_FILE = Path("memory.json")
 In **agent.py**, add this context provider class after the memory file constant
 and before **main()**. It injects the saved player ID before each model run:
 
-```python
+```python-notype
 class PlayerContextProvider(ContextProvider):
-	async def before_run(self, *, agent, session, context, state) -> None:
+	async def before_run(
+		self,
+		*,
+		agent: SupportsAgentRun,
+		session: AgentSession,
+		context: SessionContext,
+		state: dict[str, Any],
+	) -> None:
 		if MEMORY_FILE.exists():
-			pid = json.loads(MEMORY_FILE.read_text()).get("player_id")
-			if pid:
-				context.extend_instructions(
-					self.source_id,
-					f"From memory: player_id: {pid}",
-				)
+			memory = json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
+			if not isinstance(memory, dict):
+				raise ValueError(f"{MEMORY_FILE} must contain a JSON object.")
+			player_id = memory.get("player_id")
+			if player_id is not None:
+				if not isinstance(player_id, str) or not player_id.strip():
+					raise ValueError(f"{MEMORY_FILE} must contain a non-empty player_id string.")
+				context.extend_instructions(self.source_id, f"From memory: player_id: {player_id}")
 ```
 
 > [!Hint] Tool calling lets the model ask your Python code to do a specific
@@ -55,11 +69,13 @@ model can call it after registration to save the player ID:
 ```python
 @tool(description="Save the player_id returned after registration")
 async def save_player_id(player_id: str) -> str:
-	MEMORY_FILE.write_text(json.dumps({"player_id": player_id}))
+	if not player_id.strip():
+		raise ValueError("player_id must not be empty.")
+	MEMORY_FILE.write_text(json.dumps({"player_id": player_id}), encoding="utf-8")
 	return f"Player ID {player_id} saved."
 ```
 
-Inside **main()**, update the existing **Agent(...)** call. Keep
+Inside **main()**, within the existing MCP context block, update the **Agent(...)** call. Keep
 **instructions=game_play_prompt** and the game MCP tool, then add both the memory
 tool and context provider:
 
@@ -98,65 +114,81 @@ import asyncio
 import json
 import os
 from pathlib import Path
+from typing import Any
 
-from agent_framework import Agent, ContextProvider, MCPStreamableHTTPTool, tool
+from agent_framework import (
+	Agent,
+	AgentSession,
+	ContextProvider,
+	MCPStreamableHTTPTool,
+	SessionContext,
+	SupportsAgentRun,
+	tool,
+)
 from agent_framework.openai import OpenAIChatClient
 from dotenv import load_dotenv
 
-MEMORY_FILE = Path("memory.json")
-
-load_dotenv(override=True)
+MEMORY_FILE = Path(__file__).resolve().with_name("memory.json")
 
 
 class PlayerContextProvider(ContextProvider):
-	async def before_run(self, *, agent, session, context, state) -> None:
+	async def before_run(
+		self,
+		*,
+		agent: SupportsAgentRun,
+		session: AgentSession,
+		context: SessionContext,
+		state: dict[str, Any],
+	) -> None:
 		if MEMORY_FILE.exists():
-			pid = json.loads(MEMORY_FILE.read_text()).get("player_id")
-			if pid:
-				context.extend_instructions(
-					self.source_id,
-					f"From memory: player_id: {pid}",
-				)
+			memory = json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
+			if not isinstance(memory, dict):
+				raise ValueError(f"{MEMORY_FILE} must contain a JSON object.")
+			player_id = memory.get("player_id")
+			if player_id is not None:
+				if not isinstance(player_id, str) or not player_id.strip():
+					raise ValueError(f"{MEMORY_FILE} must contain a non-empty player_id string.")
+				context.extend_instructions(self.source_id, f"From memory: player_id: {player_id}")
 
 
 @tool(description="Save the player_id returned after registration")
 async def save_player_id(player_id: str) -> str:
-	MEMORY_FILE.write_text(json.dumps({"player_id": player_id}))
+	if not player_id.strip():
+		raise ValueError("player_id must not be empty.")
+	MEMORY_FILE.write_text(json.dumps({"player_id": player_id}), encoding="utf-8")
 	return f"Player ID {player_id} saved."
 
 
 async def main() -> None:
+	load_dotenv(Path(__file__).with_name(".env"), override=True)
+
 	client = OpenAIChatClient(
 		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
 		api_key=os.environ["AZURE_OPENAI_API_KEY"],
 		model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
 	)
 
-	game_mcp = MCPStreamableHTTPTool(
-		name="Gaming MCP Server",
-		url=os.environ["GAME_MCP_URL"],
-	)
-	await game_mcp.connect()
+	async with client.client:
+		async with MCPStreamableHTTPTool(
+			name="Gaming MCP Server",
+			url=os.environ["GAME_MCP_URL"],
+		) as game_mcp:
+			game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
 
-	try:
-		game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
+			agent = Agent(
+				client=client,
+				name="Game Play Agent",
+				instructions=game_play_prompt,
+				tools=[game_mcp, save_player_id],
+				context_providers=[PlayerContextProvider(source_id="player-memory")],
+			)
 
-		agent = Agent(
-			client=client,
-			name="Game Play Agent",
-			instructions=game_play_prompt,
-			tools=[game_mcp, save_player_id],
-			context_providers=[PlayerContextProvider(source_id="player-memory")],
-		)
+			session = agent.create_session()
+			response = await agent.run("start the game", session=session)
+			print(response.text)
 
-		session = agent.create_session()
-		response = await agent.run("start the game", session=session)
-		print(response.text)
-
-		response = await agent.run("My name is <Your Name>", session=session)
-		print(response.text)
-	finally:
-		await game_mcp.close()
+			response = await agent.run("My name is <Your Name>", session=session)
+			print(response.text)
 
 
 if __name__ == "__main__":
@@ -168,6 +200,11 @@ if __name__ == "__main__":
 > ready**. The **C:\workshop\memory.json** file should contain the saved
 > **player_id**. On the next run, the agent should resume instead of registering
 > a new player.
+
+> [!Hint] If **memory.json** contains invalid JSON, a non-object value, or a
+> blank/non-string player ID, the agent reports an error instead of silently
+> registering another player. Correct the saved file before retrying. A missing
+> file or an empty JSON object means there is no remembered player.
 
 > [!Hint] Look at the big screen in the room. Your name should now appear in the
 > player list.

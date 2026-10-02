@@ -10,6 +10,17 @@ The game server's three processes stay together because they share storage,
 quest logic, and web assets. Each service keeps its own Dockerfiles and
 dependencies; the player agent runs separately.
 
+The runnable player and specialist smoke tests use their own
+[requirements](agents/player/requirements.txt) and
+[environment example](agents/player/.env.example). Keep that Python environment
+separate from the game server's MCP 2 environment. The player reads **.env**
+and saves **memory.json** beside **agent.py**, writes **logs/** beside **log.py**,
+and closes its network clients through asynchronous context managers.
+
+For offline player tests and checks that the lesson samples match the runnable
+code, use the [player validation command](../docs/workshop-overview.md#validate-the-player-offline).
+No live credentials or packages beyond the player requirements are needed.
+
 See the [workshop overview](../docs/workshop-overview.md) for setup and run
 commands, or start the [attendee walkthrough](../instructions/README.md).
 Deployment material lives in [infra/](../infra/README.md).

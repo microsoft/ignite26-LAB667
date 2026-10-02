@@ -27,29 +27,31 @@ Microsoft Agent Framework import so it also imports **MCPStreamableHTTPTool**:
 from agent_framework import Agent, MCPStreamableHTTPTool
 ```
 
-Inside **main()**, create and connect the MCP tool after the Azure OpenAI client is
-created and before the **Agent(...)** call:
+Inside **main()**, keep **async with client.client:** from Step 2. Within that
+block, add a second context manager before the **Agent(...)** call:
 
-```python
-game_mcp = MCPStreamableHTTPTool(
+```python-notype
+async with MCPStreamableHTTPTool(
 	name="Gaming MCP Server",
 	url=os.environ["GAME_MCP_URL"],
-)
-await game_mcp.connect()
+) as game_mcp:
+	game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
 ```
+
+The MCP context manager connects when the block starts and closes the connection
+when it ends. Do not add separate **connect()** or **close()** calls.
 
 > [!Hint] MCP servers can expose more than tools. They can also expose prompts
 > that client agents load and use as instructions. In this workshop, the game
 > server owns the game play prompt so the agent and game stay in sync.
 
-After the MCP tool is connected, get the game play prompt from the MCP server:
+The first line inside the MCP block gets the game play prompt from the server:
 
 ```python
-try:
-    game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
+game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
 ```
 
-Still in **agent.py**,and inside the `try` block, update the existing **Agent(...)** call. Keep the client and name you already have, use **game_play_prompt** for the instructions, and add the
+Still in **agent.py**, inside the MCP block, update the existing **Agent(...)** call. Keep the client and name you already have, use **game_play_prompt** for the instructions, and add the
 **tools=[game_mcp]** line:
 
 ```python
@@ -69,12 +71,8 @@ response = await agent.run("start the game", session=session)
 print(response.text)
 ```
 
-Close the MCP connection at the end of **main()**:
-
-```python
-finally:
-    await game_mcp.close()
-```
+Keep all three lines above inside the MCP block. Both connections are closed
+automatically after the run, even if loading the prompt or calling the agent fails.
 
 Run the agent from the VS Code terminal:
 
@@ -87,8 +85,8 @@ python agent.py
 > ask whether you already have a **player_id**. If you do not have one yet, it asks
 > what name to put on your badge.
 
-> [!Hint] Check for indentation if you run into errors. Python is identation
-> sensitive, and as such you may run into runtime errors if blocks are not
+> [!Hint] Check for indentation if you run into errors. Python is indentation
+> sensitive, and as such you may run into errors if blocks are not
 > properly indented. Look at the Sample below if you need help with this.
 
 ## Full agent.py Sample
@@ -101,42 +99,38 @@ look like this:
 
 import asyncio
 import os
+from pathlib import Path
 
 from agent_framework import Agent, MCPStreamableHTTPTool
 from agent_framework.openai import OpenAIChatClient
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-
 async def main() -> None:
+    load_dotenv(Path(__file__).with_name(".env"), override=True)
+
     client = OpenAIChatClient(
         azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
         api_key=os.environ["AZURE_OPENAI_API_KEY"],
         model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
     )
 
-    game_mcp = MCPStreamableHTTPTool(
-        name="Gaming MCP Server",
-        url=os.environ["GAME_MCP_URL"],
-    )
-    await game_mcp.connect()
+    async with client.client:
+        async with MCPStreamableHTTPTool(
+            name="Gaming MCP Server",
+            url=os.environ["GAME_MCP_URL"],
+        ) as game_mcp:
+            game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
 
-    try:
-        game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
+            agent = Agent(
+                client=client,
+                name="Game Play Agent",
+                instructions=game_play_prompt,
+                tools=[game_mcp],
+            )
 
-        agent = Agent(
-            client=client,
-            name="Game Play Agent",
-            instructions=game_play_prompt,
-            tools=[game_mcp],
-        )
-
-        session = agent.create_session()
-        response = await agent.run("start the game", session=session)
-        print(response.text)
-    finally:
-        await game_mcp.close()
+            session = agent.create_session()
+            response = await agent.run("start the game", session=session)
+            print(response.text)
 
 
 if __name__ == "__main__":

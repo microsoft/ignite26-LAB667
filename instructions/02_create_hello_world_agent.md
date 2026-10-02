@@ -15,34 +15,40 @@ Paste the full code below into **agent.py** and save the file:
 
 import asyncio
 import os
+from pathlib import Path
 
 from agent_framework import Agent
 from agent_framework.openai import OpenAIChatClient
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
-
-
 async def main() -> None:
+	load_dotenv(Path(__file__).with_name(".env"), override=True)
+
 	client = OpenAIChatClient(
 		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
 		api_key=os.environ["AZURE_OPENAI_API_KEY"],
 		model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
 	)
 
-	agent = Agent(
-		client=client,
-		name="Game Play Agent",
-		instructions="You are a friendly workshop agent. Reply briefly.",
-	)
+	async with client.client:
+		agent = Agent(
+			client=client,
+			name="Game Play Agent",
+			instructions="You are a friendly workshop agent. Reply briefly.",
+		)
 
-	response = await agent.run("Say hello to the workshop.")
-	print(response.text)
+		response = await agent.run("Say hello to the workshop.")
+		print(response.text)
 
 
 if __name__ == "__main__":
 	asyncio.run(main())
 ```
+
+> [!Hint] The agent reads **.env** beside **agent.py**, even if you launch it
+> from another folder. **async with client.client:** keeps the model connection
+> open during the run and closes it automatically when the block ends, including
+> when an error occurs. Keep the agent code indented inside that block.
 
 Run **agent.py** from the VS Code terminal:
 

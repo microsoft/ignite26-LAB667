@@ -66,11 +66,31 @@ terminal is PowerShell and the prompt is inside **C:\workshop**.
 
 The workshop environment already has the required Python packages installed. 
 
-If you want to verify the packages from the VS Code terminal, run:
+Verify the packages from the VS Code terminal:
 
 ```powershell
-python -c "import agent_framework, dotenv; print('workshop packages ready')"
+python -m pip check
+python -c "from importlib.metadata import version; from agent_framework import Agent, MCPStreamableHTTPTool, SessionContext; from agent_framework.a2a import A2AAgent; from agent_framework.azure import AzureAISearchContextProvider; import dotenv; print('agent-framework', version('agent-framework')); print('agent-framework-a2a', version('agent-framework-a2a')); print('workshop packages ready')"
 ```
+
+The player requires **agent-framework 1.19.0 or newer** and
+**agent-framework-a2a 1.0.0b260918 or newer**. If the checks fail or report older
+versions, update the workshop packages in this same terminal, then rerun both
+checks:
+
+```powershell
+python -m pip install --upgrade --upgrade-strategy eager "agent-framework>=1.19.0" "agent-framework-a2a>=1.0.0b260918" python-dotenv
+```
+
+These are the same package requirements as the reference player's
+**src/agents/player/requirements.txt**. The explicit A2A prerelease minimum
+allows that integration without enabling prereleases for every package.
+
+> [!Hint] The player and shared game server use separate Python environments.
+> Do not install the game server's MCP 2 packages into the attendee environment:
+> Agent Framework's supported MCP client communicates with the server over HTTP.
+> The updated A2A player also needs the updated Agent42 service; ask your
+> instructor if the transport test in Step 6 reports a protocol error.
 
 The **C:\workshop** folder already has a **.env** file. You do not need to create a new
 one. As you go through the workshop, open that file and add the values needed

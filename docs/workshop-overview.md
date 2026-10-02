@@ -154,6 +154,9 @@ CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME=<your-city-guide-deployment>
 
 If that deployment is on a different Azure OpenAI resource, also set
 `CITY_GUIDE_AZURE_OPENAI_ENDPOINT` and `CITY_GUIDE_AZURE_OPENAI_API_KEY`.
+Each city-guide override is optional: an unset, empty, or whitespace-only value
+falls back to its corresponding main-agent setting. Search settings remain
+required.
 
 Then run the agent:
 
@@ -169,6 +172,13 @@ to select the latest compatible dependencies. Keep it separate from the game
 server's Python environment: the player can call the MCP SDK 2 server while
 using Agent Framework's supported MCP client SDK.
 
+The player requirements currently start at `agent-framework>=1.19.0` and
+`agent-framework-a2a>=1.0.0b260918`. The explicit A2A prerelease minimum is
+intentional; do not add a blanket `--pre` or force MCP 2 into this environment.
+The verified combination uses Agent Framework 1.19.0, its A2A integration
+1.0.0b260918, A2A SDK 1.2.1, and MCP client 1.30.0 with the separately hosted
+MCP 2.2 server. Use `python -m pip check` after an upgrade.
+
 The player now uses the A2A 1.x integration. Upgrade the deployed Agent42 service
 before running the updated player against it; see the
 [Agent42 upgrade notes](../src/services/agent42/README.md#install-local).
@@ -177,6 +187,47 @@ The agent will start or resume a game, save the assigned `player_id` in
 `src/agents/player/memory.json` (created at runtime), call Agent42 through the
 `ask_agent42` tool, call the city-guide specialist for retrieval, and write a
 per-session log under `src/agents/player/logs/`.
+The `.env` and memory paths are relative to the Python files, not the terminal's
+working directory. Logs and memory use UTF-8. Invalid memory JSON or an invalid
+saved player ID produces an explicit error; correct the file before retrying
+rather than accidentally starting a different player.
+
+Type `exit` or `quit` to leave the chat loop. The main model client, MCP
+connection, A2A agent, and city-guide model/search resources are managed with
+`async with` so they also close on errors and cancellation. Tool builders accept
+the existing specialist agents and do not create hidden connections.
+
+To test a specialist separately with the same environment, run one of:
+
+```bash
+python agent_agent42.py
+python agent_city_guide.py
+```
+
+These smoke tests make live service/model requests. The complete copied samples
+in [Steps 5–8](../instructions/05_add_session_logging.md) match the logging
+helper, specialist helpers, and final player; earlier lessons intentionally
+introduce only a subset of the final capabilities.
+
+### Validate the player offline
+
+From the repository root, activate a Python environment with the
+[player requirements](../src/agents/player/requirements.txt) installed, then run:
+
+```bash
+PYTHON_DOTENV_DISABLED=1 python -m unittest discover -s src/agents/player/tests -p 'test_*.py' -v
+```
+
+If that environment is the repository-root **.venv**, you can instead use
+`.venv/bin/python` without activating it. On PowerShell, set
+`$env:PYTHON_DOTENV_DISABLED = "1"` first, then run the `python -m unittest`
+command without the Bash environment-variable prefix.
+
+These tests need no packages beyond the player requirements and make no
+Azure, model, or game-service calls. They cover player behavior and resource
+cleanup, compile and import the full lesson samples without credentials, and
+compare the Step 5 logging helper, Step 6–7 specialists, and Step 8 player
+against their canonical source using Python's abstract syntax tree.
 
 ## Workshop flow
 

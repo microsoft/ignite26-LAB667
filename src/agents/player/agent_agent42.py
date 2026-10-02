@@ -2,12 +2,14 @@
 
 import asyncio
 import os
+from pathlib import Path
 
+from agent_framework import FunctionTool
 from agent_framework.a2a import A2AAgent
 from dotenv import load_dotenv
 
 
-def build_agent42_agent():
+def build_agent42_agent() -> A2AAgent:
     # Agent42 is a deployed A2A agent. The URL comes from .env.
     return A2AAgent(
         name="Agent42",
@@ -20,9 +22,7 @@ def build_agent42_agent():
     )
 
 
-def build_agent42_tool():
-    agent42 = build_agent42_agent()
-
+def build_agent42_tool(agent42: A2AAgent) -> FunctionTool:
     # The main game agent calls this tool for movement quests.
     return agent42.as_tool(
         name="ask_agent42",
@@ -36,11 +36,12 @@ def build_agent42_tool():
 
 
 async def main() -> None:
-    load_dotenv(override=True)
+    load_dotenv(Path(__file__).with_name(".env"), override=True)
 
     question = "What is the best way to get from the Ferry Building to Golden Gate Park?"
-    response = await build_agent42_agent().run(question)
-    print(response.text)
+    async with build_agent42_agent() as agent42:
+        response = await agent42.run(question)
+        print(response.text)
 
 
 if __name__ == "__main__":

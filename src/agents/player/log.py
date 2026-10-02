@@ -9,11 +9,23 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Awaitable, Callable, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from agent_framework import agent_middleware, chat_middleware, function_middleware
+from agent_framework import (
+    AgentContext,
+    AgentResponse,
+    ChatContext,
+    Content,
+    FunctionInvocationContext,
+    Message,
+    agent_middleware,
+    chat_middleware,
+    function_middleware,
+)
+from pydantic import BaseModel
 
 LOGS_DIR = Path(__file__).resolve().parent / "logs"
 
@@ -23,7 +35,7 @@ def open_session_log() -> Path:
     LOGS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     path = LOGS_DIR / f"session-{stamp}-{uuid.uuid4().hex[:6]}.log"
-    path.write_text(f"# Session log started {datetime.now().isoformat()}\n\n")
+    path.write_text(f"# Session log started {datetime.now().isoformat()}\n\n", encoding="utf-8")
     return path
 
 
@@ -40,22 +52,21 @@ def _truncate(text: str, limit: int = 4000) -> str:
 
 
 def _stringify(value: Any) -> str:
-    try:
-        return json.dumps(value, indent=2, default=str, ensure_ascii=False)
-    except Exception:
-        return repr(value)
+    def serialize(item: Any) -> Any:
+        if isinstance(item, Content):
+            return item.to_dict()
+        if isinstance(item, BaseModel):
+            return item.model_dump(mode="json")
+        return str(item)
+
+    return json.dumps(value, indent=2, default=serialize, ensure_ascii=False)
 
 
-def _format_messages(messages) -> str:
+def _format_messages(messages: Sequence[Message]) -> str:
     parts: list[str] = []
-    for m in messages or []:
-        role = getattr(m, "role", "?")
-        text = "".join(
-            (getattr(c, "text", "") or "")
-            for c in getattr(m, "contents", []) or []
-        )
-        if text:
-            parts.append(f"[{role}] {text}")
+    for message in messages:
+        if message.text:
+            parts.append(f"[{message.role}] {message.text}")
     return "\n".join(parts)
 
 
@@ -69,34 +80,40 @@ def build_logging_middleware(log_path: Path):
     """
 
     @agent_middleware
-    async def log_agent(context, call_next):
+    async def log_agent(
+        context: AgentContext, call_next: Callable[[], Awaitable[None]]
+    ) -> None:
         text = _format_messages(context.messages)
         if text:
             _append(log_path, "USER ->", _truncate(text))
 
         await call_next()
 
-        result = getattr(context, "result", None)
-        out = getattr(result, "text", None)
-        if out:
-            _append(log_path, "AGENT <-", _truncate(out))
+        if isinstance(context.result, AgentResponse) and context.result.text:
+            _append(log_path, "AGENT <-", _truncate(context.result.text))
 
     @chat_middleware
-    async def log_chat(context, call_next):
+    async def log_chat(
+        context: ChatContext, call_next: Callable[[], Awaitable[None]]
+    ) -> None:
+        instructions = (context.options or {}).get("instructions")
+        if instructions:
+            _append(log_path, "MODEL INSTRUCTIONS (post context providers) ->",
+                    _truncate(_stringify(instructions)))
         text = _format_messages(context.messages)
         if text:
             _append(log_path, "MODEL INPUT (post context providers) ->", _truncate(text))
         await call_next()
 
     @function_middleware
-    async def log_function(context, call_next):
-        fn_name = getattr(getattr(context, "function", None), "name", "?")
-        args = getattr(context, "arguments", {}) or {}
-        _append(log_path, f"TOOL CALL  {fn_name}", _truncate(_stringify(args)))
+    async def log_function(
+        context: FunctionInvocationContext, call_next: Callable[[], Awaitable[None]]
+    ) -> None:
+        fn_name = context.function.name
+        _append(log_path, f"TOOL CALL  {fn_name}", _truncate(_stringify(context.arguments)))
 
         await call_next()
 
-        result = getattr(context, "result", None)
-        _append(log_path, f"TOOL RESULT {fn_name}", _truncate(_stringify(result)))
+        _append(log_path, f"TOOL RESULT {fn_name}", _truncate(_stringify(context.result)))
 
     return log_agent, log_chat, log_function

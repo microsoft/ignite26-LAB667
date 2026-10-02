@@ -15,6 +15,13 @@ For local service setup, see the [workshop overview](../docs/workshop-overview.m
 9. [Bring the specialist agents into the main agent](08_bring_specialists_into_main_agent.md)
 10. [Lab recap](09_lab_recap.md)
 
+The canonical runnable sample is in
+[src/agents/player/](../src/agents/player/). Steps 2–5 build it incrementally;
+Step 5 also supplies the logging helper, Steps 6–7 supply the specialist helpers,
+and Step 8 supplies the complete **agent.py**. Keep those full copies and their
+smaller integration snippets synchronized with the reference files. Step 0
+includes package compatibility checks and the player-only upgrade command.
+
 Screenshots are in [assets/](assets/). The generated [web index](index.html) and
 [Skillable import](skillable.md) are maintained by the
 [export script](../scripts/sync-to-skillable.py). Existing hosted URLs are
