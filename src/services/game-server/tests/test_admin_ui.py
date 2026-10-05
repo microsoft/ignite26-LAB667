@@ -41,7 +41,8 @@ class AdminUITests(unittest.TestCase):
         self.templates = Environment(
             loader=FileSystemLoader(ROOT / "templates"), autoescape=select_autoescape()
         )
-        self.games = [{"slug": "san-francisco", "display_name": "Lost in San Francisco",
+        self.games = [{"slug": "san-francisco", "event_name": "Open Hack",
+                       "display_name": "Lost in San Francisco",
                        "city": "San Francisco", "created_at": "2026-01-01T12:00:00Z"}]
         self.quests = json.loads((ROOT / "quests.json").read_text())
         self.draft = copy.deepcopy(self.quests)
@@ -105,8 +106,11 @@ class AdminUITests(unittest.TestCase):
                     route.fulfill(status=409, json={"detail": "The schedule changed. Reload before saving."})
                     return
                 game = next(game for game in self.games if game["slug"] == path.split("/")[3])
+                game["event_name"] = payload.get("event_name", game.get("event_name", ""))
+                game["display_name"] = payload.get("display_name", game["display_name"])
                 schedule = GameSchedule.model_validate({
-                    key: value for key, value in payload.items() if key != "revision"
+                    key: value for key, value in payload.items()
+                    if key not in {"revision", "event_name", "display_name"}
                 })
                 game.update(schedule.storage_fields(), schedule_revision=payload["revision"] + 1)
                 route.fulfill(json={"ok": True, "game": game, "availability": game_availability(game)})
@@ -253,7 +257,8 @@ class AdminUITests(unittest.TestCase):
         self.page.get_by_role("main").get_by_role("link", name="Create a game", exact=True).click()
         expect(self.page).to_have_url(f"{ORIGIN}/games/new")
         expect(self.page.get_by_role("heading", name="Start with a draft.")).to_be_visible()
-        self.page.get_by_label("Game name", exact=True).fill("Evening adventure")
+        self.page.get_by_label("Event name", exact=True).fill("Open Hack")
+        self.page.get_by_label("Challenge name", exact=True).fill("Evening adventure")
         self.page.get_by_label("City", exact=True).fill("Amsterdam")
         self.page.get_by_label("URL slug").fill("evening")
         self.created_slug = "evening-created"
@@ -261,7 +266,8 @@ class AdminUITests(unittest.TestCase):
         expect(self.page).to_have_url(f"{ORIGIN}/games/evening-created/edit")
         expect(self.page.get_by_role("heading", name="Evening adventure", exact=True)).to_be_visible()
         self.assertIn(("POST", "/api/games", {
-            "slug": "evening", "display_name": "Evening adventure", "city": "Amsterdam",
+            "slug": "evening", "event_name": "Open Hack",
+            "display_name": "Evening adventure", "city": "Amsterdam",
             "starts_at": None, "ends_at": None, "timezone": "UTC", "player_mode": "guided",
         }), self.requests)
         self.page.goto(ORIGIN)
@@ -288,10 +294,12 @@ class AdminUITests(unittest.TestCase):
         expect(self.page).to_have_url(f"{ORIGIN}/games/new")
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.assertFalse(self.page.evaluate("document.documentElement.scrollWidth > innerWidth"))
-        expect(self.page.get_by_label("Game name", exact=True)).to_be_visible()
+        expect(self.page.get_by_label("Event name", exact=True)).to_be_visible()
+        expect(self.page.get_by_label("Challenge name", exact=True)).to_be_visible()
         expect(self.page.get_by_label("City", exact=True)).to_be_visible()
         expect(self.page.get_by_label("URL slug")).to_be_visible()
-        self.page.get_by_label("Game name", exact=True).fill("Not created")
+        self.page.get_by_label("Event name", exact=True).fill("Open Hack")
+        self.page.get_by_label("Challenge name", exact=True).fill("Not created")
         self.page.get_by_role("link", name="Cancel", exact=True).click()
         expect(self.page).to_have_url(f"{ORIGIN}/")
         self.assertFalse(any(method == "POST" for method, _, _ in self.requests))
@@ -304,6 +312,10 @@ class AdminUITests(unittest.TestCase):
         self.page.goto(f"{ORIGIN}/games/san-francisco/edit")
         expect(self.page.get_by_role("navigation", name="Game pages").get_by_role("link")).to_have_count(2)
         expect(self.page.get_by_label("City used in attendee instructions")).to_have_count(0)
+        expect(self.page.get_by_label("Event name", exact=True)).to_have_value("Open Hack")
+        expect(self.page.get_by_label("Challenge name", exact=True)).to_have_value("Lost in San Francisco")
+        self.page.get_by_label("Event name", exact=True).fill("Ignite Open Hack")
+        self.page.get_by_label("Challenge name", exact=True).fill("Lost across San Francisco")
         self.page.get_by_label("Start date and time").fill("2026-10-06T09:00")
         self.page.get_by_label("End date and time").fill("2026-10-06T17:00")
         self.page.get_by_label("Timezone", exact=True).fill("Europe/Amsterdam")
@@ -311,6 +323,8 @@ class AdminUITests(unittest.TestCase):
         self.page.get_by_role("button", name="Save settings").click()
         expect(self.page.locator("#notice")).to_contain_text("Game settings saved")
         self.assertEqual(self.games[0]["city"], "San Francisco")
+        self.assertEqual(self.games[0]["event_name"], "Ignite Open Hack")
+        self.assertEqual(self.games[0]["display_name"], "Lost across San Francisco")
         self.assertEqual(self.games[0]["starts_at"], "2026-10-06T07:00:00+00:00")
         self.assertEqual(self.games[0]["player_mode"], "challenge")
         self.assertEqual(self.games[0]["schedule_revision"], 1)
@@ -327,14 +341,16 @@ class AdminUITests(unittest.TestCase):
 
     def test_create_duplicate_preserves_fields_and_can_retry(self) -> None:
         self.page.goto(f"{ORIGIN}/games/new")
-        self.page.get_by_label("Game name", exact=True).fill("My new adventure")
+        self.page.get_by_label("Event name", exact=True).fill("Open Hack")
+        self.page.get_by_label("Challenge name", exact=True).fill("My new adventure")
         self.page.get_by_label("City", exact=True).fill("Amsterdam")
         self.page.get_by_label("URL slug").fill("san-francisco")
         self.page.get_by_role("button", name="Create game").click()
         expect(self.page.locator("#add-status")).to_have_text("A game with this slug already exists")
         expect(self.page.locator("#add-status")).to_be_visible()
         expect(self.page).to_have_url(f"{ORIGIN}/games/new")
-        expect(self.page.get_by_label("Game name", exact=True)).to_have_value("My new adventure")
+        expect(self.page.get_by_label("Event name", exact=True)).to_have_value("Open Hack")
+        expect(self.page.get_by_label("Challenge name", exact=True)).to_have_value("My new adventure")
         expect(self.page.get_by_label("City", exact=True)).to_have_value("Amsterdam")
         expect(self.page.get_by_label("URL slug")).to_have_value("san-francisco")
         expect(self.page.get_by_role("button", name="Create game")).to_be_enabled()
@@ -349,14 +365,15 @@ class AdminUITests(unittest.TestCase):
                 self.create_error = (status, detail)
                 self.page.goto(f"{ORIGIN}/games/new")
                 name, slug = f"Adventure {status}", f"adventure-{status}"
-                self.page.get_by_label("Game name", exact=True).fill(name)
+                self.page.get_by_label("Event name", exact=True).fill("Open Hack")
+                self.page.get_by_label("Challenge name", exact=True).fill(name)
                 self.page.get_by_label("City", exact=True).fill("Amsterdam")
                 self.page.get_by_label("URL slug").fill(slug)
                 self.page.get_by_role("button", name="Create game").click()
                 expect(self.page.locator("#add-status")).to_have_text(detail)
                 expect(self.page.locator("#add-status")).to_be_visible()
                 expect(self.page).to_have_url(f"{ORIGIN}/games/new")
-                expect(self.page.get_by_label("Game name", exact=True)).to_have_value(name)
+                expect(self.page.get_by_label("Challenge name", exact=True)).to_have_value(name)
                 expect(self.page.get_by_label("URL slug")).to_have_value(slug)
                 expect(self.page.get_by_role("button", name="Create game")).to_be_enabled()
                 self.create_error = None

@@ -14,7 +14,7 @@ Both modes contain the same ten chapters:
 2. [Get Azure OpenAI details from Microsoft Foundry](guided/01_get_azure_openai_details_from_foundry.md)
 3. [Create a hello world agent](guided/02_create_hello_world_agent.md)
 4. [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
-5. [Add memory for the player ID](guided/04_add_memory_for_the_player_id.md)
+5. [Use the Player API key](guided/04_use_the_player_api_key.md)
 6. [Add session logging](guided/05_add_session_logging.md)
 7. [Test Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
 8. [Test the city guide agent](guided/07_test_the_city_guide_agent.md)

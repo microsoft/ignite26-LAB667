@@ -30,6 +30,15 @@ URL = "http://agent42.test/"
 
 class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self) -> None:
+        self.validate_key = AsyncMock(return_value={
+            "slug": "test-city", "player_id": "PLAYER-TEST", "name": "Test player",
+        })
+        self.record_event = AsyncMock()
+        self.validate_patch = patch.object(server, "validate_player_key", self.validate_key)
+        self.record_patch = patch.object(server, "record_player_event", self.record_event)
+        self.validate_patch.start()
+        self.record_patch.start()
+        self.addAsyncCleanup(self._stop_patches)
         self.agent = MagicMock(spec=Agent)
         self.agent.run = AsyncMock(
             return_value=AgentResponse(messages=[Message("assistant", [REPLY])])
@@ -41,9 +50,15 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
         await self.enterAsyncContext(self.app.router.lifespan_context(self.app))
         self.client = await self.enterAsyncContext(
             httpx.AsyncClient(
-                transport=httpx.ASGITransport(app=self.app), base_url=URL
+                transport=httpx.ASGITransport(app=self.app),
+                base_url=URL,
+                headers={"Authorization": "Bearer litc.test-city.test-player-key"},
             )
         )
+
+    async def _stop_patches(self) -> None:
+        self.record_patch.stop()
+        self.validate_patch.stop()
 
     async def rpc(self, method: str, params: dict, version: str = "1.0") -> dict:
         response = await self.client.post(
@@ -83,6 +98,7 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
         result = await remote.run("A route please")
         self.assertEqual(result.text, REPLY)
         self.agent.run.assert_awaited_once_with("A route please")
+        self.record_event.assert_awaited_once_with("litc.test-city.test-player-key", REPLY)
 
     async def test_v1_message_preserves_text_and_context(self) -> None:
         response = await self.rpc("SendMessage", self.message_params())
@@ -94,6 +110,15 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(message["messageId"])
         self.assertNotIn("taskId", message)
         self.agent.run.assert_awaited_once_with("How do I get to the park?")
+        self.record_event.assert_awaited_once()
+
+    async def test_a2a_calls_require_player_bearer_key(self) -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=self.app), base_url=URL,
+        ) as anonymous:
+            response = await anonymous.post("/", json={})
+        self.assertEqual(response.status_code, 401)
+        self.agent.run.assert_not_awaited()
 
     async def test_legacy_message_send_remains_supported(self) -> None:
         params = self.message_params()
@@ -105,10 +130,16 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response["result"]["role"], "agent")
 
     async def test_player_agent_and_tool_use_current_client(self) -> None:
+        unused_clients = []
+
         def remote_agent(**kwargs) -> A2AAgent:
+            unused_clients.append(kwargs.pop("http_client"))
             return A2AAgent(**kwargs, http_client=self.client)
 
-        with patch.dict(os.environ, {"AGENT42_URL": URL}), patch.object(
+        with patch.dict(os.environ, {
+            "AGENT42_URL": URL,
+            "GAME_API_KEY": "litc.test-city.test-player-key",
+        }), patch.object(
             agent_agent42, "A2AAgent", side_effect=remote_agent
         ):
             async with agent_agent42.build_agent42_agent() as remote:
@@ -118,6 +149,7 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
                 tool = agent_agent42.build_agent42_tool(remote)
                 result = await tool.invoke(question="A third trip")
                 self.assertEqual([content.text for content in result], [REPLY])
+        await asyncio.gather(*(client.aclose() for client in unused_clients))
         self.assertEqual(self.agent.run.await_count, 3)
 
     async def test_execution_failure_is_a_protocol_error(self) -> None:
@@ -161,7 +193,10 @@ class A2ATransportTests(unittest.IsolatedAsyncioTestCase):
             app = server.build_app()
         before = asyncio.all_tasks()
         async with app.router.lifespan_context(app):
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app)) as client:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app),
+                headers={"Authorization": "Bearer litc.test-city.test-player-key"},
+            ) as client:
                 remote = A2AAgent(name="Agent42", url=URL, http_client=client)
                 self.assertEqual((await remote.run("One last trip")).text, REPLY)
         remaining = {task for task in asyncio.all_tasks() - before if not task.done()}

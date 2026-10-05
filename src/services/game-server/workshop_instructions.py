@@ -112,7 +112,7 @@ def instructions_page(request: Request) -> HTMLResponse:
     response.headers.update({
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'self'; img-src 'self'; style-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+        "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; style-src 'self'; frame-ancestors 'none'; base-uri 'none'",
     })
     return response
 

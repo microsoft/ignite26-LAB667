@@ -1,7 +1,7 @@
 """Azure Tables-backed storage for the multi-game 'Lost in the City' workshop.
 
 Tables (auto-created on startup):
-  games    PK="games"  RK=slug      {display_name, city, created_at}
+  games    PK="games"  RK=slug      {event_name, display_name, city, created_at}
   quests   PK=slug     RK="quests"  {payload, draft_payload, version, revision}
   quests   PK=slug     RK="vN"      {payload: immutable published story}
   players  PK=slug     RK=player_id {data: JSON-encoded player state}
@@ -30,6 +30,7 @@ BASE_DIR = Path(__file__).resolve().parent
 SEED_QUESTS_FILE = BASE_DIR / "quests.json"
 DEFAULT_SLUG = os.environ.get("DEFAULT_GAME_SLUG", "san-francisco")
 DEFAULT_DISPLAY = os.environ.get("DEFAULT_GAME_NAME", "Lost in San Francisco")
+DEFAULT_EVENT_NAME = os.environ.get("DEFAULT_EVENT_NAME", "Open Hack")
 
 GAMES_TABLE = "games"
 QUESTS_TABLE = "quests"
@@ -85,7 +86,12 @@ def init_storage() -> None:
             pass
     if not list_games():
         try:
-            create_game(DEFAULT_SLUG, DEFAULT_DISPLAY, quests=load_seed_quests())
+            create_game(
+                DEFAULT_SLUG,
+                DEFAULT_DISPLAY,
+                quests=load_seed_quests(),
+                event_name=DEFAULT_EVENT_NAME,
+            )
         except ResourceExistsError:
             # Another service may seed the same game during coordinated startup.
             if get_game(DEFAULT_SLUG) is None:
@@ -130,6 +136,7 @@ def _game_info(e: TableEntity) -> dict[str, Any]:
     display_name = e.get("display_name", e["RowKey"])
     return {
         "slug": e["RowKey"],
+        "event_name": e.get("event_name", ""),
         "display_name": display_name,
         "city": e.get("city") or _default_city(display_name),
         "created_at": e.get("created_at"),
@@ -143,10 +150,11 @@ def _game_info(e: TableEntity) -> dict[str, Any]:
 
 def create_game(
     slug: str, display_name: str, quests: dict[str, Any] | None = None,
-    *, city: str | None = None, schedule: GameSchedule | None = None,
+    *, event_name: str = "", city: str | None = None, schedule: GameSchedule | None = None,
 ) -> dict[str, Any]:
     slug = _validate_slug(slug)
     display_name = (display_name or slug).strip() or slug
+    event_name = (event_name or "").strip()
     city = (city or _default_city(display_name)).strip()
     if not city:
         raise ValueError("City is required.")
@@ -161,6 +169,7 @@ def create_game(
     entity = TableEntity({
         "PartitionKey": "games",
         "RowKey": slug,
+        "event_name": event_name,
         "display_name": display_name,
         "city": city,
         "created_at": utcnow_iso(),
@@ -180,12 +189,29 @@ def create_game(
     return _game_info(entity)
 
 
-def save_schedule(slug: str, schedule: GameSchedule, revision: int) -> dict[str, Any]:
+def save_schedule(
+    slug: str,
+    schedule: GameSchedule,
+    revision: int,
+    *,
+    display_name: str | None = None,
+    event_name: str | None = None,
+) -> dict[str, Any]:
     table = _svc().get_table_client(GAMES_TABLE)
     entity = table.get_entity("games", _validate_slug(slug))
     if int(entity.get("schedule_revision", 0)) != revision:
         raise ContentConflict("The schedule changed. Reload before saving.")
     entity.update(schedule.storage_fields())
+    if display_name is not None:
+        normalized_name = display_name.strip()
+        if not normalized_name:
+            raise ValueError("Challenge name is required.")
+        entity["display_name"] = normalized_name
+    if event_name is not None:
+        normalized_event = event_name.strip()
+        if not normalized_event:
+            raise ValueError("Event name is required.")
+        entity["event_name"] = normalized_event
     entity["schedule_revision"] = revision + 1
     try:
         table.update_entity(
@@ -412,6 +438,14 @@ def delete_player(slug: str, player_id: str) -> None:
         pass
 
 
+def delete_player_by_ref(slug: str, player_ref: str) -> bool:
+    for player_id, player in list_players(slug).items():
+        if (player.get("player_ref") or player_id) == player_ref:
+            delete_player(slug, player_id)
+            return True
+    return False
+
+
 def delete_all_players(slug: str) -> None:
     t = _svc().get_table_client(PLAYERS_TABLE)
     for e in t.query_entities(f"PartitionKey eq '{slug}'"):
@@ -431,7 +465,7 @@ def get_leaderboard(slug: str, limit: int = 10) -> list[dict[str, Any]]:
                 quests_by_version[version] = {int(q["id"]): q for q in load_quests(slug, version)["quests"]}
             quest = quests_by_version[version].get(int(p.get("quest_id") or 0), {})
             entries.append({
-                "player_id": pid,
+                "player_id": p.get("player_ref") or pid,
                 "game_version": version,
                 "name": p.get("name"),
                 "quest_name": quest.get("name", f"Quest {p.get('quest_id')}"),

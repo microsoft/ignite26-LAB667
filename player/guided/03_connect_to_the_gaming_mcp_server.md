@@ -12,13 +12,17 @@ MCP prompt. In the agent code this connection is the **MCPStreamableHTTPTool**
 named **game_mcp**.
 
 Open the existing **.env** file and confirm the game MCP URL is
-already there:
+already there. Copy the private API key shown on this Player page and add it
+beside the URL:
 
 ```env
 GAME_MCP_URL={{ game_mcp_url }}
+GAME_API_KEY=<copy-from-this-player-page>
 ```
 
 > [!Hint] Make sure the URL ends in **/{{ game_slug }}/mcp** so you connect to **{{ game_name }}**.
+> Keep **GAME_API_KEY** private. It identifies your player and authorizes every
+> game action. Do not paste it into chat, source code, or session logs.
 
 Go back to **agent.py**. At the top of **agent.py**, update the existing
 Microsoft Agent Framework import so it also imports **MCPStreamableHTTPTool**:
@@ -34,6 +38,9 @@ block, add a second context manager before the **Agent(...)** call:
 async with MCPStreamableHTTPTool(
 	name="Gaming MCP Server",
 	url=os.environ["GAME_MCP_URL"],
+	static_headers={
+		"Authorization": f"Bearer {os.environ['GAME_API_KEY']}",
+	},
 ) as game_mcp:
 	game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
 ```
@@ -81,9 +88,8 @@ python agent.py
 ```
 
 > **Checkpoint:** the terminal may show experimental warning messages from the
-> framework, then the agent should welcome you to **Lost in San Francisco** and
-> ask whether you already have a **player_id**. If you do not have one yet, it asks
-> what name to put on your badge.
+> framework, then the agent should welcome you by the nickname registered on
+> this Player page. The agent never asks for or prints your API key.
 
 > [!Hint] Check for indentation if you run into errors. Python is indentation
 > sensitive, and as such you may run into errors if blocks are not
@@ -118,6 +124,9 @@ async def main() -> None:
         async with MCPStreamableHTTPTool(
             name="Gaming MCP Server",
             url=os.environ["GAME_MCP_URL"],
+            static_headers={
+                "Authorization": f"Bearer {os.environ['GAME_API_KEY']}",
+            },
         ) as game_mcp:
             game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
 
@@ -139,6 +148,6 @@ if __name__ == "__main__":
 
 ## What You Learned
 
-You connected the agent to an MCP server, loaded the game play prompt from that
-server, exposed the game actions as tools, and started using the agent to
-interact with the game.
+You connected the agent to an MCP server with bearer authentication, loaded the
+game play prompt, exposed the game actions as tools, and linked every action to
+the player created on this page.

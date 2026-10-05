@@ -19,6 +19,8 @@ import asyncio
 import json
 import os
 import re
+import urllib.error
+import urllib.parse
 import urllib.request
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -28,13 +30,22 @@ import uvicorn
 from dotenv import load_dotenv
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 import storage
 from workshop_instructions import instruction_routes
+from game_schedule import game_availability
+from player_identity import (
+    agent42_route_ref,
+    authenticate,
+    bearer_token,
+    player_state,
+    public_agent42_advice,
+    register_player,
+)
 from quest_logic import _current_mission_index, _normalize_quest, _player_location
 
 load_dotenv(override=True)
@@ -43,6 +54,12 @@ BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_HOST = os.environ.get("DASHBOARD_HOST", "0.0.0.0")
 DASHBOARD_PORT = int(os.environ.get("DASHBOARD_PORT", "8090"))
 ROUTE_REF_RE = re.compile(r"^[a-z0-9]{15}$")
+AZURE_BLOB_HOST_SUFFIXES = (
+    ".blob.core.windows.net",
+    ".blob.core.usgovcloudapi.net",
+    ".blob.core.chinacloudapi.cn",
+    ".blob.core.cloudapi.de",
+)
 ACTIVE_STATUSES = {"mission"}
 
 
@@ -75,6 +92,26 @@ def _coerce_coord(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _agent42_asset_url(advice: str, ref: str, extension: str) -> str | None:
+    field = "directions" if extension == "json" else "map"
+    value = _agent42_field(advice, field)
+    if not value or not ROUTE_REF_RE.fullmatch(ref) or extension not in {"json", "png"}:
+        return None
+    parsed = urllib.parse.urlsplit(value)
+    host = (parsed.hostname or "").lower()
+    if (
+        parsed.scheme != "https"
+        or not any(host.endswith(suffix) for suffix in AZURE_BLOB_HOST_SUFFIXES)
+        or parsed.username
+        or parsed.password
+        or parsed.port is not None
+        or parsed.fragment
+        or not parsed.path.endswith(f"/{ref}.{extension}")
+    ):
+        return None
+    return value
 
 
 class Dashboard:
@@ -186,7 +223,7 @@ class Dashboard:
                 counts[status] += 1
 
             players.append({
-                "player_id": player_id,
+                "player_id": player.get("player_ref") or player_id,
                 "name": player.get("name") or player_id,
                 "quest_id": player.get("quest_id"),
                 "game_version": version,
@@ -238,21 +275,39 @@ class Dashboard:
             "quest_flow": quest_flow[:12],
         }
 
-    async def fetch_route(self, ref: str) -> dict[str, Any] | None:
-        ref = (ref or "").strip().lower()
-        if not ROUTE_REF_RE.match(ref) or not self.routes_base_url:
+    async def fetch_route(self, ref: str, asset_url: str | None = None) -> dict[str, Any] | None:
+        body = await self.fetch_route_asset(ref, "json", asset_url)
+        if body is None:
             return None
-        url = f"{self.routes_base_url}/{ref}.json"
+        try:
+            return json.loads(body)
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            return None
+
+    async def fetch_route_asset(
+        self, ref: str, extension: str, asset_url: str | None = None,
+    ) -> bytes | None:
+        ref = (ref or "").strip().lower()
+        if (
+            not ROUTE_REF_RE.fullmatch(ref)
+            or extension not in {"json", "png"}
+        ):
+            return None
+        url = asset_url or (
+            f"{self.routes_base_url}/{ref}.{extension}" if self.routes_base_url else ""
+        )
+        if not url:
+            return None
 
         def _fetch() -> bytes:
-            req = urllib.request.Request(url, headers={"Accept": "application/json"})
+            accept = "application/json" if extension == "json" else "image/png"
+            req = urllib.request.Request(url, headers={"Accept": accept})
             with urllib.request.urlopen(req, timeout=5) as resp:
                 return resp.read()
 
         try:
-            body = await asyncio.to_thread(_fetch)
-            return json.loads(body)
-        except Exception:
+            return await asyncio.to_thread(_fetch)
+        except (urllib.error.URLError, TimeoutError):
             return None
 
 
@@ -292,6 +347,150 @@ async def dashboard_route(request: Request) -> JSONResponse:
     return JSONResponse(payload)
 
 
+async def register_public_player(request: Request) -> JSONResponse:
+    slug = request.path_params["slug"]
+    game = storage.get_game(slug)
+    if not game:
+        return JSONResponse({"error": "Game not found."}, status_code=404)
+    availability = game_availability(game)
+    if availability["state"] != "open":
+        return JSONResponse({"error": availability["message"]}, status_code=409)
+    try:
+        payload = await request.json()
+    except ValueError:
+        return JSONResponse({"error": "Request body must be valid JSON."}, status_code=400)
+    try:
+        api_key, player = register_player(slug, str(payload.get("nickname") or ""))
+    except ValueError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=422)
+    except RuntimeError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=409)
+    response = JSONResponse(
+        {"api_key": api_key, "player": player_state(slug, api_key, player)},
+        status_code=201,
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+async def public_player_state(request: Request) -> JSONResponse:
+    slug = request.path_params["slug"]
+    api_key = bearer_token(request.headers)
+    if api_key is None:
+        return JSONResponse(
+            {"error": "A valid player API key is required."},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+        )
+    player = storage.get_player(slug, api_key)
+    if player is None:
+        return JSONResponse(
+            {"error": "A valid player API key is required."},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+        )
+    response = JSONResponse({"player": player_state(slug, api_key, player)})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+def _authenticated_player(
+    request: Request,
+    slug: str,
+) -> tuple[str, dict[str, Any]] | None:
+    api_key = bearer_token(request.headers)
+    if api_key is None:
+        return None
+    authenticated = authenticate(api_key, expected_slug=slug)
+    if authenticated is None:
+        return None
+    return api_key, authenticated[1]
+
+
+def _agent42_field(advice: str, label: str) -> str:
+    match = re.search(rf"(?im)^{re.escape(label)}:\s*(.+)$", advice)
+    return match.group(1).strip() if match else ""
+
+
+def _agent42_event(
+    request: Request,
+) -> tuple[dict[str, Any], str] | JSONResponse:
+    slug = request.path_params["slug"]
+    authenticated = _authenticated_player(request, slug)
+    if authenticated is None:
+        return JSONResponse(
+            {"error": "A valid player API key is required."},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+        )
+    _, player = authenticated
+    try:
+        event_index = int(request.path_params["event_index"])
+        event = (player.get("timeline") or [])[event_index]
+    except (ValueError, IndexError):
+        return JSONResponse({"error": "Agent42 advice was not found."}, status_code=404)
+    if event_index < 0 or event.get("type") != "agent42":
+        return JSONResponse({"error": "Agent42 advice was not found."}, status_code=404)
+    return event, agent42_route_ref(event)
+
+
+async def public_agent42_details(request: Request) -> JSONResponse:
+    resolved = _agent42_event(request)
+    if isinstance(resolved, JSONResponse):
+        return resolved
+    event, route_ref = resolved
+    raw_advice = str(event.get("detail") or "")
+    route_url = _agent42_asset_url(raw_advice, route_ref, "json")
+    route = await dashboard.fetch_route(route_ref, route_url) if route_ref else None
+    advice = public_agent42_advice(raw_advice)
+    safe_route = None
+    if route is not None:
+        travel_seconds = route.get("travel_time_seconds")
+        traffic_seconds = route.get("traffic_delay_seconds")
+        safe_route = {
+            "mode": route.get("mode"),
+            "origin": (route.get("origin") or {}).get("query"),
+            "destination": (route.get("destination") or {}).get("query"),
+            "distance_km": route.get("distance_km"),
+            "travel_time_minutes": (
+                round(float(travel_seconds) / 60) if travel_seconds is not None else None
+            ),
+            "traffic_delay_minutes": (
+                round(float(traffic_seconds) / 60) if traffic_seconds is not None else None
+            ),
+        }
+    return JSONResponse(
+        {
+            "title": str(event.get("title") or "Agent42 route advice"),
+            "advice": advice,
+            "weather": _agent42_field(advice, "Weather"),
+            "recommendation": _agent42_field(advice, "recommendation"),
+            "route": safe_route,
+            "map_available": route is not None,
+        },
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def public_agent42_map(request: Request) -> Response:
+    resolved = _agent42_event(request)
+    if isinstance(resolved, JSONResponse):
+        return resolved
+    event, route_ref = resolved
+    map_url = _agent42_asset_url(str(event.get("detail") or ""), route_ref, "png")
+    image = await dashboard.fetch_route_asset(route_ref, "png", map_url) if route_ref else None
+    if image is None:
+        return JSONResponse({"error": "Route map is not available."}, status_code=404)
+    return Response(
+        image,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 async def index(_request: Request) -> JSONResponse:
     games = storage.list_games()
     return JSONResponse({
@@ -322,6 +521,16 @@ def build_app() -> Starlette:
         Route("/{slug}/dashboard/data", endpoint=dashboard_data),
         Route("/{slug}/dashboard/quests", endpoint=dashboard_quests),
         Route("/{slug}/dashboard/routes/{code}", endpoint=dashboard_route),
+        Route("/api/games/{slug}/players", endpoint=register_public_player, methods=["POST"]),
+        Route("/api/games/{slug}/player", endpoint=public_player_state),
+        Route(
+            "/api/games/{slug}/player/timeline/{event_index:int}/agent42",
+            endpoint=public_agent42_details,
+        ),
+        Route(
+            "/api/games/{slug}/player/timeline/{event_index:int}/agent42/map",
+            endpoint=public_agent42_map,
+        ),
         *instruction_routes(),
     ])
 

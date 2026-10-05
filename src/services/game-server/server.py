@@ -15,10 +15,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import contextvars
 import os
-import random
 import re
-import uuid
 from pathlib import Path
 from typing import Annotated, Any, AsyncGenerator
 
@@ -29,12 +28,21 @@ from dotenv import load_dotenv
 from mcp.server.mcpserver import MCPServer
 from pydantic import Field
 from starlette.applications import Starlette
+from starlette.datastructures import Headers
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route, get_route_path
 from starlette.types import Receive, Scope, Send
 
 import storage
 from game_schedule import game_availability
+from player_identity import (
+    agent42_route_ref,
+    append_timeline_event,
+    authenticate,
+    bearer_token,
+    public_player_ref,
+)
 from quest_logic import (
     _answers_match,
     _as_text,
@@ -54,6 +62,9 @@ ROUTE_REF_RE = re.compile(r"^[a-z0-9]{15}$")
 
 BASE_DIR = Path(__file__).resolve().parent
 ACTIVE_PLAYER_STATUSES = {"mission"}
+PLAYER_API_KEY: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "player_api_key", default=None
+)
 
 
 def _instructions_for(game: dict[str, Any]) -> str:
@@ -83,15 +94,14 @@ PLAYER-FACING STYLE
 
 SESSION FLOW
 Always call begin_session first.
-- If you remember a player_id, pass it to begin_session(player_id=...).
-- If you do not remember one, call begin_session() and ask the player whether
-    they already have a player ID. If not, ask: "What name should I put on your
-    badge?" Then call register_player(name).
-Never invent a player_id, name, answer, or transport choice.
+- The MCP connection is already authenticated for the player by its bearer API key.
+- Never ask for, print, repeat, or expose the bearer API key.
+- Use the authenticated player's session for every tool call.
+Never invent a name, answer, or transport choice.
 
 MISSION FLOW
 - For a question mission: read the scene, ask the mission question, wait for
-    the player's answer, then call submit_mission_answer(player_id, answer).
+    the player's answer, then call submit_mission_answer(answer).
     If rejected, simply ask them to try again. Never hint at the correct answer.
 - For a move mission: read the scene and route, then ask:
     "What transport will you take: car, walking, or bike? There are agents that can help lost travellers. Just ask for HELP."
@@ -105,9 +115,6 @@ TOOL FLOW
 - Continue with start_quest and submit_mission_answer until the quest is
     complete. If the player wants to stop, call abandon_quest.
 """
-
-
-PLACEHOLDER_PLAYER_NAMES = {"<your name>", "dummy", "test"}
 
 
 def _game_play_prompt_for(game: dict[str, Any]) -> str:
@@ -137,7 +144,7 @@ def _with_welcome_banner(display_name: str, text: str) -> str:
 
 
 def _abandoned_msg() -> dict[str, Any]:
-    return _err("You gave up on this quest. Register again for a fresh start.")
+    return _err("You gave up on this quest. Start a new game from the Player page.")
 
 
 # Quest-shape helpers (_normalize_quest, _current_mission_index, etc.) live in
@@ -152,7 +159,7 @@ def _mission_payload(player: dict[str, Any], quest: dict[str, Any]) -> dict[str,
     if not missions or index >= len(missions):
         return {
             "narration": "This quest has no remaining missions. Ask the facilitator.",
-            "next_action": "Call get_player_status(player_id) for details.",
+            "next_action": "Call get_player_status() for details.",
         }
 
     mission = missions[index]
@@ -160,7 +167,7 @@ def _mission_payload(player: dict[str, Any], quest: dict[str, Any]) -> dict[str,
     ask_user = "Read the full scene to the user, then ask them to complete the current mission."
     if mission.get("mission"):
         ask_user = "Read the full scene to the user, then ask the mission question."
-    next_action = "Ask the human for their answer (do NOT guess or hint), then call submit_mission_answer(player_id, answer)."
+    next_action = "Ask the human for their answer (do NOT guess or hint), then call submit_mission_answer(answer)."
     if mission_type == "move":
         start_addr = mission.get("start_address", "")
         end_addr = mission.get("end_address", "")
@@ -217,7 +224,7 @@ def _resume_scene(player: dict[str, Any], quest: dict[str, Any], display_name: s
                 f"'{quest.get('name')}' but never set off. The city is still waiting."
             ),
             "ask_user": "Ask the user: 'Ready to begin your quest? Say START.'",
-            "next_action": "When the human says ready, call start_quest(player_id).",
+            "next_action": "When the human says ready, call start_quest().",
         }
     if status in ACTIVE_PLAYER_STATUSES:
         payload = _mission_payload(player, quest)
@@ -241,13 +248,13 @@ def _resume_scene(player: dict[str, Any], quest: dict[str, Any], display_name: s
         }
     if status == "abandoned":
         return {
-            "narration": f"{player.get('name')} gave up earlier. That player_id is retired.",
-            "ask_user": "Ask the user if they want to register again as a new player.",
-            "next_action": "If yes, ask for a name and call register_player(name).",
+            "narration": f"{player.get('name')} gave up earlier. This game key is retired.",
+            "ask_user": "Tell the user to start a new game from the Player page.",
+            "next_action": "Do not attempt more game actions with this key.",
         }
     return {
         "narration": "Your quest is in an unknown state. Ask the facilitator.",
-        "next_action": "Call get_player_status(player_id) for details.",
+        "next_action": "Call get_player_status() for details.",
     }
 
 
@@ -270,6 +277,15 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             "next_action": "Tell the player the game is not open. Do not attempt gameplay until the play window opens.",
         }
 
+    def current_player() -> tuple[str, dict[str, Any]]:
+        api_key = PLAYER_API_KEY.get()
+        if api_key is None:
+            raise RuntimeError("MCP request is missing an authenticated player.")
+        player = storage.get_player(slug, api_key)
+        if player is None:
+            raise RuntimeError("Authenticated player no longer exists.")
+        return api_key, player
+
     mcp = MCPServer(
         f"game-{slug}",
         instructions=_instructions_for(game),
@@ -284,92 +300,51 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         return _game_play_prompt_for(game)
 
     @mcp.tool()
-    def begin_session(
-        player_id: Annotated[str, Field(default="", description="OPTIONAL. If the agent already remembers a player_id, pass it here.")] = "",
-    ) -> dict[str, Any]:
+    def begin_session() -> dict[str, Any]:
         """Entry point for every new conversation. Always call this first."""
         if error := play_window_error():
             return error
-        pid = (player_id or "").strip()
-        if pid:
-            player = storage.get_player(slug, pid)
-            if player:
-                status = player.get("status")
-                pname = player.get("name")
-                if status == "registered":
-                    action = "START"
-                    narration = f"We found a badge for {pname} (player_id {pid}). The quest is ready but hasn't begun yet."
-                    next_action = "Ask the user if they want to START. If yes, call start_quest(player_id)."
-                elif status in ACTIVE_PLAYER_STATUSES:
-                    action = "CONTINUE"
-                    narration = f"Welcome back, {pname}. We found your in-progress quest (player_id {pid})."
-                    next_action = "Ask the user if they want to CONTINUE. If yes, call resume_player(player_id)."
-                elif status == "complete":
-                    action = "NEW"
-                    narration = f"{pname} already finished. That player_id ({pid}) is retired."
-                    next_action = "Ask the user for a name and call register_player(name)."
-                else:
-                    action = "NEW"
-                    narration = f"That player_id ({pid}) was abandoned. Register again for a fresh start."
-                    next_action = "Ask the user for a name and call register_player(name)."
-                return {
-                    "status": "known_player",
-                    "game": display_name,
-                    "player_id": pid,
-                    "player_name": pname,
-                    "current_status": status,
-                    "action": action,
-                    "narration": narration,
-                    "ask_user": f"Tell the user we found player_id {pid} for {pname}. Ask if they want to {action}.",
-                    "next_action": next_action,
-                }
-            return {
-                "status": "unknown_player_id",
-                "game": display_name,
-                "player_id": pid,
-                "action": "NEW",
-                "narration": f"The player_id {pid} is not on file for '{display_name}'. It may be stale.",
-                "ask_user": "Tell the user the stored player_id was not found. Ask for a name to register a new player.",
-                "next_action": "Call register_player(name) with the name the user provides.",
-            }
-
+        _, player = current_player()
+        status = player.get("status")
+        pname = player.get("name")
+        if status == "registered":
+            action = "START"
+            narration = f"Welcome, {pname}. Your quest is ready but has not begun yet."
+            next_action = "Ask the user if they want to START. If yes, call start_quest()."
+        elif status in ACTIVE_PLAYER_STATUSES:
+            action = "CONTINUE"
+            narration = f"Welcome back, {pname}. Your quest is still in progress."
+            next_action = "Ask the user if they want to CONTINUE. If yes, call resume_player()."
+        elif status == "complete":
+            action = "COMPLETE"
+            narration = f"Welcome back, {pname}. You already completed this quest."
+            next_action = "Call get_player_status() if the user wants their result."
+        else:
+            action = "RETIRED"
+            narration = "This game was abandoned. Start a new game from the Player page."
+            next_action = "Do not attempt more game actions with this key."
         return {
-            "status": "awaiting_identity",
+            "status": "known_player",
             "game": display_name,
-            "narration": f"Welcome to '{display_name}'. Before we drop you into the city, we need to know who we're talking to.",
-            "ask_user": (
-                "Ask the human user, in order: 1) Do you already have a player_id from a previous session? "
-                "If YES, ask them to paste it and call resume_player(player_id). If NO, ask what name to put "
-                "on their badge and call register_player(name)."
-            ),
-            "options": [
-                {"choice": "resume", "next_tool": "resume_player", "needs": ["player_id from the user"]},
-                {"choice": "new", "next_tool": "register_player", "needs": ["name from the user"]},
-            ],
-            "next_action": "Do NOT call register_player or resume_player until the human user has answered.",
+            "player_name": pname,
+            "current_status": status,
+            "action": action,
+            "narration": narration,
+            "ask_user": f"Tell the user their player session is connected. Ask if they want to {action}.",
+            "next_action": next_action,
         }
 
     @mcp.tool()
-    def resume_player(
-        player_id: Annotated[str, Field(description="An existing player_id. REQUIRED. ASK the user for it.", min_length=1)],
-    ) -> dict[str, Any]:
-        """Resume an existing player's session for this game."""
+    def resume_player() -> dict[str, Any]:
+        """Resume the authenticated player's session for this game."""
         if error := play_window_error():
             return error
-        player = storage.get_player(slug, player_id)
-        if not player:
-            return {
-                "status": "unknown_player",
-                "message": "We don't have a badge with that id. Double-check the player_id, or register as a new player.",
-                "ask_user": "Ask the user to re-check their player_id, or to register a new one.",
-                "next_action": "If the user cannot find their player_id, call register_player(name) with a name they provide.",
-            }
+        _, player = current_player()
         quest = storage.get_quest(slug, player.get("quest_id"), player["game_version"]) or {}
         scene = _resume_scene(player, quest, display_name)
         return {
             "status": "resumed",
             "game": display_name,
-            "player_id": player_id,
             "player_name": player.get("name"),
             "quest_id": player.get("quest_id"),
             "quest_name": quest.get("name"),
@@ -378,74 +353,11 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         }
 
     @mcp.tool()
-    def register_player(
-        name: Annotated[str, Field(description="The human player's display name. REQUIRED. ASK the user.", min_length=1)],
-    ) -> dict[str, Any]:
-        """Register a new player and get the opening scene of their quest."""
+    def start_quest() -> dict[str, Any]:
+        """Begin the quest for the authenticated player."""
         if error := play_window_error():
             return error
-        pname = (name or "").strip()
-        if not pname:
-            return _err("We need a name to put on your badge. Ask the user what name to use, then try again.")
-        if pname.casefold() in PLACEHOLDER_PLAYER_NAMES:
-            return _err(f"Hi, please update {pname} to your realname and try again.")
-
-        game_version, document = storage.load_published(slug)
-        quests = document.get("quests", [])
-        if not quests:
-            return _err("No quests are configured for this game. Ask the facilitator.")
-
-        quest = _normalize_quest(random.choice(quests))
-        missions = _quest_missions(quest)
-        if not missions:
-            return _err("This quest has no missions configured. Ask the facilitator.")
-
-        player_id = f"PLR-{uuid.uuid4().hex[:6].upper()}"
-        storage.save_player(slug, player_id, {
-            "name": pname,
-            "quest_id": quest["id"],
-            "game_version": game_version,
-            "status": "registered",
-            "current_mission_index": 0,
-            "started_at": None,
-            "completed_at": None,
-            "mission_results": [],
-            "answer_attempts": 0,
-            "score": None,
-            "created_at": storage.utcnow_iso(),
-        })
-
-        begin = quest["begin"]
-        scene = _as_text(begin.get("prompt", ""), begin.get("flavor", ""))
-        return {
-            "player_id": player_id,
-            "game": display_name,
-            "quest_id": quest["id"],
-            "quest_name": quest["name"],
-            "begin_location": begin.get("location", ""),
-            "begin_prompt": begin.get("prompt", ""),
-            "begin_flavor": begin.get("flavor", ""),
-            "mission_count": len(missions),
-            "scene": scene,
-            "narration": (
-                f"Welcome, {pname}. Your player ID is {player_id} - keep it safe. "
-                f"Your quest is '{quest['name']}'. {scene}"
-            ).strip(),
-            "message": f"Your quest has begun. Your player_id is {player_id}. Say START when you are ready.",
-            "ask_user": "Read the scene to the user. Then ask: 'Ready to begin? Say START when you want to go.'",
-            "next_action": "Store player_id in memory, then when the human says they are ready, call start_quest(player_id).",
-        }
-
-    @mcp.tool()
-    def start_quest(
-        player_id: Annotated[str, Field(description="The player_id returned by register_player. REQUIRED.", min_length=1)],
-    ) -> dict[str, Any]:
-        """Begin the quest for a registered player."""
-        if error := play_window_error():
-            return error
-        player = storage.get_player(slug, player_id)
-        if not player:
-            return _err("Your player badge doesn't seem to exist. Did you register?")
+        player_id, player = current_player()
         if player["status"] == "complete":
             return _err("You've already finished. Enjoy the conference.")
         if player["status"] == "abandoned":
@@ -462,6 +374,12 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         def mutate(p: dict[str, Any]):
             if not p.get("started_at"):
                 p["started_at"] = storage.utcnow_iso()
+                append_timeline_event(
+                    p,
+                    "quest_started",
+                    "Quest started",
+                    detail=f"You set off on {quest['name']}.",
+                )
             p["status"] = "mission"
             p["current_mission_index"] = _current_mission_index(p)
             return None
@@ -482,16 +400,13 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
 
     @mcp.tool()
     def submit_mission_answer(
-        player_id: Annotated[str, Field(description="The player_id. REQUIRED.", min_length=1)],
         answer: Annotated[str, Field(description="Answer for the current mission. For move missions, use the player's transport choice.", min_length=1)],
         route_ref: Annotated[str, Field(description="Private route reference. Never mention this value to the player.", default="")] = "",
     ) -> dict[str, Any]:
         """Submit the answer for the current mission and advance the quest."""
         if error := play_window_error():
             return error
-        player = storage.get_player(slug, player_id)
-        if not player:
-            return _err("Your player badge doesn't seem to exist.")
+        player_id, player = current_player()
         if player["status"] == "complete":
             return _err("You've already finished.")
         if player["status"] == "abandoned":
@@ -552,6 +467,14 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
                 "completed_at": storage.utcnow_iso(),
             })
             p["mission_results"] = results
+            append_timeline_event(
+                p,
+                "mission_complete",
+                f"Mission {index + 1} complete",
+                detail=str(mission.get("complete_prompt") or mission.get("mission") or ""),
+                mission_index=index,
+                transport=provided_answer if mission_type == "move" else "",
+            )
             return None
         storage.update_player(slug, player_id, record_success)
 
@@ -589,6 +512,12 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             score, minutes = _compute_score(p)
             p["score"] = score
             p["time_taken_minutes"] = minutes
+            append_timeline_event(
+                p,
+                "quest_complete",
+                "Adventure complete",
+                detail=f"Score {score} in {minutes} minutes.",
+            )
             return {"score": score, "minutes": minutes}
         result = storage.update_player(slug, player_id, finish)
 
@@ -617,13 +546,10 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
 
     @mcp.tool()
     def abandon_quest(
-        player_id: Annotated[str, Field(description="The player_id. REQUIRED.", min_length=1)],
         reason: Annotated[str, Field(description="Optional reason.", default="")] = "",
     ) -> dict[str, Any]:
         """Give up and stop the current quest."""
-        player = storage.get_player(slug, player_id)
-        if not player:
-            return _err("Your player badge doesn't seem to exist.")
+        player_id, player = current_player()
         if player["status"] == "complete":
             return _err("You've already finished.")
         if player["status"] == "abandoned":
@@ -634,12 +560,18 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             p["abandoned_at"] = storage.utcnow_iso()
             if reason:
                 p["abandon_reason"] = reason
+            append_timeline_event(
+                p,
+                "quest_abandoned",
+                "Adventure abandoned",
+                detail=reason or "The player ended this run.",
+            )
             return None
         storage.update_player(slug, player_id, mutate)
         return {
             "status": "quest_abandoned",
             "message": "You sit down on the curb and give up. The city wins this round.",
-            "hint": "Call register_player again to start a new quest.",
+            "hint": "Start a new game from the Player page for another quest.",
         }
 
     @mcp.tool()
@@ -649,13 +581,9 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         return {"game": display_name, "leaderboard": top, "count": len(top)}
 
     @mcp.tool()
-    def get_player_status(
-        player_id: Annotated[str, Field(description="The player_id to inspect.", min_length=1)],
-    ) -> dict[str, Any]:
-        """Return the current state of a player."""
-        player = storage.get_player(slug, player_id)
-        if not player:
-            return _err("Your player badge doesn't seem to exist.")
+    def get_player_status() -> dict[str, Any]:
+        """Return the current state of the authenticated player."""
+        player_id, player = current_player()
         quest = storage.get_quest(slug, player["quest_id"], player["game_version"]) or {}
         quest = _normalize_quest(quest) if quest else {}
         attempts = int(player.get("answer_attempts", player.get("code_attempts", 0)))
@@ -673,7 +601,7 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         ]
         return {
             "game": display_name,
-            "player_id": player_id,
+            "player_id": player.get("player_ref") or public_player_ref(player_id),
             "name": player.get("name"),
             "quest_id": player.get("quest_id"),
             "quest_name": quest.get("name"),
@@ -760,13 +688,26 @@ class DynamicGameMCPDispatcher:
             await JSONResponse({"error": f"Game '{slug}' not found"}, status_code=404)(scope, receive, send)
             return
 
-        async with self._app_for_game(game) as app:
-            child_scope = dict(scope)
-            child_scope["path"] = child_path
-            child_scope["root_path"] = self._join_root_path(scope.get("root_path", ""), slug)
-            if "raw_path" in child_scope:
-                child_scope["raw_path"] = child_path.encode("ascii", errors="ignore")
-            await app(child_scope, receive, send)
+        api_key = bearer_token(Headers(scope=scope))
+        if api_key is None or authenticate(api_key, slug) is None:
+            await JSONResponse(
+                {"error": "A valid player API key is required."},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+            )(scope, receive, send)
+            return
+
+        context_token = PLAYER_API_KEY.set(api_key)
+        try:
+            async with self._app_for_game(game) as app:
+                child_scope = dict(scope)
+                child_scope["path"] = child_path
+                child_scope["root_path"] = self._join_root_path(scope.get("root_path", ""), slug)
+                if "raw_path" in child_scope:
+                    child_scope["raw_path"] = child_path.encode("ascii", errors="ignore")
+                await app(child_scope, receive, send)
+        finally:
+            PLAYER_API_KEY.reset(context_token)
 
     @staticmethod
     def _split_path(path: str) -> tuple[str | None, str]:
@@ -842,6 +783,61 @@ def build_app() -> Starlette:
             ],
         })
 
+    async def authenticate_player(request: Request) -> JSONResponse:
+        api_key = bearer_token(request.headers)
+        authenticated = authenticate(api_key or "")
+        if authenticated is None:
+            return JSONResponse(
+                {"error": "A valid player API key is required."},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+            )
+        slug, player = authenticated
+        return JSONResponse(
+            {
+                "slug": slug,
+                "player_id": player.get("player_ref") or public_player_ref(api_key or ""),
+                "name": player.get("name"),
+                "status": player.get("status"),
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    async def record_agent42_event(request: Request) -> JSONResponse:
+        api_key = bearer_token(request.headers)
+        authenticated = authenticate(api_key or "")
+        if authenticated is None or api_key is None:
+            return JSONResponse(
+                {"error": "A valid player API key is required."},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+            )
+        try:
+            payload = await request.json()
+        except ValueError:
+            return JSONResponse({"error": "Request body must be valid JSON."}, status_code=400)
+        summary = "\n".join(
+            " ".join(line.split())
+            for line in str(payload.get("summary") or "").splitlines()
+        ).strip()
+        if not summary:
+            return JSONResponse({"error": "Agent42 event summary is required."}, status_code=422)
+        if len(summary) > 2000:
+            return JSONResponse({"error": "Agent42 event summary is too long."}, status_code=422)
+        slug, _ = authenticated
+
+        def add_event(player: dict[str, Any]) -> None:
+            append_timeline_event(
+                player,
+                "agent42",
+                "Agent42 route advice",
+                detail=summary,
+                route_ref=agent42_route_ref({"detail": summary}),
+            )
+
+        storage.update_player(slug, api_key, add_event)
+        return JSONResponse({"status": "recorded"}, headers={"Cache-Control": "no-store"})
+
     @contextlib.asynccontextmanager
     async def lifespan(app: Starlette):
         async with anyio.create_task_group() as tasks:
@@ -854,6 +850,8 @@ def build_app() -> Starlette:
     return Starlette(
         routes=[
             Route("/", endpoint=index),
+            Route("/player/auth", endpoint=authenticate_player),
+            Route("/player/events/agent42", endpoint=record_agent42_event, methods=["POST"]),
             Mount("/", app=dispatcher),
         ],
         lifespan=lifespan,

@@ -44,6 +44,14 @@
       <h3>Play window</h3>
       <p id="game-availability" role="status">{{ availability.message }}</p>
       <form id="schedule-form" class="form-grid" data-revision="{{ game.schedule_revision }}">
+        <div class="field">
+          <label for="event-name">Event name</label>
+          <input id="event-name" name="event_name" value="{{ game.event_name }}" maxlength="100" placeholder="Open Hack" required />
+        </div>
+        <div class="field">
+          <label for="challenge-name">Challenge name</label>
+          <input id="challenge-name" name="display_name" value="{{ game.display_name }}" maxlength="150" required />
+        </div>
         {% include "admin_schedule_fields.html" %}
         <div class="form-footer">
           <button type="submit" class="button button-primary">Save settings</button>

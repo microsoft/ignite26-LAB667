@@ -7,12 +7,14 @@ with real-time traffic, walking, and biking) plus static-map rendering.
 """
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import uvicorn
+import httpx
 from a2a.helpers import new_text_message
 from a2a.server.agent_execution import AgentExecutor, RequestContext
 from a2a.server.events import EventQueue
@@ -32,12 +34,89 @@ from agent_framework.openai import OpenAIChatClient
 from azure.identity import AzureCliCredential
 from dotenv import load_dotenv
 from starlette.applications import Starlette
+from starlette.datastructures import Headers
+from starlette.middleware import Middleware
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from tools import get_current_weather, get_route, render_route_map
 
 load_dotenv(override=True)
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("agent42")
+PLAYER_API_KEY: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "agent42_player_api_key", default=None
+)
+
+
+def _game_server_url() -> str:
+    return os.environ.get("GAME_SERVER_URL", "http://localhost:8000").rstrip("/")
+
+
+async def validate_player_key(api_key: str) -> dict:
+    async with httpx.AsyncClient(timeout=5) as client:
+        response = await client.get(
+            f"{_game_server_url()}/player/auth",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+    response.raise_for_status()
+    return response.json()
+
+
+async def record_player_event(api_key: str, summary: str) -> None:
+    async with httpx.AsyncClient(timeout=5) as client:
+        response = await client.post(
+            f"{_game_server_url()}/player/events/agent42",
+            headers={"Authorization": f"Bearer {api_key}"},
+            json={"summary": summary},
+        )
+    response.raise_for_status()
+
+
+class PlayerBearerAuthMiddleware:
+    """Authenticate A2A calls while leaving the public agent card discoverable."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or str(scope.get("path", "")).startswith("/.well-known/"):
+            await self.app(scope, receive, send)
+            return
+        authorization = Headers(scope=scope).get("authorization", "")
+        scheme, separator, api_key = authorization.partition(" ")
+        if not separator or scheme.casefold() != "bearer" or not api_key.strip():
+            await JSONResponse(
+                {"error": "A valid player API key is required."},
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+            )(scope, receive, send)
+            return
+        api_key = api_key.strip()
+        try:
+            await validate_player_key(api_key)
+        except httpx.HTTPStatusError as exc:
+            status = 401 if exc.response.status_code == 401 else 503
+            log.warning("Agent42 player authentication failed with status %s", exc.response.status_code)
+            await JSONResponse(
+                {"error": "Player authentication failed."},
+                status_code=status,
+                headers={"WWW-Authenticate": "Bearer", "Cache-Control": "no-store"},
+            )(scope, receive, send)
+            return
+        except httpx.HTTPError:
+            log.exception("Agent42 could not reach the player authentication service")
+            await JSONResponse(
+                {"error": "Player authentication is temporarily unavailable."},
+                status_code=503,
+                headers={"Cache-Control": "no-store"},
+            )(scope, receive, send)
+            return
+        context_token = PLAYER_API_KEY.set(api_key)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            PLAYER_API_KEY.reset(context_token)
 
 
 def _configured_env(name: str) -> str | None:
@@ -173,6 +252,12 @@ class AgentFrameworkExecutor(AgentExecutor):
         if not result.text:
             log.error("Agent42 returned an empty response")
             raise InternalError("Agent42 returned an empty response.")
+        api_key = PLAYER_API_KEY.get()
+        if api_key:
+            try:
+                await record_player_event(api_key, result.text)
+            except httpx.HTTPError:
+                log.exception("Agent42 route advice could not be added to the player timeline")
         await event_queue.enqueue_event(
             new_text_message(result.text, context_id=context.context_id)
         )
@@ -244,6 +329,7 @@ def build_app() -> Starlette:
 
     return Starlette(
         lifespan=lifespan,
+        middleware=[Middleware(PlayerBearerAuthMiddleware)],
         routes=[
             *create_agent_card_routes(card),
             *create_jsonrpc_routes(handler, "/", enable_v0_3_compat=True),

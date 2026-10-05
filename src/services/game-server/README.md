@@ -156,6 +156,7 @@ python server.py
 | `MCP_PORT` | `8000` | HTTP bind port |
 | `DEFAULT_GAME_SLUG` | `san-francisco` | Slug for the first-run seed game |
 | `DEFAULT_GAME_NAME` | `Lost in San Francisco` | Display name for the seed game |
+| `DEFAULT_EVENT_NAME` | `Open Hack` | Event name shown above the challenge name |
 
 The server checks the games table when MCP requests arrive and lazily creates
 the MCP app for each slug. Games added through the admin UI are routable

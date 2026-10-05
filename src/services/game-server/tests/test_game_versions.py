@@ -13,6 +13,7 @@ from test_admin_auth import fake_service
 import init
 import storage
 import server
+import player_identity
 from dashboard import Dashboard
 from quest_validation import validate_document
 
@@ -34,8 +35,12 @@ class GameVersionTests(unittest.TestCase):
         self.addCleanup(self.patch.stop)
         storage.create_game("test-city", "Test city", quests=story())
 
-    def call(self, mcp: MCPServer, tool: str, arguments: dict) -> dict:
-        result = asyncio.run(mcp.call_tool(tool, arguments))
+    def call(self, mcp: MCPServer, tool: str, arguments: dict, api_key: str) -> dict:
+        context_token = server.PLAYER_API_KEY.set(api_key)
+        try:
+            result = asyncio.run(mcp.call_tool(tool, arguments))
+        finally:
+            server.PLAYER_API_KEY.reset(context_token)
         self.assertIsInstance(result, CallToolResult)
         assert isinstance(result, CallToolResult)
         self.assertFalse(result.is_error)
@@ -60,22 +65,21 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(storage.get_quest("test-city", 1)["name"], "New story")
         self.assertEqual(storage.get_quest("test-city", 1, 1)["name"], "Original story")
 
-    def test_mcp_registration_pins_story_and_all_subsequent_actions(self) -> None:
+    def test_browser_registration_pins_story_and_all_mcp_actions(self) -> None:
         mcp = server.build_mcp_for_game(storage.get_game("test-city"))
-        old = self.call(mcp, "register_player", {"name": "Alice"})
-        old_id = old["player_id"]
+        old_id, _ = player_identity.register_player("test-city", "Alice")
         self.publish_new(story("NEW", "New story"))
-        new_id = self.call(mcp, "register_player", {"name": "Beatrice"})["player_id"]
+        new_id, _ = player_identity.register_player("test-city", "Beatrice")
         self.assertEqual(storage.get_player("test-city", old_id)["game_version"], 1)
         self.assertEqual(storage.get_player("test-city", new_id)["game_version"], 2)
-        self.assertEqual(self.call(mcp, "resume_player", {"player_id": old_id})["quest_name"], "Original story")
-        self.call(mcp, "start_quest", {"player_id": old_id})
-        self.call(mcp, "start_quest", {"player_id": new_id})
-        old_result = self.call(mcp, "submit_mission_answer", {"player_id": old_id, "answer": "OLD"})
-        new_result = self.call(mcp, "submit_mission_answer", {"player_id": new_id, "answer": "NEW"})
+        self.assertEqual(self.call(mcp, "resume_player", {}, old_id)["quest_name"], "Original story")
+        self.call(mcp, "start_quest", {}, old_id)
+        self.call(mcp, "start_quest", {}, new_id)
+        old_result = self.call(mcp, "submit_mission_answer", {"answer": "OLD"}, old_id)
+        new_result = self.call(mcp, "submit_mission_answer", {"answer": "NEW"}, new_id)
         self.assertEqual(old_result["status"], "quest_complete")
         self.assertEqual(new_result["status"], "quest_complete")
-        self.assertEqual(self.call(mcp, "get_player_status", {"player_id": old_id})["quest_name"], "Original story")
+        self.assertEqual(self.call(mcp, "get_player_status", {}, old_id)["quest_name"], "Original story")
         board = storage.get_leaderboard("test-city")
         self.assertEqual({entry["game_version"] for entry in board}, {1, 2})
         data = Dashboard().build_data(storage.get_game("test-city"), limit=None)
@@ -85,6 +89,36 @@ class GameVersionTests(unittest.TestCase):
         locations = Dashboard().build_quest_locations(storage.get_game("test-city"))
         self.assertEqual(locations["versions"], [1, 2])
         self.assertEqual(len(locations["quests"]), 2)
+
+    def test_move_completion_records_transport_on_timeline(self) -> None:
+        document = story("bike")
+        mission = document["quests"][0]["missions"][0]
+        mission.update({
+            "type": "move",
+            "end_address": "Destination",
+            "end_lat": 37.78,
+            "end_lng": -122.41,
+        })
+        storage.save_draft(
+            "test-city",
+            document,
+            storage.load_draft("test-city")["revision"],
+        )
+        draft = storage.load_draft("test-city")
+        storage.publish_draft("test-city", draft["revision"])
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        api_key, _ = player_identity.register_player("test-city", "Cyclist")
+        self.call(mcp, "start_quest", {}, api_key)
+        result = self.call(
+            mcp,
+            "submit_mission_answer",
+            {"answer": "bike", "route_ref": "abc123def456ghi"},
+            api_key,
+        )
+        self.assertEqual(result["status"], "quest_complete")
+        timeline = player_identity.player_state("test-city", api_key)["timeline"]
+        self.assertEqual(timeline[-2]["type"], "mission_complete")
+        self.assertEqual(timeline[-2]["transport"], "bike")
 
     def test_invalid_or_duplicate_creation_does_not_overwrite_a_game(self) -> None:
         with self.assertRaises(ValueError):
@@ -135,8 +169,7 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(len(storage.list_versions("test-city")), 1)
 
     def test_version_deletion_protects_current_and_assigned_versions(self) -> None:
-        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
-        player_id = self.call(mcp, "register_player", {"name": "Alice"})["player_id"]
+        player_id, _ = player_identity.register_player("test-city", "Alice")
         self.publish_new(story("NEW", "New story"))
         with self.assertRaisesRegex(storage.VersionDeletionError, "current published"):
             storage.delete_version("test-city", 2)
@@ -150,18 +183,19 @@ class GameVersionTests(unittest.TestCase):
 
     def test_unpublished_game_cannot_register_until_publish(self) -> None:
         storage.create_game("empty", "Empty")
-        mcp = server.build_mcp_for_game(storage.get_game("empty"))
-        self.assertEqual(self.call(mcp, "register_player", {"name": "Alice"})["status"], "error")
+        with self.assertRaises(RuntimeError):
+            player_identity.register_player("empty", "Alice")
         draft = storage.save_draft("empty", story(), storage.load_draft("empty")["revision"])
         storage.publish_draft("empty", draft["revision"])
-        self.assertIn("player_id", self.call(mcp, "register_player", {"name": "Alice"}))
+        api_key, player = player_identity.register_player("empty", "Alice")
+        self.assertTrue(api_key.startswith("litc.empty."))
+        self.assertEqual(player["name"], "Alice")
 
     def test_reset_re_registers_on_latest_and_delete_removes_versions(self) -> None:
-        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
-        pid = self.call(mcp, "register_player", {"name": "Alice"})["player_id"]
+        pid, _ = player_identity.register_player("test-city", "Alice")
         self.publish_new(story("NEW"))
         storage.delete_player("test-city", pid)
-        new_pid = self.call(mcp, "register_player", {"name": "Alice"})["player_id"]
+        new_pid, _ = player_identity.register_player("test-city", "Alice")
         self.assertEqual(storage.get_player("test-city", new_pid)["game_version"], 2)
         storage.delete_game("test-city")
         self.assertFalse(list(self.tables[storage.QUESTS_TABLE].query_entities("PartitionKey eq 'test-city'")))

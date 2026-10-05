@@ -303,6 +303,10 @@ module agent42 './container-app.bicep' = {
         value: 'https://${agent42Name}.${containerEnvironment.properties.defaultDomain}/'
       }
       {
+        name: 'GAME_SERVER_URL'
+        value: mcp.outputs.url
+      }
+      {
         name: 'AGENT42_GEOCODE_BIAS'
         value: '-122.4194,37.7749'
       }

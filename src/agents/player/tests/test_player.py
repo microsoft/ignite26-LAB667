@@ -2,28 +2,18 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 import unittest
-from collections.abc import Mapping, Sequence
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from agent_framework import (
     Agent,
     AgentResponse,
     AgentSession,
-    BaseChatClient,
-    ChatMiddlewareLayer,
-    ChatResponse,
-    Content,
-    FunctionInvocationContext,
-    FunctionInvocationLayer,
     Message,
-    SessionContext,
 )
 
 PLAYER_DIR = Path(__file__).resolve().parents[1]
@@ -32,7 +22,6 @@ sys.path.insert(0, str(PLAYER_DIR))
 import agent as player
 import agent_agent42 as transport
 import agent_city_guide as guide
-import log as session_log
 
 
 ENV = {
@@ -44,6 +33,7 @@ ENV = {
     "AZURE_SEARCH_KEY": "offline-search-key",
     "AZURE_SEARCH_KNOWLEDGE_BASE_NAME": "city-knowledgebase",
     "GAME_MCP_URL": "http://game.invalid/city/mcp",
+    "GAME_API_KEY": "litc.city.offline-player-key",
     "AGENT42_URL": "http://agent42.invalid",
 }
 
@@ -53,27 +43,6 @@ def managed_resource() -> MagicMock:
     resource.__aenter__ = AsyncMock(return_value=resource)
     resource.__aexit__ = AsyncMock(return_value=False)
     return resource
-
-
-class OfflineChatClient(FunctionInvocationLayer, ChatMiddlewareLayer, BaseChatClient):
-    def __init__(self) -> None:
-        super().__init__()
-        self.seen_messages: list[Message] = []
-        self.seen_options: dict[str, Any] = {}
-
-    async def _inner_get_response(
-        self,
-        *,
-        messages: Sequence[Message],
-        stream: bool,
-        options: Mapping[str, Any],
-        **kwargs: Any,
-    ) -> ChatResponse:
-        if stream:
-            raise NotImplementedError("This offline fixture only supports non-streaming replies.")
-        self.seen_messages = list(messages)
-        self.seen_options = dict(options)
-        return ChatResponse(messages=[Message("assistant", ["Offline ready"])])
 
 
 class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
@@ -114,7 +83,9 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
         self.input.side_effect = ["", "look around", "QUIT"]
         await player.main()
         self.mcp_constructor.assert_called_once_with(
-            name="Gaming MCP Server", url=ENV["GAME_MCP_URL"]
+            name="Gaming MCP Server",
+            url=ENV["GAME_MCP_URL"],
+            static_headers={"Authorization": f"Bearer {ENV['GAME_API_KEY']}"},
         )
         self.mcp.get_prompt.assert_awaited_once_with("game_play_prompt")
         self.agent42_tool.assert_called_once_with(self.agent42)
@@ -122,10 +93,9 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
         options = self.constructor.call_args.kwargs
         self.assertEqual(options["instructions"], "Game instructions from MCP")
         self.assertEqual(options["tools"], [
-            self.mcp, player.save_player_id, self.agent42_tool.return_value,
-            self.guide_tool.return_value,
+            self.mcp, self.agent42_tool.return_value, self.guide_tool.return_value,
         ])
-        self.assertEqual(len(options["context_providers"]), 1)
+        self.assertNotIn("context_providers", options)
         self.assertEqual(len(options["middleware"]), 3)
         self.assertEqual([call.args[0] for call in self.agent.run.await_args_list],
                          ["start the game", "look around"])
@@ -168,79 +138,6 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
                 self.assert_closed()
                 for resource in (self.client.client, self.mcp, self.agent42, self.guide):
                     resource.__aexit__.reset_mock()
-
-
-class MemoryAndMiddlewareTests(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        self.temp = Path(self.enterContext(TemporaryDirectory()))
-        self.memory = self.temp / "memory.json"
-        self.source_memory = player.MEMORY_FILE
-        self.enterContext(patch.object(player, "MEMORY_FILE", self.memory))
-        self.provider = player.PlayerContextProvider(source_id="player-memory")
-
-    async def apply_memory(self) -> SessionContext:
-        context = SessionContext(input_messages=[Message("user", ["hello"])])
-        await self.provider.before_run(
-            agent=MagicMock(spec=Agent), session=AgentSession(), context=context, state={}
-        )
-        return context
-
-    async def test_memory_round_trip_with_real_agent_and_logging(self) -> None:
-        await player.save_player_id.invoke(player_id="player-42")
-        self.assertEqual(json.loads(self.memory.read_text(encoding="utf-8")),
-                         {"player_id": "player-42"})
-        client = OfflineChatClient()
-        log_path = self.temp / "session.log"
-        middleware = session_log.build_logging_middleware(log_path)
-        agent = Agent(client=client, context_providers=[self.provider], middleware=list(middleware))
-        response = await agent.run("hello")
-        self.assertEqual(response.text, "Offline ready")
-        self.assertEqual(client.seen_options["instructions"],
-                         "From memory: player_id: player-42")
-        log_text = log_path.read_text(encoding="utf-8")
-        for text in ("USER ->", "MODEL INPUT", "player-42", "AGENT <-", "Offline ready"):
-            self.assertIn(text, log_text)
-
-    async def test_missing_and_empty_memory_do_not_invent_identity(self) -> None:
-        self.assertFalse((await self.apply_memory()).instructions)
-        self.memory.write_text("{}", encoding="utf-8")
-        self.assertFalse((await self.apply_memory()).instructions)
-
-    async def test_invalid_memory_is_reported(self) -> None:
-        for text in ("not-json", "[]", '{"player_id": 42}', '{"player_id": ""}'):
-            with self.subTest(text=text):
-                self.memory.write_text(text, encoding="utf-8")
-                with self.assertRaises(ValueError):
-                    await self.apply_memory()
-
-    async def test_blank_player_id_does_not_overwrite_memory(self) -> None:
-        self.memory.write_text('{"player_id": "existing"}', encoding="utf-8")
-        with self.assertRaises(ValueError):
-            await player.save_player_id.invoke(player_id=" ")
-        self.assertEqual(json.loads(self.memory.read_text(encoding="utf-8")),
-                         {"player_id": "existing"})
-
-    async def test_function_log_serializes_current_content_results(self) -> None:
-        log_path = self.temp / "tools.log"
-        function_middleware = session_log.build_logging_middleware(log_path)[2]
-        context = FunctionInvocationContext(
-            function=player.save_player_id, arguments={"player_id": "player-42"}
-        )
-
-        async def call_next() -> None:
-            context.result = [Content.from_text("Route reply")]
-
-        await function_middleware(context, call_next)
-        text = log_path.read_text(encoding="utf-8")
-        self.assertIn("TOOL CALL  save_player_id", text)
-        self.assertIn('"player_id": "player-42"', text)
-        self.assertIn("TOOL RESULT save_player_id", text)
-        self.assertIn('"text": "Route reply"', text)
-        self.assertNotIn("object at", text)
-
-    def test_memory_path_does_not_depend_on_working_directory(self) -> None:
-        source_memory = PLAYER_DIR / "memory.json"
-        self.assertEqual(self.source_memory, source_memory)
 
 
 class SpecialistTests(unittest.IsolatedAsyncioTestCase):

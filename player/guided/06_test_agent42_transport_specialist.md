@@ -11,10 +11,11 @@ before the full game flow depends on it.
 > [!Hint] 🖥️ **In VS Code** — this step happens in VS Code; you only open the browser at the end to inspect the route map.
 
 Open the existing **.env** file and confirm the deployed Agent42 A2A
-URL is already present:
+URL and your Player API key are present:
 
 ```env
 AGENT42_URL={{ agent42_url }}
+GAME_API_KEY=<copy-from-this-player-page>
 ```
 
 > [!Hint] A2A stands for Agent-to-Agent. It lets one agent call another agent as
@@ -35,6 +36,7 @@ import asyncio
 import os
 from pathlib import Path
 
+import httpx
 from agent_framework import FunctionTool
 from agent_framework.a2a import A2AAgent
 from dotenv import load_dotenv
@@ -42,6 +44,9 @@ from dotenv import load_dotenv
 
 def build_agent42_agent() -> A2AAgent:
 	# Agent42 is a deployed A2A agent. The URL comes from .env.
+	client = httpx.AsyncClient(
+		headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"}
+	)
 	return A2AAgent(
 		name="Agent42",
 		description=(
@@ -50,6 +55,7 @@ def build_agent42_agent() -> A2AAgent:
 			"and returns a static map of the chosen route plus a recommendation code."
 		),
 		url=os.environ["AGENT42_URL"],
+		http_client=client,
 	)
 
 
@@ -82,6 +88,8 @@ if __name__ == "__main__":
 > [!Hint] **async with build_agent42_agent() as agent42:** owns the A2A connection
 > and closes it when the test ends, even if the request fails. The tool builder
 > accepts that existing agent rather than opening another hidden connection.
+> Agent42 validates the same bearer key as the game MCP server, so its route
+> advice also appears on your Player timeline.
 
 > [!Hint] You can experiment by editing the `question = "What is the best way to
 > get from the Ferry Building to Golden Gate Park?"` line. Choose two places in San Francisco that

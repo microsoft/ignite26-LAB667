@@ -9,7 +9,6 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
-from mcp import Client
 from starlette.testclient import TestClient
 import uvicorn
 
@@ -17,6 +16,7 @@ from test_admin_auth import fake_service
 from test_game_versions import story
 import server
 import storage
+import player_identity
 
 
 class MCPTransportTests(unittest.TestCase):
@@ -26,14 +26,22 @@ class MCPTransportTests(unittest.TestCase):
         self.patch.start()
         self.addCleanup(self.patch.stop)
         storage.create_game("test-city", "Test city", quests=story())
+        self.api_key, _ = player_identity.register_player("test-city", "Alice")
         self.client = TestClient(server.build_app(), base_url="https://workshop.example")
         self.client.__enter__()
         self.addCleanup(self.client.__exit__, None, None, None)
 
-    def rpc(self, method: str, params: dict, slug: str = "test-city", version: str = "2025-03-26") -> dict:
+    def rpc(
+        self, method: str, params: dict, slug: str = "test-city",
+        version: str = "2025-03-26", api_key: str | None = None,
+    ) -> dict:
         response = self.client.post(
             f"/{slug}/mcp",
-            headers={"Accept": "application/json, text/event-stream", "MCP-Protocol-Version": version},
+            headers={
+                "Accept": "application/json, text/event-stream",
+                "MCP-Protocol-Version": version,
+                "Authorization": f"Bearer {api_key or self.api_key}",
+            },
             json={"jsonrpc": "2.0", "id": 1, "method": method, "params": params},
         )
         self.assertEqual(response.status_code, 200, response.text)
@@ -45,15 +53,21 @@ class MCPTransportTests(unittest.TestCase):
         self.assertEqual(len(replies), 1, response.text)
         return replies[0]
 
-    def tool(self, name: str, arguments: dict, slug: str = "test-city") -> dict:
-        reply = self.rpc("tools/call", {"name": name, "arguments": arguments}, slug)
+    def tool(
+        self, name: str, arguments: dict, slug: str = "test-city",
+        api_key: str | None = None,
+    ) -> dict:
+        reply = self.rpc(
+            "tools/call", {"name": name, "arguments": arguments}, slug,
+            api_key=api_key,
+        )
         self.assertNotIn("error", reply)
         result = reply["result"]
         self.assertFalse(result["isError"])
         self.assertEqual(json.loads(result["content"][0]["text"]), result["structuredContent"])
         return result["structuredContent"]
 
-    def test_legacy_initialization_tool_contract_and_prompt(self) -> None:
+    def test_authenticated_initialization_tool_contract_and_prompt(self) -> None:
         for version in ("2024-11-05", "2025-03-26", "2025-11-25"):
             result = self.rpc("initialize", {
                 "protocolVersion": version, "capabilities": {},
@@ -64,62 +78,131 @@ class MCPTransportTests(unittest.TestCase):
             self.assertIn("Test city", result["instructions"])
         listed = self.rpc("tools/list", {})["result"]["tools"]
         self.assertEqual({tool["name"] for tool in listed}, {
-            "begin_session", "resume_player", "register_player", "start_quest",
+            "begin_session", "resume_player", "start_quest",
             "submit_mission_answer", "abandon_quest", "get_leaderboard", "get_player_status",
         })
-        register = next(tool for tool in listed if tool["name"] == "register_player")
-        self.assertEqual(register["inputSchema"]["required"], ["name"])
-        self.assertEqual(register["inputSchema"]["properties"]["name"]["minLength"], 1)
-        self.assertEqual(self.tool("begin_session", {})["status"], "awaiting_identity")
+        self.assertEqual(self.tool("begin_session", {})["status"], "known_player")
+        for tool in listed:
+            self.assertNotIn("player_id", tool["inputSchema"].get("properties", {}))
         prompts = self.rpc("prompts/list", {})["result"]["prompts"]
         self.assertEqual([prompt["name"] for prompt in prompts], ["game_play_prompt"])
         prompt = self.rpc("prompts/get", {"name": "game_play_prompt"})["result"]
         self.assertEqual(prompt["messages"][0]["content"]["text"],
                          server._game_play_prompt_for(storage.get_game("test-city")))
 
+    def test_player_auth_and_agent42_timeline_endpoint(self) -> None:
+        self.assertEqual(self.client.get("/player/auth").status_code, 401)
+        self.assertEqual(
+            self.client.get(
+                "/player/auth",
+                headers={"Authorization": "Bearer invalid"},
+            ).status_code,
+            401,
+        )
+        auth = self.client.get(
+            "/player/auth",
+            headers={"Authorization": "Bearer " + self.api_key},
+        )
+        self.assertEqual(auth.status_code, 200, auth.text)
+        self.assertEqual(auth.headers["cache-control"], "no-store")
+        self.assertEqual(auth.json()["slug"], "test-city")
+        self.assertEqual(auth.json()["name"], "Alice")
+        self.assertNotIn(self.api_key, auth.text)
+
+        event = self.client.post(
+            "/player/events/agent42",
+            headers={"Authorization": "Bearer " + self.api_key},
+            json={
+                "summary": (
+                    "  Weather: 14 C, light rain  \n\n"
+                    "  Reasoning: Take the bike via the park.  \n"
+                    "  recommendation: bike  \n"
+                    "  recommendation code: abc123def456ghi  "
+                )
+            },
+        )
+        self.assertEqual(event.status_code, 200, event.text)
+        self.assertEqual(event.headers["cache-control"], "no-store")
+        timeline = storage.get_player("test-city", self.api_key)["timeline"]
+        self.assertEqual(timeline[-1]["type"], "agent42")
+        self.assertEqual(
+            timeline[-1]["detail"],
+            (
+                "Weather: 14 C, light rain\n\n"
+                "Reasoning: Take the bike via the park.\n"
+                "recommendation: bike\n"
+                "recommendation code: abc123def456ghi"
+            ),
+        )
+        self.assertEqual(timeline[-1]["route_ref"], "abc123def456ghi")
+        safe_timeline = player_identity.player_state("test-city", self.api_key)["timeline"]
+        self.assertNotIn("route_ref", safe_timeline[-1])
+        self.assertNotIn("abc123def456ghi", safe_timeline[-1]["detail"])
+        self.assertNotIn(self.api_key, json.dumps(timeline))
+
+        self.assertEqual(
+            self.client.post(
+                "/player/events/agent42",
+                headers={"Authorization": "Bearer " + self.api_key},
+                json={"summary": " "},
+            ).status_code,
+            422,
+        )
+
     def test_game_isolation_live_creation_and_cache_replacement(self) -> None:
-        player = self.tool("register_player", {"name": "Alice"})
         storage.create_game("another-city", "Another city", quests=story("NEW", "Another story"))
-        result = self.tool("begin_session", {"player_id": player["player_id"]}, "another-city")
-        self.assertEqual(result["status"], "unknown_player_id")
+        unauthorized = self.client.post(
+            "/another-city/mcp",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
+        self.assertEqual(unauthorized.status_code, 401)
+        another_key, _ = player_identity.register_player("another-city", "Beatrice")
+        result = self.tool("begin_session", {}, "another-city", another_key)
+        self.assertEqual(result["status"], "known_player")
         self.assertEqual(result["game"], "Another city")
         self.assertEqual(self.client.post("/missing/mcp").status_code, 404)
         storage.delete_game("another-city")
         self.assertEqual(self.client.post("/another-city/mcp").status_code, 404)
         storage.create_game("another-city", "Replacement", quests=story())
-        self.assertEqual(self.tool("begin_session", {}, "another-city")["game"], "Replacement")
+        replacement_key, _ = player_identity.register_player("another-city", "Carla")
+        self.assertEqual(self.tool("begin_session", {}, "another-city", replacement_key)["game"], "Replacement")
         entity = self.tables[storage.GAMES_TABLE].get_entity("games", "another-city")
         entity["display_name"] = "Renamed city"
         self.tables[storage.GAMES_TABLE].upsert_entity(entity)
-        self.assertEqual(self.tool("begin_session", {}, "another-city")["game"], "Renamed city")
+        self.assertEqual(self.tool("begin_session", {}, "another-city", replacement_key)["game"], "Renamed city")
         games = self.client.get("/").json()["games"]
         self.assertEqual({game["mcp_url"] for game in games}, {"/test-city/mcp", "/another-city/mcp"})
 
     def test_http_players_remain_pinned_after_publication(self) -> None:
-        old = self.tool("register_player", {"name": "Alice"})["player_id"]
+        old = self.api_key
         draft = storage.save_draft("test-city", story("NEW", "New story"), storage.load_draft("test-city")["revision"])
         storage.publish_draft("test-city", draft["revision"])
-        new = self.tool("register_player", {"name": "Beatrice"})["player_id"]
-        for player_id, answer, title in ((old, "OLD", "Original story"), (new, "NEW", "New story")):
-            resumed = self.tool("resume_player", {"player_id": player_id})
+        new, _ = player_identity.register_player("test-city", "Beatrice")
+        for api_key, answer, title in ((old, "OLD", "Original story"), (new, "NEW", "New story")):
+            resumed = self.tool("resume_player", {}, api_key=api_key)
             self.assertEqual(resumed["quest_name"], title)
-            self.tool("start_quest", {"player_id": player_id})
-            result = self.tool("submit_mission_answer", {"player_id": player_id, "answer": answer})
+            self.tool("start_quest", {}, api_key=api_key)
+            result = self.tool("submit_mission_answer", {"answer": answer}, api_key=api_key)
             self.assertEqual(result["status"], "quest_complete")
 
     def test_invalid_tools_and_arguments_return_protocol_errors(self) -> None:
-        for name, arguments in (("missing_tool", {}), ("register_player", {}), ("register_player", {"name": ""})):
+        for name, arguments in (("missing_tool", {}), ("submit_mission_answer", {}), ("submit_mission_answer", {"answer": ""})):
             reply = self.rpc("tools/call", {"name": name, "arguments": arguments})
             self.assertTrue("error" in reply or reply.get("result", {}).get("isError"), reply)
 
     def test_cache_replacement_drains_inflight_requests_without_blocking_other_tools(self) -> None:
         self.tool("begin_session", {})
+        fast_key, _ = player_identity.register_player("test-city", "Fast player")
         entered, release, replaced = threading.Event(), threading.Event(), threading.Event()
         get_player = storage.get_player
         build = server.build_mcp_for_game
+        slow_reads = 0
 
         def slow_player(slug, player_id):
-            if player_id == "slow":
+            nonlocal slow_reads
+            if player_id == self.api_key:
+                slow_reads += 1
+            if player_id == self.api_key and slow_reads == 2:
                 entered.set()
                 if not release.wait(5):
                     raise TimeoutError("Test did not release the slow storage call")
@@ -134,15 +217,15 @@ class MCPTransportTests(unittest.TestCase):
         with patch.object(storage, "get_player", side_effect=slow_player), \
                 patch.object(server, "build_mcp_for_game", side_effect=rebuild), \
                 ThreadPoolExecutor(max_workers=3) as pool:
-            old_request = pool.submit(self.tool, "begin_session", {"player_id": "slow"})
+            old_request = pool.submit(self.tool, "begin_session", {})
             try:
                 self.assertTrue(entered.wait(3))
-                fast = pool.submit(self.tool, "begin_session", {})
-                self.assertEqual(fast.result(timeout=3)["status"], "awaiting_identity")
+                fast = pool.submit(self.tool, "begin_session", {}, "test-city", fast_key)
+                self.assertEqual(fast.result(timeout=3)["status"], "known_player")
                 game = self.tables[storage.GAMES_TABLE].get_entity("games", "test-city")
                 game["display_name"] = "Renamed city"
                 self.tables[storage.GAMES_TABLE].upsert_entity(game)
-                new_request = pool.submit(self.tool, "begin_session", {})
+                new_request = pool.submit(self.tool, "begin_session", {}, "test-city", fast_key)
                 self.assertTrue(replaced.wait(3))
                 self.assertFalse(new_request.done())
             finally:
@@ -150,7 +233,7 @@ class MCPTransportTests(unittest.TestCase):
             self.assertEqual(old_request.result(timeout=3)["game"], "Test city")
             self.assertEqual(new_request.result(timeout=3)["game"], "Renamed city")
 
-    def test_sdk_client_over_real_http_legacy_and_modern(self) -> None:
+    def test_real_http_rejects_missing_bearer_key(self) -> None:
         async def exercise() -> None:
             with socket.socket() as listener:
                 listener.bind(("127.0.0.1", 0))
@@ -164,16 +247,11 @@ class MCPTransportTests(unittest.TestCase):
                                 await task
                                 self.fail("HTTP server exited before startup")
                             await asyncio.sleep(.01)
-                        for mode in ("legacy", "auto", "2026-07-28"):
-                            async with Client(url, mode=mode, read_timeout_seconds=5) as client:
-                                tools = await client.list_tools()
-                                self.assertEqual(len(tools.tools), 8)
-                                prompt = await client.get_prompt("game_play_prompt")
-                                self.assertEqual(len(prompt.messages), 1)
-                                results = await asyncio.gather(*(client.call_tool("begin_session", {}) for _ in range(3)))
-                                for result in results:
-                                    self.assertFalse(result.is_error)
-                                    self.assertEqual(result.structured_content["status"], "awaiting_identity")
+                        import httpx
+                        async with httpx.AsyncClient() as client:
+                            response = await client.post(url)
+                        self.assertEqual(response.status_code, 401)
+                        self.assertEqual(response.headers["www-authenticate"], "Bearer")
                 finally:
                     http_server.should_exit = True
                     await asyncio.wait_for(task, timeout=5)

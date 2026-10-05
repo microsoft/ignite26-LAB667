@@ -6,7 +6,7 @@
 ===
 !INSTRUCTIONS[Step 3: Connect To The Gaming MCP Server](https://raw.githubusercontent.com/GlobalAICommunity/lab530-skillable/refs/heads/main/guided/03_connect_to_the_gaming_mcp_server.md)
 ===
-!INSTRUCTIONS[Step 4: Add Memory For The Player ID](https://raw.githubusercontent.com/GlobalAICommunity/lab530-skillable/refs/heads/main/guided/04_add_memory_for_the_player_id.md)
+!INSTRUCTIONS[Step 4: Use The Player API Key](https://raw.githubusercontent.com/GlobalAICommunity/lab530-skillable/refs/heads/main/guided/04_use_the_player_api_key.md)
 ===
 !INSTRUCTIONS[Step 5: Add Session Logging](https://raw.githubusercontent.com/GlobalAICommunity/lab530-skillable/refs/heads/main/guided/05_add_session_logging.md)
 ===

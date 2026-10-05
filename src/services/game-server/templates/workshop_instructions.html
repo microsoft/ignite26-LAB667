@@ -5,22 +5,90 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css" />
+  <link rel="stylesheet" href="/static/css/player.css?v=agent42-details-overlay-v1" />
 </head>
-<body>
+<body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}">
 <a class="skip-link" href="#player">Skip to player content</a>
 <header class="workshop-header">
-  <span class="eyebrow">LOST IN THE CITY / PLAYER</span>
+  {% if game.event_name %}<span class="player-event-name">{{ game.event_name }}</span>{% endif %}
   <h1>{{ game.display_name }}</h1>
-  <span class="mode-pill badge">{{ 'Challenge mode' if player_mode == 'challenge' else 'Guided mode' }}</span>
-  <p role="status">{{ availability.message }}</p>
-  <dl class="workshop-details">
-    <div><dt>Start</dt><dd>{{ variables.game_start_date }} {{ variables.game_start_time }}</dd></div>
-    <div><dt>End</dt><dd>{{ variables.game_end_date }} {{ variables.game_end_time }}</dd></div>
-    <div><dt>Timezone</dt><dd>{{ variables.game_timezone }}</dd></div>
-  </dl>
+  <div id="player-header-identity" class="player-header-identity" hidden>
+    <span>Player: <strong id="player-name"></strong></span>
+    <button id="open-player-key" class="button button-quiet player-key-trigger" type="button">API key</button>
+  </div>
+  <section id="player-progress" class="player-progress" aria-label="Live progress" hidden>
+    <span class="eyebrow">LIVE PROGRESS</span>
+    <p id="player-progress-status" class="player-progress-status" role="status" hidden></p>
+    <div id="player-timeline-shell" class="player-timeline-shell">
+      <button id="player-timeline-previous" class="player-timeline-control player-timeline-control-previous" type="button" aria-label="Scroll timeline left">&larr;</button>
+      <ol id="player-timeline" class="player-timeline"></ol>
+      <button id="player-timeline-next" class="player-timeline-control player-timeline-control-next" type="button" aria-label="Scroll timeline right">&rarr;</button>
+    </div>
+  </section>
 </header>
-<div class="workshop-layout">
+<section id="player-session" class="player-session" aria-labelledby="player-session-title">
+  <div id="player-registration" class="player-session-card">
+    <span class="eyebrow">YOUR PLAYER</span>
+    <h2 id="player-session-title">Enter the city</h2>
+    <p>Choose a nickname to create your private game key and begin tracking your adventure.</p>
+    <form id="player-registration-form">
+      <label for="player-nickname">Nickname</label>
+      <div class="player-registration-controls">
+        <input id="player-nickname" name="nickname" maxlength="40" autocomplete="nickname" required />
+        <button class="button button-primary" type="submit">Start game</button>
+      </div>
+      <p id="player-registration-error" class="form-error" role="alert" hidden></p>
+    </form>
+  </div>
+</section>
+<dialog id="player-key-dialog" class="player-key-dialog" aria-labelledby="player-key-title">
+  <div class="player-key-dialog-heading">
+    <div>
+      <span class="eyebrow">PLAYER ACCESS</span>
+      <h2 id="player-key-title">Private API key</h2>
+    </div>
+    <button id="close-player-key" class="button button-quiet" type="button" aria-label="Close API key">Close</button>
+  </div>
+  <p>Use this private key as the bearer token for both the game MCP server and Agent42.</p>
+  <code id="player-api-key"></code>
+  <div class="player-key-actions">
+    <button id="copy-player-key" class="button button-primary" type="button">Copy key</button>
+    <button id="forget-player-key" class="button button-quiet" type="button">Forget this player</button>
+  </div>
+  <p id="copy-player-key-status" class="copy-status" role="status"></p>
+</dialog>
+<dialog id="player-agent42-dialog" class="player-agent42-dialog" aria-labelledby="player-agent42-title">
+  <div class="player-key-dialog-heading">
+    <div>
+      <span class="eyebrow">AGENT42 ROUTE ADVICE</span>
+      <h2 id="player-agent42-title">Trip details</h2>
+    </div>
+    <button id="close-player-agent42" class="button button-quiet" type="button" aria-label="Close Agent42 details">Close</button>
+  </div>
+  <p id="player-agent42-status" class="player-agent42-status" role="status">Loading route details...</p>
+  <div id="player-agent42-content" class="player-agent42-content" hidden>
+    <section class="player-agent42-weather" aria-labelledby="player-agent42-weather-title">
+      <span id="player-agent42-weather-title" class="eyebrow">WEATHER</span>
+      <strong id="player-agent42-weather"></strong>
+      <span id="player-agent42-recommendation"></span>
+    </section>
+    <div class="player-agent42-layout">
+      <figure id="player-agent42-map-panel" class="player-agent42-map-panel">
+        <img id="player-agent42-map" alt="" />
+        <figcaption id="player-agent42-map-status"></figcaption>
+      </figure>
+      <section aria-labelledby="player-agent42-route-title">
+        <h3 id="player-agent42-route-title">Recommended route</h3>
+        <dl id="player-agent42-route" class="player-agent42-route"></dl>
+      </section>
+    </div>
+    <section class="player-agent42-advice" aria-labelledby="player-agent42-advice-title">
+      <h3 id="player-agent42-advice-title">Full advice</h3>
+      <pre id="player-agent42-advice"></pre>
+    </section>
+  </div>
+</dialog>
+<div id="player-content" class="workshop-layout" hidden>
   <nav class="workshop-nav" aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
     {% for item in lessons %}
     <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
@@ -34,5 +102,6 @@
     </nav>
   </main>
 </div>
+<script src="/static/js/player.js?v=agent42-details-overlay-v2"></script>
 </body>
 </html>

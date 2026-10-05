@@ -9,10 +9,13 @@ document.getElementById('new-game-form').addEventListener('submit', (event) => {
     status.textContent = '';
     try {
       const slug = document.getElementById('new-slug').value.trim();
+      const event_name = document.getElementById('new-event-name').value.trim();
       const display_name = document.getElementById('new-name').value.trim();
       const city = document.getElementById('new-city').value.trim();
       const data = await Admin.api('/api/games', {
-        method: 'POST', body: JSON.stringify({ slug, display_name, city, ...scheduleValues(form) }),
+        method: 'POST', body: JSON.stringify({
+          slug, event_name, display_name, city, ...scheduleValues(form),
+        }),
       });
       location.assign(`/games/${encodeURIComponent(data.game.slug)}/edit`);
     } catch (error) {

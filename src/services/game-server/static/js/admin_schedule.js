@@ -1,5 +1,11 @@
 function scheduleValues(form) {
   return {
+    ...(form.elements.event_name
+      ? { event_name: form.elements.event_name.value.trim() }
+      : {}),
+    ...(form.elements.display_name
+      ? { display_name: form.elements.display_name.value.trim() }
+      : {}),
     starts_at: form.elements.starts_at.value || null,
     ends_at: form.elements.ends_at.value || null,
     timezone: form.elements.timezone.value.trim(),
@@ -22,6 +28,8 @@ document.getElementById('schedule-form')?.addEventListener('submit', (event) => 
       document.getElementById('game-availability').textContent = data.availability.message;
       const mode = data.game.player_mode === 'challenge' ? 'Challenge' : 'Guided';
       document.querySelectorAll('[data-player-mode]').forEach((pill) => { pill.textContent = `${mode} mode`; });
+      const heading = document.querySelector('.game-heading h1');
+      if (heading) heading.textContent = data.game.display_name;
       Admin.notify('Game settings saved.');
     } catch (failure) {
       error.textContent = failure.message;

@@ -4,6 +4,7 @@ import asyncio
 import os
 from pathlib import Path
 
+import httpx
 from agent_framework import FunctionTool
 from agent_framework.a2a import A2AAgent
 from dotenv import load_dotenv
@@ -11,6 +12,9 @@ from dotenv import load_dotenv
 
 def build_agent42_agent() -> A2AAgent:
     # Agent42 is a deployed A2A agent. The URL comes from .env.
+    client = httpx.AsyncClient(
+        headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"}
+    )
     return A2AAgent(
         name="Agent42",
         description=(
@@ -19,6 +23,7 @@ def build_agent42_agent() -> A2AAgent:
             "and returns a static map of the chosen route plus a recommendation code."
         ),
         url=os.environ["AGENT42_URL"],
+        http_client=client,
     )
 
 

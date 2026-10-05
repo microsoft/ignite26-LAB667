@@ -326,6 +326,7 @@ def api_list_games() -> dict[str, Any]:
 class GameCreateBody(GameSchedule):
     slug: str = Field(min_length=1, max_length=63)
     display_name: str = Field(min_length=1, max_length=150)
+    event_name: str = Field(default="", max_length=100)
     city: str | None = Field(default=None, max_length=100)
 
 
@@ -340,7 +341,13 @@ def api_create_game(payload: GameCreateBody) -> dict[str, Any]:
     if storage.get_game(slug):
         raise HTTPException(409, f"A game with slug '{slug}' already exists.")
     try:
-        g = storage.create_game(slug, display_name, city=payload.city, schedule=payload)
+        g = storage.create_game(
+            slug,
+            display_name,
+            event_name=payload.event_name,
+            city=payload.city,
+            schedule=payload,
+        )
     except ResourceExistsError as exc:
         raise HTTPException(409, "A game with this slug already exists.") from exc
     except ValueError as exc:
@@ -350,13 +357,21 @@ def api_create_game(payload: GameCreateBody) -> dict[str, Any]:
 
 class ScheduleBody(GameSchedule):
     revision: int = Field(ge=0)
+    display_name: str | None = Field(default=None, min_length=1, max_length=150)
+    event_name: str | None = Field(default=None, min_length=1, max_length=100)
 
 
 @app.put("/api/games/{slug}/schedule", dependencies=[Depends(require_operator)])
 def api_save_schedule(slug: str, payload: ScheduleBody) -> dict[str, Any]:
     existing_game(slug)
     try:
-        game = storage.save_schedule(slug, payload, payload.revision)
+        game = storage.save_schedule(
+            slug,
+            payload,
+            payload.revision,
+            display_name=payload.display_name,
+            event_name=payload.event_name,
+        )
     except storage.ContentConflict as exc:
         raise HTTPException(409, str(exc)) from exc
     except ValueError as exc:
@@ -533,7 +548,7 @@ def api_players(slug: str) -> dict[str, Any]:
 
 @app.delete("/api/games/{slug}/players/{player_id}", dependencies=[Depends(require_operator)])
 def api_reset_player(slug: str, player_id: str) -> dict[str, Any]:
-    storage.delete_player(slug, player_id)
+    storage.delete_player_by_ref(slug, player_id)
     return {"ok": True}
 
 

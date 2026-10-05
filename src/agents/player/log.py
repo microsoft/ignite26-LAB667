@@ -3,7 +3,7 @@
 `open_session_log()` creates a fresh log file under `src/agents/player/logs/`.
 `build_logging_middleware(path)` returns Agent Framework middlewares that
 record every user/agent turn, every tool call, AND every chat call (which
-includes whatever the context providers injected) into that file.
+includes the resolved agent instructions) into that file.
 """
 from __future__ import annotations
 
@@ -74,8 +74,7 @@ def build_logging_middleware(log_path: Path):
     """Return (agent_mw, chat_mw, function_mw) writing to log_path.
 
     - `agent_mw` logs user turns and final agent responses.
-    - `chat_mw` logs the fully-resolved message list sent to the model
-      (which includes anything context providers injected via `before_run`).
+    - `chat_mw` logs the fully-resolved message list sent to the model.
     - `function_mw` logs every tool call's inputs and outputs.
     """
 
