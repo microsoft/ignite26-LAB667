@@ -17,6 +17,18 @@ def validate_document(document: Any, *, publish: bool = False) -> dict[str, list
             errors.append("The quest document exceeds the 64 KB Azure Table property limit. Split it into separate games.")
     except (ValueError, TypeError):
         errors.append("The document contains invalid JSON values.")
+    city = document.get("city")
+    if city is not None and not isinstance(city, str):
+        errors.append("Game city must be text.")
+    elif isinstance(city, str) and len(city.strip()) > 100:
+        errors.append("Game city must be 100 characters or fewer.")
+    elif publish and (not isinstance(city, str) or not city.strip()):
+        warnings.append("Add a game city to replace the legacy city in the player experience.")
+    story = document.get("story")
+    if story is not None and not isinstance(story, str):
+        errors.append("Game story must be text.")
+    elif publish and (not isinstance(story, str) or not story.strip()):
+        warnings.append("Add a game story to replace the generic introduction in the player experience.")
     if publish and not document["quests"]:
         errors.append("Add at least one quest before publishing.")
     quest_ids: set[int] = set()

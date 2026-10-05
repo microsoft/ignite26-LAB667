@@ -1,11 +1,13 @@
 {
+  "city": "San Francisco",
+  "story": "Microsoft Ignite 2026 is about to begin at Moscone Center, but you are somewhere across San Francisco with a low battery, an active conference badge, and a trail of clues between you and the opening session. Navigate the city, read its neighborhoods, and reach Moscone before the doors close.",
   "quests": [
     {
       "id": 1,
-      "name": "The Mission Run",
+      "name": "Mission to Moscone",
       "begin": {
-        "prompt": "You wake up outside a taqueria on Valencia Street with a paper conference badge in your pocket and no memory of how you got here. The smell of carnitas rolls out of the open door, a delivery bike rattles past, and your phone lights up: 9:15am. Build starts at 10:00 at Fort Mason. You have forty-five minutes, a half-charged battery, and a city that suddenly feels like a maze.",
-        "flavor": "A street musician is playing a bright, looping melody near the curb. Behind you, a mural of impossible colors seems to point north, as if the wall itself is trying to hurry you along."
+        "prompt": "You step out of a taqueria on Valencia Street and find a Microsoft Ignite 2026 badge in your jacket pocket. Your phone lights up: 9:15am. The opening session starts at 10:00 at Moscone Center. You have forty-five minutes, a half-charged battery, and one message from the event team: follow the city guide, collect the clue, and get to SoMa.",
+        "flavor": "A delivery bike rattles past while a street musician plays near the curb. Behind you, a mural of impossible colors seems to point downtown."
       },
       "missions": [
         {
@@ -17,42 +19,43 @@
           "end_address": "544 Hayes St, San Francisco, CA 94102, United States",
           "end_lat": 37.7766,
           "end_lng": -122.4253,
-          "arrival_prompt": "The Mission is already fully awake: cafe lines, bus brakes, shop gates rolling open. Somewhere in Hayes Valley, someone is holding the next clue, and every minute you spend deciding how to move makes Build feel farther away.",
-          "complete_prompt": "You reach Hayes Valley with the sound of traffic still in your ears. A vintage shop owner spots your badge before you can say a word and waves you inside. 'Good. You made it. Someone left a bag for you, and they were very specific that you should not be late.'"
+          "arrival_prompt": "The Mission is already fully awake: cafe lines, bus brakes, and shop gates rolling open. A message on your badge sends you to Hayes Valley, where an Ignite volunteer is holding the clue you need before you can head downtown.",
+          "complete_prompt": "You reach Hayes Valley with traffic still in your ears. An Ignite volunteer at the edge of Patricia's Green spots your badge and holds up a marked city guide. 'Good. You made it. Solve this and Moscone is your next stop.'"
         },
         {
-          "id": "hayes-valley-code",
+          "id": "valencia-coffee-clue",
           "type": "question",
-          "mission": "In the city guide, which Valencia Street cocktail bar is described as a neighborhood cocktail bar done right?",
-          "arrival_prompt": "The vintage shop owner clears a space between stacks of denim jackets and slides over a dog-eared city guide. 'Your next clue is not a code on a scrap of paper,' she says. 'It is something a local would know from this guide. You started on Valencia Street. Find the cocktail bar described as a neighborhood cocktail bar done right, and tell me its name.'",
-          "complete_prompt": "The shop owner smiles and folds the guide shut. 'Exactly. You read the city instead of just running through it. Now go - Fort Mason is not getting any closer.'",
+          "mission": "In the city guide, which coffee roaster has its flagship at the Valencia Street original?",
+          "arrival_prompt": "The volunteer opens the city guide to its coffee chapter. 'You started on Valencia Street, so prove you noticed where you were. Which coffee roaster has its flagship at the Valencia Street original?'",
+          "complete_prompt": "The volunteer taps your badge and the route to Moscone appears. 'Ritual Coffee Roasters. Exactly. Now get downtown - Ignite will not wait for the fog to lift.'",
           "valid_answers": [
-            "ABV"
+            "Ritual Coffee Roasters",
+            "Ritual Coffee"
           ]
         },
         {
-          "id": "final-to-fort-mason",
+          "id": "final-to-moscone",
           "type": "move",
           "start_address": "544 Hayes St, San Francisco, CA 94102, United States",
           "start_lat": 37.7766,
           "start_lng": -122.4253,
-          "end_address": "2 Marina Blvd, San Francisco, CA 94123, United States",
-          "end_lat": 37.8062,
-          "end_lng": -122.4329,
-          "arrival_prompt": "The clue is solved, but the clock is suddenly rude: Fort Mason is still across town. Hayes Street glints in the morning light, and every passing car, bike, and pedestrian looks like a possible answer.",
-          "complete_prompt": "You arrive at Fort Mason just as the morning crowd starts moving through the gates. The bay flashes behind the buildings, the doors swing open, and the pressure in your chest finally releases. Welcome to Build."
+          "end_address": "747 Howard St, San Francisco, CA 94103, United States",
+          "end_lat": 37.7842,
+          "end_lng": -122.4016,
+          "arrival_prompt": "The clue is solved, but the clock is suddenly rude. Moscone Center is across downtown, and every car, bike, bus, and pedestrian route looks like a different bet against the opening countdown.",
+          "complete_prompt": "You reach 747 Howard Street as the Ignite crowd streams toward Moscone Center. Your badge flashes green, the doors open, and the pressure in your chest finally releases. Welcome to Microsoft Ignite 2026."
         }
       ],
       "end": {
-        "prompt": "You made it to Build with the city still clinging to your shoes: murals, shop bells, traffic, and one solved mystery behind you. The quest is complete."
+        "prompt": "You made it to Microsoft Ignite 2026 with murals, coffee, traffic, and one solved city clue behind you. Moscone Center is open, your badge is active, and the quest is complete."
       }
     },
     {
       "id": 2,
-      "name": "Chinatown Express",
+      "name": "Lanterns to Ignite",
       "begin": {
-        "prompt": "You find yourself on Grant Avenue in Chinatown, standing beneath rows of paper lanterns that sway gently above the street. Market stalls crowd the sidewalk with crates of oranges, herbs, and red envelopes, and a handwritten note stuck to your badge says: Fort Mason, before 10:00. A sign says it is 2.3 miles away. Build starts in forty-five minutes.",
-        "flavor": "A cable car bell rings somewhere downhill. The air smells like fresh buns, incense, and rain on warm pavement."
+        "prompt": "You find yourself on Grant Avenue beneath rows of paper lanterns with a Microsoft Ignite 2026 badge clipped to your coat. Market stalls crowd the sidewalk, and the badge screen shows one instruction: reach Moscone Center before the 10:00 opening session. A second message points toward North Beach and says the route will unlock when you solve a city-guide clue.",
+        "flavor": "A cable car bell rings somewhere downhill. The air smells like fresh buns, incense, and rain on warm pavement, while the clock on your badge keeps counting down."
       },
       "missions": [
         {
@@ -64,81 +67,83 @@
           "end_address": "261 Columbus Ave, San Francisco, CA 94133, United States",
           "end_lat": 37.7974,
           "end_lng": -122.4068,
-          "arrival_prompt": "Chinatown folds around you in bright signs, steep streets, and shop windows packed with lucky cats and porcelain bowls. North Beach is close enough to feel possible, but the city is all angles here, and the wrong choice could burn precious minutes.",
-          "complete_prompt": "You step into North Beach and the city changes texture: espresso, old books, narrow sidewalks, and the hush of stories waiting behind glass. A figure leaning outside City Lights bookstore looks up from a notebook. 'You made it. I was starting to worry the hill had swallowed you.'"
+          "arrival_prompt": "Chinatown folds around you in bright signs, steep streets, and shop windows packed with lucky cats and porcelain bowls. Your badge directs you to North Beach, but the city is all angles here and the wrong choice could burn precious minutes.",
+          "complete_prompt": "You step into North Beach and the city changes texture: espresso, old books, narrow sidewalks, and stories waiting behind glass. An Ignite volunteer outside Washington Square raises a city guide. 'You made it. One answer and I can unlock your route to Moscone.'"
         },
         {
-          "id": "north-beach-code",
+          "id": "north-beach-bookstore-clue",
           "type": "question",
-          "mission": "In the city guide, what North Beach cocktail bar is described as serving classic cocktails in a beautiful 1907 bar?",
-          "arrival_prompt": "The stranger outside City Lights opens a marked-up city guide to the bars and nightlife chapter. 'North Beach likes to hide its clues in plain sight,' they say. 'Find the cocktail bar in the guide that serves classic cocktails in a beautiful 1907 bar. That name is your proof you are paying attention.'",
-          "complete_prompt": "The stranger grins and taps the margin beside the entry. 'There it is. Classic North Beach. Now do not linger over the menu - Fort Mason is waiting, and the clock has no patience for poets.'",
+          "mission": "According to the city guide, which bookstore founded by Lawrence Ferlinghetti remains the anchor of North Beach?",
+          "arrival_prompt": "The volunteer turns to the North Beach chapter. 'This neighborhood became the Beat Generation's home. Which bookstore, founded by Lawrence Ferlinghetti, does the guide call its anchor?'",
+          "complete_prompt": "The volunteer grins as your badge confirms the answer. 'City Lights Bookstore. You read the neighborhood correctly. Moscone Center is unlocked - move.'",
           "valid_answers": [
-            "Comstock Saloon"
+            "City Lights Bookstore",
+            "City Lights"
           ]
         },
         {
-          "id": "final-to-fort-mason",
+          "id": "final-to-moscone",
           "type": "move",
           "start_address": "261 Columbus Ave, San Francisco, CA 94133, United States",
           "start_lat": 37.7974,
           "start_lng": -122.4068,
-          "end_address": "2 Marina Blvd, San Francisco, CA 94123, United States",
-          "end_lat": 37.8062,
-          "end_lng": -122.4329,
-          "arrival_prompt": "The bookstore clue is solved, but the route is not. Fort Mason waits beyond the waterfront, and North Beach is busy enough to turn every decision into a gamble.",
-          "complete_prompt": "You walk through the Fort Mason gates with just enough breath left to laugh. A volunteer scans your badge, looks at the trail of city dust on your shoes, and waves you through. Welcome to Build."
+          "end_address": "747 Howard St, San Francisco, CA 94103, United States",
+          "end_lat": 37.7842,
+          "end_lng": -122.4016,
+          "arrival_prompt": "The bookstore clue is solved, but the route is not. Moscone waits south of Market Street, and the morning traffic between North Beach and SoMa turns every transport choice into a gamble.",
+          "complete_prompt": "You reach Moscone Center with just enough breath left to laugh. An event host scans your badge, sees the solved clue, and waves you toward the opening session. Welcome to Microsoft Ignite 2026."
         }
       ],
       "end": {
-        "prompt": "You made it to Build after lanterns, bookstores, steep streets, and one very suspicious pile of papers. The quest is complete."
+        "prompt": "You made it to Microsoft Ignite 2026 after lanterns, bookstores, steep streets, and one Beat Generation clue. Moscone Center is open, and the quest is complete."
       }
     },
     {
       "id": 3,
-      "name": "Waterfront Route",
+      "name": "Embarcadero Express",
       "begin": {
-        "prompt": "You are standing at the Ferry Building with the bay wind tugging at your jacket and a conference badge clipped crookedly to your shirt. Fog rolls in low over the water, softening the bridges and turning the morning silver. The clock tower reads 9:18am. Fort Mason is up the waterfront, and Build starts in forty-two minutes.",
-        "flavor": "A ferry horn echoes across the water. Gulls wheel overhead like they know the route and are refusing to share it."
+        "prompt": "You are standing at the Ferry Building with the bay wind tugging at your jacket and a Microsoft Ignite 2026 badge clipped crookedly to your shirt. Fog rolls low over the water, and the clock tower reads 9:18am. The opening session begins at Moscone Center in forty-two minutes, but your badge route says you must check in near SFMOMA first.",
+        "flavor": "A ferry horn echoes across the water. Gulls wheel overhead like they know the fastest way to SoMa and are refusing to share it."
       },
       "missions": [
         {
-          "id": "mission-to-fishermans-wharf",
+          "id": "ferry-building-to-sfmoma",
           "type": "move",
           "start_address": "1 Ferry Building, San Francisco, CA 94111, United States",
           "start_lat": 37.7956,
           "start_lng": -122.3934,
-          "end_address": "160 Jefferson St, San Francisco, CA 94133, United States",
-          "end_lat": 37.8087,
-          "end_lng": -122.4159,
-          "arrival_prompt": "The Embarcadero stretches ahead in a ribbon of water, traffic, joggers, and breakfast crowds. Fisherman's Wharf is up the waterfront, close enough to picture but far enough that the wrong route could turn the bay into a wall.",
-          "complete_prompt": "You reach Fisherman's Wharf with salt in the air and sourdough drifting from every direction. A fisherman in waders spots your badge immediately and lifts a hand. 'There you are. I was told someone would come through looking half-lost and fully late.'"
+          "end_address": "151 3rd St, San Francisco, CA 94103, United States",
+          "end_lat": 37.7857,
+          "end_lng": -122.4011,
+          "arrival_prompt": "The Embarcadero stretches beside you in a ribbon of water, traffic, joggers, and breakfast crowds. Your badge points inland toward SFMOMA, where an Ignite volunteer is waiting with the clue that unlocks Moscone.",
+          "complete_prompt": "You reach Third Street as SFMOMA's facade rises above SoMa. An Ignite volunteer beside the museum checks your badge and opens the city guide. 'Perfect timing. Your venue is close, but first you need to identify one of its neighbors.'"
         },
         {
-          "id": "fishermans-wharf-code",
+          "id": "soma-museum-clue",
           "type": "question",
-          "mission": "In the city guide, what hands-on science museum at Pier 15 on the Embarcadero has influenced science education worldwide since 1969?",
-          "arrival_prompt": "The fisherman hauls a salt-stained city guide from a crate and flips to the waterfront chapter with one thick finger. 'You came up the Embarcadero, so this one is fair,' he says. 'There is a hands-on science museum at Pier 15 that has been shaping science education since 1969. Tell me the name, and I will know you read the waterline correctly.'",
-          "complete_prompt": "The fisherman snaps the guide shut and gives you a satisfied nod. 'That's it. Clean find. Now finish the run before the fog changes its mind.'",
+          "mission": "In the city guide, which museum near SFMOMA focuses on the history and art of the African diaspora?",
+          "arrival_prompt": "The volunteer points to the museums chapter. 'The guide names a museum near SFMOMA that focuses on the history and art of the African diaspora. Give me its name and your final route to Ignite unlocks.'",
+          "complete_prompt": "Your badge flashes green. 'Museum of the African Diaspora - MoAD. Correct. Moscone Center is only a few blocks away. Finish the route.'",
           "valid_answers": [
-            "Exploratorium"
+            "Museum of the African Diaspora",
+            "MoAD"
           ]
         },
         {
-          "id": "final-to-fort-mason",
+          "id": "final-to-moscone",
           "type": "move",
-          "start_address": "160 Jefferson St, San Francisco, CA 94133, United States",
-          "start_lat": 37.8087,
-          "start_lng": -122.4159,
-          "end_address": "2 Marina Blvd, San Francisco, CA 94123, United States",
-          "end_lat": 37.8062,
-          "end_lng": -122.4329,
-          "arrival_prompt": "The final stretch is all waterfront nerves: gulls, bike bells, traffic lights, and the bay flashing beside you whenever the fog tears open. Fort Mason is the finish line, but you still have to choose how to get there.",
-          "complete_prompt": "Fort Mason comes into view with the bay glittering behind you and the last of the fog peeling away from the piers. You cross the final distance, badge ready, pulse high, and step into the day you were trying to reach. Welcome to Build."
+          "start_address": "151 3rd St, San Francisco, CA 94103, United States",
+          "start_lat": 37.7857,
+          "start_lng": -122.4011,
+          "end_address": "747 Howard St, San Francisco, CA 94103, United States",
+          "end_lat": 37.7842,
+          "end_lng": -122.4016,
+          "arrival_prompt": "The final stretch cuts through SoMa. Moscone Center is close enough to see on the badge map, but the opening countdown is nearly finished and you still have to choose how to cover the last blocks.",
+          "complete_prompt": "You cross Howard Street as the Moscone Center doors open. The bay fog is behind you, the Ignite stage is ahead, and your badge turns green at the entrance. Welcome to Microsoft Ignite 2026."
         }
       ],
       "end": {
-        "prompt": "You made it to Build by following the waterfront through fog, gulls, paper clues, and one stubborn clock. The quest is complete."
+        "prompt": "You made it to Microsoft Ignite 2026 by crossing the waterfront and SoMa through fog, museum clues, and one stubborn clock. Moscone Center is open, and the quest is complete."
       }
     }
   ]

@@ -205,6 +205,14 @@ module dashboard './container-app.bicep' = {
         value: '8090'
       }
       {
+        name: 'GAME_SERVER_URL'
+        value: mcp.outputs.url
+      }
+      {
+        name: 'AGENT42_URL'
+        value: agent42.outputs.url
+      }
+      {
         name: 'AZURE_MAPS_KEY'
         secretRef: 'maps-key'
       }
@@ -256,6 +264,10 @@ module admin './container-app.bicep' = {
       {
         name: 'DASHBOARD_URL'
         value: dashboard.outputs.url
+      }
+      {
+        name: 'AGENT42_URL'
+        value: agent42.outputs.url
       }
     ])
     secrets: union(tableSecrets, {

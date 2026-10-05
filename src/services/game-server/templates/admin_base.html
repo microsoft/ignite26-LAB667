@@ -26,7 +26,7 @@
   </header>
   {% if username and not must_change_password %}
   <nav class="primary-nav" aria-label="Admin navigation">
-    <a href="/" {% if request and request.url.path == '/' %}aria-current="page"{% endif %}>Games</a>
+    <a href="/" {% if game or (request and request.url.path == '/') %}aria-current="page"{% endif %}>Games</a>
     <a href="/games/new" {% if request and request.url.path == '/games/new' %}aria-current="page"{% endif %}>Create game</a>
     {% if role == 'admin' %}<a href="/users" {% if request and request.url.path == '/users' %}aria-current="page"{% endif %}>Users</a>{% endif %}
     <span class="role-label">{{ 'Administrator' if role == 'admin' else 'Game editor' }}</span>

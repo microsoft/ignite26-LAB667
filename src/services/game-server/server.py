@@ -34,6 +34,7 @@ from starlette.routing import Mount, Route, get_route_path
 from starlette.types import Receive, Scope, Send
 
 import storage
+from game_schedule import game_availability
 from quest_logic import (
     _answers_match,
     _as_text,
@@ -255,6 +256,20 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
     slug = game["slug"]
     display_name = game["display_name"]
 
+    def play_window_error() -> dict[str, Any] | None:
+        current = storage.get_game(slug)
+        if current is None:
+            return _err("This game no longer exists.")
+        availability = game_availability(current)
+        if availability["state"] == "open":
+            return None
+        return {
+            **_err(availability["message"]),
+            "availability": availability["state"],
+            "narration": availability["message"],
+            "next_action": "Tell the player the game is not open. Do not attempt gameplay until the play window opens.",
+        }
+
     mcp = MCPServer(
         f"game-{slug}",
         instructions=_instructions_for(game),
@@ -273,6 +288,8 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         player_id: Annotated[str, Field(default="", description="OPTIONAL. If the agent already remembers a player_id, pass it here.")] = "",
     ) -> dict[str, Any]:
         """Entry point for every new conversation. Always call this first."""
+        if error := play_window_error():
+            return error
         pid = (player_id or "").strip()
         if pid:
             player = storage.get_player(slug, pid)
@@ -337,6 +354,8 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         player_id: Annotated[str, Field(description="An existing player_id. REQUIRED. ASK the user for it.", min_length=1)],
     ) -> dict[str, Any]:
         """Resume an existing player's session for this game."""
+        if error := play_window_error():
+            return error
         player = storage.get_player(slug, player_id)
         if not player:
             return {
@@ -363,6 +382,8 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         name: Annotated[str, Field(description="The human player's display name. REQUIRED. ASK the user.", min_length=1)],
     ) -> dict[str, Any]:
         """Register a new player and get the opening scene of their quest."""
+        if error := play_window_error():
+            return error
         pname = (name or "").strip()
         if not pname:
             return _err("We need a name to put on your badge. Ask the user what name to use, then try again.")
@@ -420,6 +441,8 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         player_id: Annotated[str, Field(description="The player_id returned by register_player. REQUIRED.", min_length=1)],
     ) -> dict[str, Any]:
         """Begin the quest for a registered player."""
+        if error := play_window_error():
+            return error
         player = storage.get_player(slug, player_id)
         if not player:
             return _err("Your player badge doesn't seem to exist. Did you register?")
@@ -464,6 +487,8 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         route_ref: Annotated[str, Field(description="Private route reference. Never mention this value to the player.", default="")] = "",
     ) -> dict[str, Any]:
         """Submit the answer for the current mission and advance the quest."""
+        if error := play_window_error():
+            return error
         player = storage.get_player(slug, player_id)
         if not player:
             return _err("Your player badge doesn't seem to exist.")
@@ -556,7 +581,7 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
                 "next_action": next_payload.get("next_action", ""),
             }
 
-        end_prompt = str((quest.get("end") or {}).get("prompt") or "Welcome to Build!").strip()
+        end_prompt = str((quest.get("end") or {}).get("prompt") or "Quest complete!").strip()
 
         def finish(p: dict[str, Any]):
             p["completed_at"] = storage.utcnow_iso()

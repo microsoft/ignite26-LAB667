@@ -1,10 +1,5 @@
 {% extends "admin_game_base.html" %}
 {% block game_content %}
-<div class="endpoint"><span class="eyebrow">MCP ENDPOINT</span><code id="mcp-endpoint">{{ game_server_url }}/{{ game.slug }}/mcp</code><button id="copy-endpoint" class="button button-quiet">Copy URL</button></div>
-<div class="section-heading">
-  <div><span class="eyebrow">LIVE WORKSHOP</span><h2>Field operations</h2><p id="live-version" class="muted">Loading publication status...</p></div>
-  <div class="actions"><label for="version-filter">Story version</label><select id="version-filter"><option value="all">All published versions</option></select><button id="refresh-players" class="button button-quiet">Refresh now</button></div>
-</div>
 <section class="metrics metrics-five" aria-label="Player summary">
   <div class="metric"><span>Total players</span><strong id="player-count">-</strong></div>
   <div class="metric"><span>Registered</span><strong id="registered-count">-</strong></div>
@@ -21,7 +16,7 @@
   <div id="map-legend" class="map-legend"></div>
 </section>
 <section class="panel">
-  <div class="panel-heading"><div><span class="eyebrow">IN THE FIELD</span><h2>Player progress</h2></div><span class="badge">REFRESHES EVERY 10S</span></div>
+  <div class="panel-heading"><div><span class="eyebrow">IN THE FIELD</span><h2>Player progress</h2></div><div class="actions"><span class="badge">REFRESHES EVERY 10S</span><button id="refresh-players" class="button button-quiet">Refresh now</button></div></div>
   <p id="players-status" class="muted" role="status"></p>
   <div id="players" class="table-wrap" tabindex="0" aria-label="Players">Loading players...</div>
 </section>

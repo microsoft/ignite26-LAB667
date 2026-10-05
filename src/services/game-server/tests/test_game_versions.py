@@ -93,6 +93,7 @@ class GameVersionTests(unittest.TestCase):
         with self.assertRaises(ResourceExistsError):
             storage.create_game("test-city", "Replacement", quests=story("NEW"))
         self.assertEqual(storage.get_game("test-city")["display_name"], "Test city")
+        self.assertEqual(storage.get_game("test-city")["city"], "Test city")
         self.assertEqual(storage.get_quest("test-city", 1)["name"], "Original story")
 
     def test_reset_removes_all_versions_but_preserves_admin_tables(self) -> None:
@@ -133,6 +134,20 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(storage.load_published("test-city")[0], 1)
         self.assertEqual(len(storage.list_versions("test-city")), 1)
 
+    def test_version_deletion_protects_current_and_assigned_versions(self) -> None:
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        player_id = self.call(mcp, "register_player", {"name": "Alice"})["player_id"]
+        self.publish_new(story("NEW", "New story"))
+        with self.assertRaisesRegex(storage.VersionDeletionError, "current published"):
+            storage.delete_version("test-city", 2)
+        with self.assertRaisesRegex(storage.VersionDeletionError, "1 player is still assigned"):
+            storage.delete_version("test-city", 1)
+        storage.delete_player("test-city", player_id)
+        storage.delete_version("test-city", 1)
+        self.assertEqual([item["version"] for item in storage.list_versions("test-city")], [2])
+        with self.assertRaises(KeyError):
+            storage.delete_version("test-city", 1)
+
     def test_unpublished_game_cannot_register_until_publish(self) -> None:
         storage.create_game("empty", "Empty")
         mcp = server.build_mcp_for_game(storage.get_game("empty"))
@@ -157,7 +172,7 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(validate_document(document, publish=True)["errors"], [])
         draft = storage.save_draft("test-city", document, storage.load_draft("test-city")["revision"])
         self.assertEqual(draft["document"]["metadata"], document["metadata"])
-        for mutation in ("ids", "coordinates", "answers", "missions", "size"):
+        for mutation in ("ids", "coordinates", "answers", "missions", "city", "story", "size"):
             invalid = copy.deepcopy(document)
             if mutation == "ids":
                 invalid["quests"].append(copy.deepcopy(invalid["quests"][0]))
@@ -167,6 +182,10 @@ class GameVersionTests(unittest.TestCase):
                 invalid["quests"][0]["missions"][0]["valid_answers"] = []
             elif mutation == "missions":
                 invalid["quests"][0]["missions"] = []
+            elif mutation == "city":
+                invalid["city"] = ["Not plain text"]
+            elif mutation == "story":
+                invalid["story"] = {"text": "Not plain text"}
             else:
                 invalid["metadata"]["large"] = "x" * 33000
             with self.subTest(mutation=mutation):

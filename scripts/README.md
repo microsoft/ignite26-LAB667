@@ -34,9 +34,10 @@ are unaffected.
 python scripts/sync-to-skillable.py
 ```
 
-The generator reads only numbered step files in [instructions/](../instructions/)
-and writes [skillable.md](../instructions/skillable.md) and
-[index.html](../instructions/index.html) there. It excludes the folder README.
+The generator reads only numbered step files in
+[player/guided/](../player/guided/) and writes
+[skillable.md](../player/skillable.md) and [index.html](../player/index.html)
+under [player/](../player/). It excludes the folder README.
 The original Skillable hosting URLs are preserved; this command writes local
 files only and does not publish them.
 

@@ -5,22 +5,22 @@ on:
     branches:
       - main
     paths:
-      - 'instructions/**'
+      - 'player/**'
   workflow_dispatch:
 
 jobs:
   mirror:
     runs-on: ubuntu-latest
-    name: Push instructions/ to GlobalAICommunity/lab530-skillable
+    name: Push player/ to GlobalAICommunity/lab530-skillable
     steps:
       - uses: actions/checkout@v4
 
-      - name: Push instructions/ to public repo
+      - name: Push player/ to public repo
         uses: cpina/github-action-push-to-another-repository@main
         env:
           API_TOKEN_GITHUB: ${{ secrets.WORKSHOP_MIRROR_TOKEN }}
         with:
-          source-directory: 'instructions'
+          source-directory: 'player'
           destination-github-username: 'GlobalAICommunity'
           destination-repository-name: 'lab530-skillable'
           target-branch: 'main'

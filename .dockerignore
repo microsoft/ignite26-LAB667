@@ -1,0 +1,16 @@
+**
+!src/
+!src/services/
+!src/services/game-server/
+!src/services/game-server/**
+!player/
+!player/**
+**/__pycache__/
+**/*.pyc
+**/.env
+**/.env.*
+**/*.env
+**/.venv/
+**/venv/
+**/node_modules/
+**/tests/

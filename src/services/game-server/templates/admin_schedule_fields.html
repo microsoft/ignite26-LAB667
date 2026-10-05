@@ -1,0 +1,14 @@
+<div class="field">
+  <label for="starts-at">Start date and time</label>
+  <input id="starts-at" name="starts_at" type="datetime-local" step="1" value="{{ schedule.starts_at }}" aria-describedby="schedule-help" />
+</div>
+<div class="field">
+  <label for="ends-at">End date and time</label>
+  <input id="ends-at" name="ends_at" type="datetime-local" step="1" value="{{ schedule.ends_at }}" aria-describedby="schedule-help" />
+</div>
+<div class="field form-span">
+  <label for="game-timezone">Timezone</label>
+  <input id="game-timezone" name="timezone" list="timezones" value="{{ schedule.timezone }}" placeholder="Europe/Amsterdam" required />
+  <datalist id="timezones">{% for zone in timezones %}<option value="{{ zone }}"></option>{% endfor %}</datalist>
+  <small id="schedule-help">Dates and times use this timezone, not your browser's timezone. Set both to restrict gameplay; leave both empty for unrestricted play. Saving changes the live play window immediately, including for existing players.</small>
+</div>

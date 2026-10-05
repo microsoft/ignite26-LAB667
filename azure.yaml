@@ -31,7 +31,7 @@ services:
     host: containerapp
     docker:
       path: Dockerfile.dashboard
-      context: .
+      context: ../../..
       platform: linux/amd64
   admin:
     project: src/services/game-server
@@ -39,7 +39,7 @@ services:
     host: containerapp
     docker:
       path: Dockerfile.admin
-      context: .
+      context: ../../..
       platform: linux/amd64
   agent42:
     project: src/services/agent42

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ game.display_name }} | Player</title>
+  <link rel="stylesheet" href="/static/css/admin.css" />
+  <link rel="stylesheet" href="/static/css/player.css" />
+</head>
+<body>
+<a class="skip-link" href="#player">Skip to player content</a>
+<header class="workshop-header">
+  <span class="eyebrow">LOST IN THE CITY / PLAYER</span>
+  <h1>{{ game.display_name }}</h1>
+  <span class="mode-pill badge">{{ 'Challenge mode' if player_mode == 'challenge' else 'Guided mode' }}</span>
+  <p role="status">{{ availability.message }}</p>
+  <dl class="workshop-details">
+    <div><dt>Start</dt><dd>{{ variables.game_start_date }} {{ variables.game_start_time }}</dd></div>
+    <div><dt>End</dt><dd>{{ variables.game_end_date }} {{ variables.game_end_time }}</dd></div>
+    <div><dt>Timezone</dt><dd>{{ variables.game_timezone }}</dd></div>
+  </dl>
+</header>
+<div class="workshop-layout">
+  <nav class="workshop-nav" aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
+    {% for item in lessons %}
+    <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
+    {% endfor %}
+  </nav>
+  <main id="player">
+    <article class="lesson-content">{{ content | safe }}</article>
+    <nav class="lesson-pagination" aria-label="Lesson navigation">
+      {% if previous %}<a class="button button-quiet" href="/{{ game.slug }}/player/{{ previous.slug }}">&larr; Previous lesson</a>{% endif %}
+      {% if next %}<a class="button button-primary" href="/{{ game.slug }}/player/{{ next.slug }}">Next lesson &rarr;</a>{% endif %}
+    </nav>
+  </main>
+</div>
+</body>
+</html>

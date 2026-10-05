@@ -1,8 +1,9 @@
-"""Generate `skillable.md` and `index.html` for the workshop.
+"""Generate the legacy `skillable.md` and `index.html` workshop exports.
 
-The numbered workshop markdown files live in `instructions/`. This script
-regenerates the two index files there without publishing them. The original
-deployment workflows are retained, inactive, under `infra/legacy-workflows/`.
+The numbered Guided Mode markdown files live in `player/guided/`. This script
+regenerates the two legacy index files in `player/` without publishing them.
+The original deployment workflows are retained, inactive, under
+`infra/legacy-workflows/`.
 
 - `skillable.md`: page-separated list of `!INSTRUCTIONS[<title>](<url>)`
    entries, one per workshop step, used to import the workshop into
@@ -16,7 +17,9 @@ from __future__ import annotations
 from pathlib import Path
 
 
-INSTRUCTIONS_DIR = Path(__file__).resolve().parents[1] / "instructions"
+ROOT = Path(__file__).resolve().parents[1]
+GUIDED_DIR = ROOT / "player" / "guided"
+OUTPUT_DIR = ROOT / "player"
 SKILLABLE_FILE = "skillable.md"
 INDEX_FILE = "index.html"
 BASE_URL = "https://raw.githubusercontent.com/GlobalAICommunity/lab530-skillable/refs/heads/main/"
@@ -37,7 +40,7 @@ def write_skillable(entries: list[tuple[str, str]]) -> Path:
     content = "\n===\n".join(
         f"!INSTRUCTIONS[{title}]({base}{name})" for name, title in entries
     ) + "\n"
-    path = INSTRUCTIONS_DIR / SKILLABLE_FILE
+    path = OUTPUT_DIR / SKILLABLE_FILE
     path.write_text(content, encoding="utf-8")
     return path
 
@@ -65,17 +68,17 @@ def write_index(entries: list[tuple[str, str]]) -> Path:
 </body>
 </html>
 """
-    path = INSTRUCTIONS_DIR / INDEX_FILE
+    path = OUTPUT_DIR / INDEX_FILE
     path.write_text(html, encoding="utf-8")
     return path
 
 
 def main() -> int:
-    md_files = sorted(INSTRUCTIONS_DIR.glob("[0-9][0-9]_*.md"))
+    md_files = sorted(GUIDED_DIR.glob("[0-9][0-9]_*.md"))
     if not md_files:
-        raise SystemExit(f"No numbered workshop steps found in {INSTRUCTIONS_DIR}.")
+        raise SystemExit(f"No numbered Guided Mode chapters found in {GUIDED_DIR}.")
 
-    entries = [(md.name, extract_title(md)) for md in md_files]
+    entries = [(f"guided/{md.name}", extract_title(md)) for md in md_files]
 
     skillable_path = write_skillable(entries)
     print(f"Wrote {skillable_path}")

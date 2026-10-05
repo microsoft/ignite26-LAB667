@@ -10,5 +10,5 @@
 The authoring references document the existing lab environment. Skillable
 documentation and infrastructure live in [skillable/](../skillable/README.md).
 
-Attendee steps live in [instructions/](../instructions/README.md); runnable
+Player chapters live in [player/](../player/README.md); runnable
 applications live in [src/](../src/README.md).

@@ -10,8 +10,9 @@ document.getElementById('new-game-form').addEventListener('submit', (event) => {
     try {
       const slug = document.getElementById('new-slug').value.trim();
       const display_name = document.getElementById('new-name').value.trim();
+      const city = document.getElementById('new-city').value.trim();
       const data = await Admin.api('/api/games', {
-        method: 'POST', body: JSON.stringify({ slug, display_name }),
+        method: 'POST', body: JSON.stringify({ slug, display_name, city, ...scheduleValues(form) }),
       });
       location.assign(`/games/${encodeURIComponent(data.game.slug)}/edit`);
     } catch (error) {

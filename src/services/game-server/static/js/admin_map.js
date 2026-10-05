@@ -33,6 +33,17 @@ window.GameMap = (() => {
   }
 
   let sdkPromise;
+  let configPromise;
+  function mapConfig() {
+    if (!configPromise) {
+      configPromise = Admin.api('/api/maps/config').catch((error) => {
+        configPromise = null;
+        throw error;
+      });
+    }
+    return configPromise;
+  }
+
   function loadSDK() {
     if (window.atlas) return Promise.resolve();
     if (!sdkPromise) {
@@ -52,6 +63,88 @@ window.GameMap = (() => {
     return sdkPromise;
   }
 
+  let routeMaps = [];
+  let routeGeneration = 0;
+
+  async function renderRoutePreviews(root) {
+    const generation = ++routeGeneration;
+    routeMaps.forEach((routeMap) => routeMap.dispose());
+    routeMaps = [];
+    const previews = [...root.querySelectorAll('.route-map-preview')];
+    const mapped = previews.filter((preview) => {
+      const { startLat, startLng, endLat, endLng } = preview.dataset;
+      return valid(Number(startLat), Number(startLng)) && valid(Number(endLat), Number(endLng));
+    });
+    if (!mapped.length) return;
+
+    let key;
+    try {
+      ({ key } = await mapConfig());
+      await loadSDK();
+    } catch (error) {
+      if (generation !== routeGeneration) return;
+      mapped.forEach((preview) => {
+        preview.classList.add('map-unavailable');
+        preview.querySelector('.route-map-state').textContent = error.message;
+      });
+      return;
+    }
+    if (generation !== routeGeneration) return;
+
+    mapped.forEach((preview) => {
+      const start = [Number(preview.dataset.startLng), Number(preview.dataset.startLat)];
+      const end = [Number(preview.dataset.endLng), Number(preview.dataset.endLat)];
+      const canvas = preview.querySelector('[data-route-map]');
+      const status = preview.querySelector('.route-map-state');
+      const routeMap = new atlas.Map(canvas, {
+        center: [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2],
+        zoom: 12,
+        style: 'road',
+        interactive: false,
+        authOptions: { authType: 'subscriptionKey', subscriptionKey: key },
+      });
+      routeMaps.push(routeMap);
+      routeMap.events.add('error', () => {
+        status.textContent = 'Azure Maps could not render this route.';
+        preview.classList.add('map-unavailable');
+      });
+      routeMap.events.add('ready', () => {
+        if (generation !== routeGeneration) {
+          routeMap.dispose();
+          return;
+        }
+        const source = new atlas.source.DataSource();
+        routeMap.sources.add(source);
+        source.add(new atlas.data.Feature(new atlas.data.LineString([start, end])));
+        routeMap.layers.add(new atlas.layer.LineLayer(source, undefined, {
+          strokeColor: '#28665f',
+          strokeWidth: 4,
+          strokeDashArray: [2, 2],
+        }));
+        [
+          { position: start, label: 'S', className: 'mini-route-marker mini-route-start', title: 'Start' },
+          { position: end, label: 'E', className: 'mini-route-marker mini-route-end', title: 'End' },
+        ].forEach((point) => {
+          const marker = document.createElement('span');
+          marker.className = point.className;
+          marker.textContent = point.label;
+          marker.title = point.title;
+          routeMap.markers.add(new atlas.HtmlMarker({ position: point.position, htmlContent: marker }));
+        });
+        requestAnimationFrame(() => {
+          routeMap.resize();
+          routeMap.setCamera({
+            bounds: atlas.data.BoundingBox.fromPositions([start, end]),
+            padding: 34,
+            maxZoom: 15,
+          });
+        });
+        preview.classList.add('is-ready');
+        status.textContent = 'Azure Maps';
+      });
+    });
+  }
+
   class Controller {
     constructor({ onSelect = () => {}, onPick = () => {} } = {}) {
       this.onSelect = onSelect;
@@ -69,7 +162,7 @@ window.GameMap = (() => {
 
     async init() {
       try {
-        const { key } = await Admin.api('/api/maps/config');
+        const { key } = await mapConfig();
         await loadSDK();
         this.map = new atlas.Map('game-map', {
           center: [-122.4194, 37.7749], zoom: 11, style: 'road',
@@ -202,5 +295,5 @@ window.GameMap = (() => {
     }
   }
 
-  return { Controller, pointsFor, valid };
+  return { Controller, pointsFor, valid, renderRoutePreviews };
 })();

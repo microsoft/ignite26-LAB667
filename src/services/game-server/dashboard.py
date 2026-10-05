@@ -34,6 +34,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 import storage
+from workshop_instructions import instruction_routes
 from quest_logic import _current_mission_index, _normalize_quest, _player_location
 
 load_dotenv(override=True)
@@ -321,6 +322,7 @@ def build_app() -> Starlette:
         Route("/{slug}/dashboard/data", endpoint=dashboard_data),
         Route("/{slug}/dashboard/quests", endpoint=dashboard_quests),
         Route("/{slug}/dashboard/routes/{code}", endpoint=dashboard_route),
+        *instruction_routes(),
     ])
 
 

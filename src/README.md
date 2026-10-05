@@ -22,5 +22,5 @@ code, use the [player validation command](../docs/workshop-overview.md#validate-
 No live credentials or packages beyond the player requirements are needed.
 
 See the [workshop overview](../docs/workshop-overview.md) for setup and run
-commands, or start the [attendee walkthrough](../instructions/README.md).
+commands, or start the [Player experience](../player/README.md).
 Deployment material lives in [infra/](../infra/README.md).

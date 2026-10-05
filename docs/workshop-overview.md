@@ -7,8 +7,8 @@ narrative quest game where the player has to cross a city, solve guidebook
 clues, and reach the final destination before time runs out.
 
 The default seed game is **Lost in San Francisco**, but the game server supports
-multiple city games. Each game has its own MCP endpoint, dashboard, quest list,
-players, and leaderboard.
+multiple city games. Each game has its own MCP endpoint, dashboard, Player URL,
+player mode, optional play window, quest list, players, and leaderboard.
 
 ## What's in this repo
 
@@ -18,7 +18,7 @@ players, and leaderboard.
 | [src/services/agent42/](../src/services/agent42/) | Standalone A2A transport expert. It compares car, walking, and bike routes using weather, traffic, Azure Maps, and rendered route maps. |
 | [src/agents/player/](../src/agents/player/) | Complete reference agent that connects to the game MCP server, asks Agent42 over A2A, queries the city guide, remembers `player_id`, and writes session logs. |
 | [data/city-guide/](../data/city-guide/) | San Francisco guide chapters used as source material for the retrieval challenge. |
-| [instructions/](../instructions/README.md) | Step-by-step attendee workshop instructions. |
+| [player/](../player/README.md) | Guided and Challenge Mode chapters used by the public Player experience. |
 | [docs/](README.md) | Supporting gameplay, setup, and authoring documentation. |
 | [infra/](../infra/README.md) | Shared-service infrastructure and inactive legacy deployment workflows. |
 | [skillable/](../skillable/README.md) | Skillable-specific documentation and infrastructure. |
@@ -101,6 +101,26 @@ and replace the default password. You can then create games, edit quests,
 import [quests.json](../src/services/game-server/quests.json), reset players, and
 watch leaderboards. See the [game-server README](../src/services/game-server/README.md) for the
 full tool reference, quest schema, storage model, and deployment notes.
+
+### Per-game Player mode and schedule
+
+Open **Manage > Schedule & player** to choose Guided or Challenge Mode and set a
+start date/time, end date/time, and IANA timezone. You can also set the schedule
+when creating a game. Both endpoints are optional together; existing games remain
+unrestricted until a schedule is set. Settings take effect immediately,
+separately from story publication.
+
+Share `http://localhost:8090/<slug>/player` with players (use the dashboard host
+in Azure). Guided Mode renders the step-by-step chapters; Challenge Mode renders
+the parallel outcome-focused chapters. Both use the game's name, endpoint, dates,
+times, and timezone. **Preview player** serves the same content through the admin
+host for local development. No player login is required and no credentials are
+published.
+
+The MCP server enforces `start <= current UTC time < end`: starting/resuming
+sessions, registration, quest starts, and answer submissions are blocked outside
+the window, including for existing players. Status, leaderboards, Player content,
+and abandoning a quest remain available. All checks use the latest saved schedule.
 
 ### 2. Run Agent42
 
@@ -205,7 +225,7 @@ python agent_city_guide.py
 ```
 
 These smoke tests make live service/model requests. The complete copied samples
-in [Steps 5–8](../instructions/05_add_session_logging.md) match the logging
+in [Steps 5–8](../player/guided/05_add_session_logging.md) match the logging
 helper, specialist helpers, and final player; earlier lessons intentionally
 introduce only a subset of the final capabilities.
 
@@ -233,16 +253,16 @@ against their canonical source using Python's abstract syntax tree.
 
 The attendee workshop is split into numbered steps:
 
-1. [Step into your workspace](../instructions/00_step_into_your_workspace.md)
-2. [Get Azure OpenAI details from Microsoft Foundry](../instructions/01_get_azure_openai_details_from_foundry.md)
-3. [Create a hello world agent](../instructions/02_create_hello_world_agent.md)
-4. [Connect to the gaming MCP server](../instructions/03_connect_to_the_gaming_mcp_server.md)
-5. [Add memory for the player ID](../instructions/04_add_memory_for_the_player_id.md)
-6. [Add session logging](../instructions/05_add_session_logging.md)
-7. [Test Agent42 transport specialist](../instructions/06_test_agent42_transport_specialist.md)
-8. [Test the city guide agent](../instructions/07_test_the_city_guide_agent.md)
-9. [Bring the specialist agents into the main agent](../instructions/08_bring_specialists_into_main_agent.md)
-10. [Lab recap](../instructions/09_lab_recap.md)
+1. [Step into your workspace](../player/guided/00_step_into_your_workspace.md)
+2. [Get Azure OpenAI details from Microsoft Foundry](../player/guided/01_get_azure_openai_details_from_foundry.md)
+3. [Create a hello world agent](../player/guided/02_create_hello_world_agent.md)
+4. [Connect to the gaming MCP server](../player/guided/03_connect_to_the_gaming_mcp_server.md)
+5. [Add memory for the player ID](../player/guided/04_add_memory_for_the_player_id.md)
+6. [Add session logging](../player/guided/05_add_session_logging.md)
+7. [Test Agent42 transport specialist](../player/guided/06_test_agent42_transport_specialist.md)
+8. [Test the city guide agent](../player/guided/07_test_the_city_guide_agent.md)
+9. [Bring the specialist agents into the main agent](../player/guided/08_bring_specialists_into_main_agent.md)
+10. [Lab recap](../player/guided/09_lab_recap.md)
 
 ## Deployment
 

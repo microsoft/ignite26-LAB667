@@ -159,7 +159,7 @@ def _normalize_quest(quest: dict[str, Any]) -> dict[str, Any]:
         },
         "end": {
             "location": _quest_end_location(end, missions),
-            "prompt": end.get("prompt") or end.get("arrival_message", "Welcome to Build!"),
+            "prompt": end.get("prompt") or end.get("arrival_message", "Quest complete!"),
         },
         "missions": missions,
     }

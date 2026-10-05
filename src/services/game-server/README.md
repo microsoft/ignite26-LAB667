@@ -34,7 +34,7 @@ Three game-state tables are created automatically on first start:
 
 | Table | PartitionKey | RowKey | Payload |
 | --- | --- | --- | --- |
-| `games` | `"games"` | `slug` | `display_name`, `created_at` |
+| `games` | `"games"` | `slug` | `display_name`, `created_at`, UTC `starts_at` / `ends_at`, IANA `timezone`, `schedule_revision` |
 | `quests` | `slug` | `"quests"` | Published `payload`, editable `draft_payload`, version and draft revision |
 | `quests` | `slug` | `"v1"`, `"v2"`, ... | Immutable story snapshots and publication timestamps |
 | `players` | `slug` | `player_id` | JSON player state, including its pinned `game_version` |
@@ -68,7 +68,9 @@ Admin credentials and sessions are separate and are not reset by this command.
 
 ## Quest schema
 
-Each quest has a `begin` prompt, an `end` prompt, and one or more `missions`.
+The quest document has top-level `city` and `story` values used by the public
+player experience. Each quest has a `begin` prompt, an `end` prompt, and
+one or more `missions`.
 Movement lives on missions: every mission has `start_address` and
 `end_address`. If either address is empty, no movement is required for that
 mission. The quest start location is derived from the first mission's
@@ -78,28 +80,34 @@ ZIP/postal code, city, state or region when relevant, and country.
 
 ```json
 {
-  "id": 1,
-  "name": "Example Quest",
-  "begin": {"prompt": "Opening scene"},
-  "missions": [
+  "city": "San Francisco",
+  "story": "Public game introduction shown to the player.",
+  "quests": [
     {
-      "id": "transport-1",
-      "type": "move",
-      "start_address": "515 Valencia St, San Francisco, CA 94110, United States",
-      "end_address": "544 Hayes St, San Francisco, CA 94102, United States",
-      "arrival_prompt": "Scene shown when the mission starts.",
-      "complete_prompt": "Scene shown after the mission is completed."
-    },
-    {
-      "id": "secret-code",
-      "type": "question",
-      "mission": "What is the secret code?",
-      "arrival_prompt": "Scene shown when the question starts.",
-      "complete_prompt": "Scene shown after the correct answer.",
-      "valid_answers": ["CODE42"]
+      "id": 1,
+      "name": "Example Quest",
+      "begin": {"prompt": "Opening scene"},
+      "missions": [
+        {
+          "id": "transport-1",
+          "type": "move",
+          "start_address": "515 Valencia St, San Francisco, CA 94110, United States",
+          "end_address": "544 Hayes St, San Francisco, CA 94102, United States",
+          "arrival_prompt": "Scene shown when the mission starts.",
+          "complete_prompt": "Scene shown after the mission is completed."
+        },
+        {
+          "id": "secret-code",
+          "type": "question",
+          "mission": "What is the secret code?",
+          "arrival_prompt": "Scene shown when the question starts.",
+          "complete_prompt": "Scene shown after the correct answer.",
+          "valid_answers": ["CODE42"]
+        }
+      ],
+      "end": {"prompt": "Closing scene"}
     }
-  ],
-  "end": {"prompt": "Closing scene"}
+  ]
 }
 ```
 
@@ -247,10 +255,13 @@ password if needed.
 ### Create and manage games
 
 Choose **Create game** in navigation or **Create a game** on the Games page to
-open the separate creation page (`/games/new`). Enter the name and slug;
-creation opens the story editor for the new unpublished draft. Import JSON or
-build the story there, then publish when ready. Duplicate slugs are rejected
-without modifying the existing game; `new` is reserved for the creation route.
+open the separate creation page (`/games/new`). Enter the name, city, and slug,
+and optionally the start/end date and time plus timezone. The city seeds the
+new quest document; after creation, edit `city` with the rest of the story
+content. Creation opens the story editor for the new unpublished draft. Import
+JSON or build the story there, then publish when ready. Duplicate slugs are
+rejected without modifying the existing game; `new` is reserved for the
+creation route.
 
 The admin uses a warm, light interface with dark typography, pill-shaped
 controls, terracotta highlights and lime primary actions. Login, game management,
@@ -260,34 +271,50 @@ third-party brand assets are required.
 Each game has two authenticated subpages:
 
 - **Dashboard** (`/games/<slug>`): player counts, current mission/progress,
-  details, leaderboard, and recorded story locations. Filter by published
-  version to inspect different runs. The public projector display remains a
-  separate link. Resetting players removes their runs; they must register
-  again to receive the latest story.
+  details, leaderboard, and recorded story locations for the latest published
+  version, which is shown beside the game title. Players pinned to historical
+  versions remain available for version-management safeguards but are not mixed
+  into the live operational view. The MCP endpoint, public player experience, and
+  public in-room display are grouped as game assets. Resetting players removes
+  their runs; they must register again to receive the latest story.
 - **Edit game** (`/games/<slug>/edit`): quest navigation and an opening /
   missions / ending timeline. Edit scenes, questions, accepted answers and
   locations, duplicate quests or missions, and reorder/remove missions.
-  **Story preview** hides editing controls and accepted answers.
+  Every mission shows its **Start**, **Answer**, and **Complete** phases without
+  collapsing the completion scene. Travel answers include a compact Azure Maps
+  route preview; question answers are shown as operator-only chips. Editing
+  opens in an overlay, and mission actions are grouped under one menu.
+  **Story preview** hides editing controls and accepted answers. The same page
+  contains the live play window and player links. Operators choose **Guided
+  Mode** for the complete workshop lessons or **Challenge Mode** for a compact
+  setup, goal, and success brief without step-by-step guidance. The selected
+  mode is shown as a pill throughout the admin. Times are
+  entered in an IANA timezone and stored as UTC. Both dates/times must be set
+  together, with end after start. Leave both empty for unrestricted play.
+  Nonexistent or ambiguous daylight-saving local times are rejected. Schedule
+  changes use optimistic concurrency and remain independent of story publishing.
+  Published-version management is also in the editor toolbar. Historical story
+  versions can be deleted only when no players are assigned to them; the current
+  version cannot be deleted. The legacy `/games/<slug>/settings` URL redirects
+  here.
 
-Use **Story**, **Story + map**, or **Full map** views. Maps show numbered,
-shared location markers and color-coded quests; clicking a marker lets you
-select its scene. Dashed connections represent story order, not calculated
-travel routes. Dashboard player pins represent game-state positions, not GPS.
-Use **Fit all points**, fullscreen, and quest filters to explore the whole game.
-At tablet widths, Story + map places the map beneath the story, beside the
-sticky quest navigation. On phones, navigation, story, and map stack vertically.
+The editor uses one responsive story view. Each travel mission includes its own
+noninteractive Azure Maps preview with start and end markers; dashed connections
+represent story order, not calculated travel routes. Dashboard player pins
+represent game-state positions, not GPS.
 
 Set `AZURE_MAPS_KEY` on the admin service to enable maps and address lookup.
 The azd template supplies it through a secret; as with the public dashboard,
 the map control receives this key in the browser. Address lookup shows
 candidates for operator confirmation, never silently chooses a city centroid.
-Coordinates can be edited directly or placed by clicking the map. Missing
-pins produce warnings; the editor remains usable when Maps is unavailable.
+Coordinates can also be edited directly. Missing pins produce warnings; the
+editor remains usable when Maps is unavailable.
 
 **Import JSON** validates and previews a file before replacing the in-memory
 draft. **Export JSON** includes current unsaved edits and preserves unknown
-fields. A raw JSON editor remains under **Advanced**. The document must have a
-`quests` array, unique positive quest IDs, and unique mission IDs per quest.
+fields. A raw JSON editor remains under **Advanced**. The document must have a `quests` array, unique positive quest IDs, and unique
+mission IDs per quest. Top-level `city` and `story` values supply the public
+player introduction.
 Publication additionally requires named quests, opening/ending scenes, at
 least one mission per quest, movement addresses, and accepted question answers.
 Invalid/out-of-range coordinates are rejected; missing coordinates are shown
@@ -308,6 +335,35 @@ direct `PUT /quests` endpoint returns a conflict directing callers to the
 draft/publish workflow. Seed import also requires a revision.
 
 The admin UI and MCP server both pick up new games without a restart.
+
+### Player modes and gameplay windows
+
+The dashboard serves `/<slug>/player` and, in Guided Mode,
+`/<slug>/player/<lesson>`. Legacy `/<slug>/instructions` URLs permanently
+redirect to the equivalent player URL.
+The admin serves the same public pages for previews; settings and editing still
+require operator authentication. Shared [player sources](../../../player/README.md)
+are bundled with the admin/dashboard images, including screenshots. Game
+variables are escaped text substitutions, never executable templates.
+Do not put secrets in this public player content.
+
+Set `GAME_SERVER_URL` and `AGENT42_URL` on both dashboard and admin so code
+examples use the deployed service URLs. The shared-service Bicep wires these
+automatically. The old Skillable export is no longer the delivery path.
+
+The MCP server reloads the schedule on session start/resume, registration,
+quest start, and answer submission. Play is allowed at the start instant and
+blocked at or after the end instant. Rejected calls do not modify player state.
+Status, leaderboard, player content, and abandonment remain available outside
+the window. Existing games without schedule fields keep unrestricted play.
+Read-only pages show the schedule status as of their last load; reload to refresh it.
+
+`PUT /api/games/<slug>/schedule` accepts `starts_at`, `ends_at`, `timezone`,
+`player_mode` (`guided` or `challenge`), and `revision` (the current game's
+`schedule_revision`). Naive ISO datetimes use
+the selected timezone; datetimes with explicit offsets specify exact instants.
+Send both timestamps as `null` to remove the restriction. Stale revisions
+return HTTP 409; invalid schedules return HTTP 422.
 
 ### Test the admin
 
@@ -356,6 +412,19 @@ It defines builds and deployments for three container apps from this folder:
 | `game-server-dashboard` | `Dockerfile.dashboard` | `8090` | Room dashboard at `/<slug>/dashboard` |
 | `game-server-admin` | `Dockerfile.admin` | `8080` | Admin UI |
 
+Admin and dashboard Dockerfiles now require the **repository root** as their
+build context so they can include shared instructions. The active azd
+configuration sets this automatically. For manual builds, run from the root:
+
+```bash
+docker build -f src/services/game-server/Dockerfile.admin -t game-admin .
+docker build -f src/services/game-server/Dockerfile.dashboard -t game-dashboard .
+```
+
+The MCP Dockerfile still uses the game-server folder as its context. Before
+reactivating the legacy workflow, update its admin/dashboard build contexts
+and Dockerfile paths to match.
+
 The workflow uses the same Azure and registry GitHub secrets as Agent42:
 
 ```text
@@ -389,8 +458,8 @@ Configure the deployed container apps with these environment variables:
 | App | Required settings |
 | --- | --- |
 | MCP | `AZURE_TABLES_CONNECTION_STRING`, `MCP_HOST=0.0.0.0`, `MCP_PORT=8000` |
-| Dashboard | `AZURE_TABLES_CONNECTION_STRING`, `DASHBOARD_HOST=0.0.0.0`, `DASHBOARD_PORT=8090`, `AZURE_MAPS_KEY` for map rendering |
-| Admin | `AZURE_TABLES_CONNECTION_STRING`, `ADMIN_PORT=8080`, `GAME_SERVER_URL=https://<mcp-app-url>`, `DASHBOARD_URL=https://<dashboard-app-url>`, `AZURE_MAPS_KEY` for maps/address lookup |
+| Dashboard | `AZURE_TABLES_CONNECTION_STRING`, `DASHBOARD_HOST=0.0.0.0`, `DASHBOARD_PORT=8090`, `GAME_SERVER_URL`, `AGENT42_URL` for instructions, `AZURE_MAPS_KEY` for map rendering |
+| Admin | `AZURE_TABLES_CONNECTION_STRING`, `ADMIN_PORT=8080`, `GAME_SERVER_URL=https://<mcp-app-url>`, `DASHBOARD_URL=https://<dashboard-app-url>`, `AGENT42_URL` for instructions, `AZURE_MAPS_KEY` for maps/address lookup |
 
 The admin UI can create games, edit quests, and reset players, so protect the
 admin container app with the same access controls you use for workshop

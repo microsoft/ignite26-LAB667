@@ -2,19 +2,46 @@
 {% block title %}{{ game.display_name }} | Mission control{% endblock %}
 {% block body_attrs %}data-slug="{{ game.slug }}"{% endblock %}
 {% block content %}
-<a class="back-link" href="/">&larr; All games</a>
 <header class="game-heading">
-  <div><span class="eyebrow">GAME OPERATIONS / {{ game.slug }}</span><h1>{{ game.display_name }}</h1>
-    <p>{% if game_page == "edit" %}Build the next adventure. Keep today's players on their own story.{% else %}Follow the players. Run the room.{% endif %}</p></div>
-  <a class="button button-quiet" href="{{ dashboard_url }}/{{ game.slug }}/dashboard" target="_blank" rel="noopener">Open player display &nearr;</a>
+  <div><span class="eyebrow">GAME OPERATIONS / {{ game.slug }}</span><h1>{{ game.display_name }}</h1></div>
+  <div class="game-heading-actions">
+    <span class="mode-pill badge" data-player-mode>{{ 'Challenge mode' if game.player_mode == 'challenge' else 'Guided mode' }}</span>
+    {% if game_page == "dashboard" %}<span id="dashboard-version" class="dashboard-version badge">Version -</span>{% endif %}
+    <button type="button" id="open-game-assets" class="button button-quiet">Game assets</button>
+  </div>
 </header>
 <nav class="game-tabs" aria-label="Game pages">
   <a href="/games/{{ game.slug }}" {% if game_page == "dashboard" %}aria-current="page"{% endif %}>Dashboard</a>
   <a href="/games/{{ game.slug }}/edit" {% if game_page == "edit" %}aria-current="page"{% endif %}>Edit game</a>
 </nav>
 {% block game_content %}{% endblock %}
+<dialog id="game-assets-dialog" class="game-assets-dialog" aria-labelledby="game-assets-title">
+  <div class="game-assets-dialog-header">
+    <div><span class="eyebrow">READY TO SHARE</span><h2 id="game-assets-title">Game assets</h2></div>
+    <button type="button" id="close-game-assets" class="button button-quiet">Close</button>
+  </div>
+  <div class="game-assets-grid">
+    <article class="game-asset game-asset-mcp">
+      <span class="game-asset-index" aria-hidden="true">01</span>
+      <div><span class="eyebrow">ATTENDEE CONNECTION</span><h3>MCP</h3><p>Connect the attendee's agent to this game.</p></div>
+      <code id="mcp-endpoint">{{ game_server_url }}/{{ game.slug }}/mcp</code>
+      <button id="copy-endpoint" class="button button-quiet">Copy MCP URL</button>
+    </article>
+    <article class="game-asset">
+      <span class="game-asset-index" aria-hidden="true">02</span>
+      <div><span class="eyebrow">PLAYER EXPERIENCE</span><h3>Player</h3><p>Open the guided workshop or challenge brief.</p></div>
+      <a class="button button-quiet" href="{{ dashboard_url }}/{{ game.slug }}/player" target="_blank" rel="noopener">Open player &nearr;</a>
+    </article>
+    <article class="game-asset">
+      <span class="game-asset-index" aria-hidden="true">03</span>
+      <div><span class="eyebrow">FACILITATOR VIEW</span><h3>In-room display</h3><p>Show the live player map and leaderboard in the room.</p></div>
+      <a class="button button-quiet" href="{{ dashboard_url }}/{{ game.slug }}/dashboard" target="_blank" rel="noopener">Open display &nearr;</a>
+    </article>
+  </div>
+</dialog>
 {% endblock %}
 {% block scripts %}
 <script src="/static/js/admin_map.js"></script>
+<script src="/static/js/admin_assets.js"></script>
 {% block game_scripts %}{% endblock %}
 {% endblock %}

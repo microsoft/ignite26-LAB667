@@ -13,6 +13,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
 from urllib.parse import urlsplit
+from zoneinfo import available_timezones
 
 from dotenv import load_dotenv
 from azure.core.exceptions import AzureError, ResourceExistsError
@@ -29,6 +30,8 @@ import storage
 from admin_auth import AuthStore, COOKIE_NAME, SESSION_SECONDS, Role, Session
 from dashboard import Dashboard
 from quest_validation import validate_document
+from game_schedule import GameSchedule, local_fields, game_availability
+from workshop_instructions import instruction_routes
 
 load_dotenv(override=True)
 
@@ -61,6 +64,7 @@ app = FastAPI(
 )
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=BASE_DIR / "templates")
+app.router.routes.extend(instruction_routes())
 
 
 @app.middleware("http")
@@ -73,6 +77,7 @@ async def admin_headers(request: Request, call_next: Any) -> Response:
     response.headers["Content-Security-Policy"] = (
         "default-src 'self'; script-src 'self' https://atlas.microsoft.com; "
         "style-src 'self' 'unsafe-inline' https://atlas.microsoft.com; "
+        "font-src 'self' https://atlas.microsoft.com; "
         "img-src 'self' data: blob: https://*.atlas.microsoft.com https://atlas.microsoft.com; "
         "connect-src 'self' https://*.atlas.microsoft.com https://atlas.microsoft.com; worker-src blob:; "
         "frame-ancestors 'none'; form-action 'self'; base-uri 'none'"
@@ -91,6 +96,10 @@ async def storage_unavailable(request: Request, exc: AzureError) -> JSONResponse
 
 @app.exception_handler(RequestValidationError)
 async def invalid_request(request: Request, exc: RequestValidationError) -> Response:
+    if request.url.path.startswith("/api/games"):
+        return JSONResponse(status_code=422, content={
+            "detail": "; ".join(error["msg"] for error in exc.errors()),
+        })
     if request.url.path.startswith(("/api/users", "/api/auth/")):
         # Pydantic's default error body echoes input values, including passwords.
         return JSONResponse(status_code=422, content={"detail": "Invalid account request. Check the required fields, role, and password length."})
@@ -223,7 +232,9 @@ def create_game_page(request: Request) -> Response:
     session = auth_store(request).get_session(request.cookies.get(COOKIE_NAME))
     if session is None or session.must_change_password:
         return RedirectResponse("/password" if session else "/login", status_code=303)
-    return templates.TemplateResponse(request, "admin_create_game.html", AuthStore.context(session))
+    return templates.TemplateResponse(request, "admin_create_game.html", {
+        "schedule": local_fields({}), "timezones": sorted(available_timezones()), **AuthStore.context(session),
+    })
 
 
 @app.get("/users", response_class=HTMLResponse)
@@ -246,6 +257,11 @@ def edit_game_page(slug: str, request: Request) -> Response:
     return render_game_page(slug, request, "edit")
 
 
+@app.get("/games/{slug}/settings", response_class=HTMLResponse)
+def game_settings_page(slug: str, request: Request) -> Response:
+    return RedirectResponse(f"/games/{slug}/edit", status_code=303)
+
+
 def render_game_page(slug: str, request: Request, page: str) -> Response:
     session = auth_store(request).get_session(request.cookies.get(COOKIE_NAME))
     if session is None or session.must_change_password:
@@ -255,9 +271,10 @@ def render_game_page(slug: str, request: Request, page: str) -> Response:
         raise HTTPException(status_code=404, detail="Game not found")
     return templates.TemplateResponse(
         request,
-        "admin_editor.html" if page == "edit" else "admin_game.html",
+        {"edit": "admin_editor.html", "dashboard": "admin_game.html"}[page],
         {"game": game, "game_server_url": GAME_SERVER_URL, "dashboard_url": DASHBOARD_URL,
-         "game_page": page, **AuthStore.context(session)},
+         "game_page": page, "schedule": local_fields(game), "availability": game_availability(game),
+         "timezones": sorted(available_timezones()), **AuthStore.context(session)},
     )
 
 
@@ -306,9 +323,10 @@ def api_list_games() -> dict[str, Any]:
     return {"games": storage.list_games()}
 
 
-class GameCreateBody(BaseModel):
+class GameCreateBody(GameSchedule):
     slug: str = Field(min_length=1, max_length=63)
     display_name: str = Field(min_length=1, max_length=150)
+    city: str | None = Field(default=None, max_length=100)
 
 
 @app.post("/api/games", dependencies=[Depends(require_operator)])
@@ -322,12 +340,28 @@ def api_create_game(payload: GameCreateBody) -> dict[str, Any]:
     if storage.get_game(slug):
         raise HTTPException(409, f"A game with slug '{slug}' already exists.")
     try:
-        g = storage.create_game(slug, display_name)
+        g = storage.create_game(slug, display_name, city=payload.city, schedule=payload)
     except ResourceExistsError as exc:
         raise HTTPException(409, "A game with this slug already exists.") from exc
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     return {"ok": True, "game": g}
+
+
+class ScheduleBody(GameSchedule):
+    revision: int = Field(ge=0)
+
+
+@app.put("/api/games/{slug}/schedule", dependencies=[Depends(require_operator)])
+def api_save_schedule(slug: str, payload: ScheduleBody) -> dict[str, Any]:
+    existing_game(slug)
+    try:
+        game = storage.save_schedule(slug, payload, payload.revision)
+    except storage.ContentConflict as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return {"ok": True, "game": game, "availability": game_availability(game)}
 
 
 @app.delete("/api/games/{slug}", dependencies=[Depends(require_operator)])
@@ -416,6 +450,35 @@ def api_activity(slug: str) -> dict[str, Any]:
         documents={str(v["version"]): storage.load_quests(slug, v["version"]) for v in versions},
     )
     return data
+
+
+@app.get("/api/games/{slug}/versions", dependencies=[Depends(require_operator)])
+def api_versions(slug: str) -> dict[str, Any]:
+    existing_game(slug)
+    current, _ = storage.load_published(slug)
+    counts: dict[int, int] = {}
+    for player in storage.list_players(slug).values():
+        version = int(player.get("game_version", 1))
+        counts[version] = counts.get(version, 0) + 1
+    return {
+        "published_version": current,
+        "versions": [
+            {**version, "player_count": counts.get(version["version"], 0)}
+            for version in storage.list_versions(slug)
+        ],
+    }
+
+
+@app.delete("/api/games/{slug}/versions/{version}", dependencies=[Depends(require_operator)])
+def api_delete_version(slug: str, version: int) -> dict[str, Any]:
+    existing_game(slug)
+    try:
+        storage.delete_version(slug, version)
+    except storage.VersionDeletionError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except KeyError as exc:
+        raise HTTPException(404, str(exc).strip("'")) from exc
+    return {"ok": True}
 
 
 @app.post("/api/games/{slug}/quests/import-seed", dependencies=[Depends(require_operator)])

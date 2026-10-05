@@ -26,7 +26,7 @@ questions consistent with that setting.
 | [Game server](src/services/game-server/) | Shared MCP endpoint, quest state, scoring, dashboard, and admin UI; state lives in Azure Tables |
 | [Agent42](src/services/agent42/) | Shared A2A transport specialist using weather, Azure Maps, and route blobs |
 | [Player agent](src/agents/player/) | Reference attendee implementation: orchestrates the game, calls specialists, and maintains local memory and logs |
-| [Instructions](instructions/README.md) | Numbered attendee walkthrough and screenshots |
+| [Player](player/README.md) | Guided and challenge chapters plus shared screenshots |
 | [City guide](data/city-guide/) | San Francisco source material for retrieval |
 | [Infrastructure](infra/README.md) | Lab provisioning and inactive legacy deployment workflows |
 

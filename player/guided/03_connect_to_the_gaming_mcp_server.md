@@ -15,10 +15,10 @@ Open the existing **.env** file and confirm the game MCP URL is
 already there:
 
 ```env
-GAME_MCP_URL=https://mcp.workshop.agentcon.dev/san-francisco/mcp
+GAME_MCP_URL={{ game_mcp_url }}
 ```
 
-> [!Hint] Make sure the URL ends in `/san-francisco/mcp` so you connect to **Lost in San Francisco**.
+> [!Hint] Make sure the URL ends in **/{{ game_slug }}/mcp** so you connect to **{{ game_name }}**.
 
 Go back to **agent.py**. At the top of **agent.py**, update the existing
 Microsoft Agent Framework import so it also imports **MCPStreamableHTTPTool**:

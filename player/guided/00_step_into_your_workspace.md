@@ -1,14 +1,14 @@
 # Lost in the City Agent Workshop
 
+Welcome to **{{ game_name }}**. Your facilitator sets the play window in
+**{{ game_timezone }}**. You can read these instructions at any time; game actions
+are available only during the scheduled window shown above.
+
 > [!Hint] 🖥️ **In VS Code** — you'll do all of this lab's hands-on work in VS Code, except where a step tells you to switch to the browser.
 
 ## The Story
 
-You've just arrived in San Francisco. Morning fog
-rolls in from the bay, your phone is
-almost dead, and somewhere across the city — past steep hills, colorful
-murals, and busy neighborhood streets — there's a conference venue waiting.
-The clock is ticking.
+{{ game_story }}
 
 You won't be navigating alone. In this workshop you'll build an AI **player
 agent** that takes on the *Lost in the City* quest on your behalf. It will:
@@ -16,7 +16,7 @@ agent** that takes on the *Lost in the City* quest on your behalf. It will:
 - Pick up missions from a game server and report back the answers.
 - Phone a transport expert, **Agent42**, to decide whether to grab a taxi,
    hop on a bike, or hoof it — based on the weather, traffic, and route.
-- Consult a **city guide** knowledge base to dig clues out of San Francisco's
+- Consult a **city guide** knowledge base to dig clues out of {{ game_city }}'s
    neighborhoods, history, food, and hidden corners.
 - Remember who the player is between runs, and write a clear log of every
    model call, tool call, and decision it made.
@@ -33,7 +33,7 @@ combines four capabilities you'll add one step at a time:
 - **A2A (Agent-to-Agent)** — call Agent42 as a peer agent for
    weather-aware transport recommendations.
 - **Knowledge retrieval** — query an Azure AI Search knowledge base over the
-   San Francisco city guide to answer the trivia-style missions.
+   {{ game_city }} city guide to answer the trivia-style missions.
 - **Memory & logging** — remember the player ID between runs and capture
    every prompt, tool call, and response in a session log you can inspect.
 
@@ -43,12 +43,9 @@ a real application instead of a toy demo.
 
 
 ## Login into the Machine
-Everything you'll do today happens on the Windows 11 lab VM on the left
-of your screen - browser, code editor, terminal, the lot. Sign in once
-and you're set for the rest of the workshop. Click inside the VM,
-unlock it, and use the credentials below:
-
-**Password**: +++@lab.VirtualMachine(Win11-Pro-Base).Password+++
+Use the prepared Windows 11 workshop machine provided by your facilitator.
+Sign in with the credentials supplied to you privately. The public game
+instructions do not contain passwords or access tokens.
 
 
 ## Step Into Your Workspace

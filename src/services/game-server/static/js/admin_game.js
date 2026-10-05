@@ -6,8 +6,7 @@ let firstLoad = true;
 const map = new GameMap.Controller({ onSelect: (point) => { if (point.playerId) showPlayer(point.playerId); } });
 
 function selectedPlayers() {
-  const version = document.getElementById('version-filter').value;
-  return activity.players.filter((player) => version === 'all' || String(player.game_version) === version);
+  return activity.players.filter((player) => Number(player.game_version) === Number(activity.published_version));
 }
 
 function showPlayer(id) {
@@ -27,8 +26,8 @@ function showPlayer(id) {
 }
 
 function renderActivity(fit = false) {
-  const filter = document.getElementById('version-filter').value;
   const players = selectedPlayers();
+  document.getElementById('dashboard-version').textContent = `Live · Version ${activity.published_version}`;
   const counts = {
     player: players.length, registered: 0, active: 0, completed: 0, abandoned: 0,
   };
@@ -52,9 +51,11 @@ function renderActivity(fit = false) {
     .sort((a, b) => b.score - a.score || (a.time_taken_minutes || 0) - (b.time_taken_minutes || 0)).slice(0, 10);
   document.getElementById('leaderboard').innerHTML = `<table><thead><tr><th>Rank</th><th>Player</th><th>Story</th><th>Score</th><th>Minutes</th></tr></thead><tbody>
     ${top.map((p, index) => `<tr><td class="rank">${index + 1}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.quest_name)} / v${p.game_version}</td><td class="score">${p.score}</td><td>${escapeHtml(p.time_taken_minutes)}</td></tr>`).join('') || '<tr><td colspan="5" class="table-empty">The finish line is waiting.</td></tr>'}</tbody></table>`;
-  const documents = Object.entries(activity.documents)
-    .filter(([version]) => filter === 'all' || version === filter);
-  const quests = documents.flatMap(([version, document]) => document.quests.map((q) => ({ ...q, name: `${q.name} / v${version}` })));
+  const questDocument = activity.documents[String(activity.published_version)];
+  const quests = (questDocument?.quests || []).map((quest) => ({
+    ...quest,
+    name: `${quest.name} / v${activity.published_version}`,
+  }));
   map.update({ quests }, { players, fit });
 }
 
@@ -64,13 +65,6 @@ async function refreshActivity() {
   const status = document.getElementById('players-status');
   try {
     activity = await Admin.api(`${gameApi}/activity`);
-    const filter = document.getElementById('version-filter');
-    const previous = filter.value;
-    filter.innerHTML = '<option value="all">All published versions</option>' + activity.versions.map((v) => `<option value="${v.version}">Version ${v.version}${v.version === activity.published_version ? ' (current)' : ''}</option>`).join('');
-    if ([...filter.options].some((option) => option.value === previous)) filter.value = previous;
-    const live = document.getElementById('live-version');
-    live.textContent = activity.published_version ? `New players join version ${activity.published_version}. Existing players keep their assigned story.`
-      : 'Not published yet. Open Edit game to create or import your first story.';
     renderActivity(firstLoad);
     firstLoad = false;
     status.textContent = `Last updated ${new Date().toLocaleTimeString()}`;
@@ -101,10 +95,6 @@ document.getElementById('reset-all').addEventListener('click', async (event) => 
   });
 });
 document.getElementById('refresh-players').addEventListener('click', (event) => Admin.busy(event.currentTarget, refreshActivity));
-document.getElementById('version-filter').addEventListener('change', () => { if (activity) renderActivity(true); });
-document.getElementById('copy-endpoint').addEventListener('click', (event) => Admin.busy(event.currentTarget, async () => {
-  await navigator.clipboard.writeText(document.getElementById('mcp-endpoint').textContent); Admin.notify('MCP endpoint copied.');
-}));
 document.getElementById('fit-map').addEventListener('click', () => map.fit());
 document.getElementById('fullscreen-map').addEventListener('click', (event) => Admin.busy(event.currentTarget, () => map.fullscreen(document.getElementById('dashboard-map-panel'))));
 document.addEventListener('fullscreenchange', () => map.resize());

@@ -14,7 +14,7 @@ Open the existing **.env** file and confirm the deployed Agent42 A2A
 URL is already present:
 
 ```env
-AGENT42_URL=https://agent42.workshop.agentcon.dev/
+AGENT42_URL={{ agent42_url }}
 ```
 
 > [!Hint] A2A stands for Agent-to-Agent. It lets one agent call another agent as

@@ -1,7 +1,7 @@
 """Azure Tables-backed storage for the multi-game 'Lost in the City' workshop.
 
 Tables (auto-created on startup):
-  games    PK="games"  RK=slug      {display_name, created_at}
+  games    PK="games"  RK=slug      {display_name, city, created_at}
   quests   PK=slug     RK="quests"  {payload, draft_payload, version, revision}
   quests   PK=slug     RK="vN"      {payload: immutable published story}
   players  PK=slug     RK=player_id {data: JSON-encoded player state}
@@ -22,6 +22,7 @@ from azure.core.exceptions import HttpResponseError, ResourceExistsError, Resour
 from azure.data.tables import TableEntity, TableServiceClient, UpdateMode
 from dotenv import load_dotenv
 from quest_validation import validate_document
+from game_schedule import GameSchedule
 
 load_dotenv(override=True)
 
@@ -69,6 +70,11 @@ def _validate_slug(slug: str) -> str:
     return slug
 
 
+def _default_city(display_name: str) -> str:
+    prefix = "lost in "
+    return display_name[len(prefix):].strip() if display_name.lower().startswith(prefix) else display_name
+
+
 def init_storage() -> None:
     """Create tables if missing and seed the default game if none exist."""
     svc = _svc()
@@ -107,11 +113,7 @@ def list_games() -> list[dict[str, Any]]:
     t = _svc().get_table_client(GAMES_TABLE)
     out: list[dict[str, Any]] = []
     for e in t.query_entities("PartitionKey eq 'games'"):
-        out.append({
-            "slug": e["RowKey"],
-            "display_name": e.get("display_name", e["RowKey"]),
-            "created_at": e.get("created_at"),
-        })
+        out.append(_game_info(e))
     out.sort(key=lambda g: g["slug"])
     return out
 
@@ -121,36 +123,80 @@ def get_game(slug: str) -> dict[str, Any] | None:
         e = _svc().get_table_client(GAMES_TABLE).get_entity("games", slug)
     except ResourceNotFoundError:
         return None
+    return _game_info(e)
+
+
+def _game_info(e: TableEntity) -> dict[str, Any]:
+    display_name = e.get("display_name", e["RowKey"])
     return {
         "slug": e["RowKey"],
-        "display_name": e.get("display_name", e["RowKey"]),
+        "display_name": display_name,
+        "city": e.get("city") or _default_city(display_name),
         "created_at": e.get("created_at"),
+        "starts_at": e.get("starts_at", ""),
+        "ends_at": e.get("ends_at", ""),
+        "timezone": e.get("timezone", "UTC"),
+        "player_mode": e.get("player_mode", "guided"),
+        "schedule_revision": int(e.get("schedule_revision", 0)),
     }
 
 
-def create_game(slug: str, display_name: str, quests: dict[str, Any] | None = None) -> dict[str, Any]:
+def create_game(
+    slug: str, display_name: str, quests: dict[str, Any] | None = None,
+    *, city: str | None = None, schedule: GameSchedule | None = None,
+) -> dict[str, Any]:
     slug = _validate_slug(slug)
     display_name = (display_name or slug).strip() or slug
+    city = (city or _default_city(display_name)).strip()
+    if not city:
+        raise ValueError("City is required.")
+    document = quests if quests is not None else {"city": city, "quests": []}
     if quests is not None:
         errors = validate_document(quests, publish=True)["errors"]
         if errors:
             raise ValueError("\n".join(errors))
-    _svc().get_table_client(GAMES_TABLE).create_entity({
+        document_city = quests.get("city")
+        if isinstance(document_city, str) and document_city.strip():
+            city = document_city.strip()
+    entity = TableEntity({
         "PartitionKey": "games",
         "RowKey": slug,
         "display_name": display_name,
+        "city": city,
         "created_at": utcnow_iso(),
+        **(schedule or GameSchedule()).storage_fields(),
+        "schedule_revision": 1,
     })
-    payload = json.dumps(quests if quests is not None else {"quests": []}, ensure_ascii=False)
+    _svc().get_table_client(GAMES_TABLE).create_entity(entity)
+    payload = json.dumps(document, ensure_ascii=False)
     _svc().get_table_client(QUESTS_TABLE).create_entity({
         "PartitionKey": slug, "RowKey": "quests",
-        "payload": payload if quests is not None else '{"quests":[]}',
+        "payload": payload,
         "draft_payload": payload, "version": 0, "revision": 1,
         "updated_at": utcnow_iso(),
     })
     if quests is not None:
         publish_draft(slug, 1)
-    return {"slug": slug, "display_name": display_name}
+    return _game_info(entity)
+
+
+def save_schedule(slug: str, schedule: GameSchedule, revision: int) -> dict[str, Any]:
+    table = _svc().get_table_client(GAMES_TABLE)
+    entity = table.get_entity("games", _validate_slug(slug))
+    if int(entity.get("schedule_revision", 0)) != revision:
+        raise ContentConflict("The schedule changed. Reload before saving.")
+    entity.update(schedule.storage_fields())
+    entity["schedule_revision"] = revision + 1
+    try:
+        table.update_entity(
+            entity, mode=UpdateMode.REPLACE, etag=entity.metadata["etag"],
+            match_condition=MatchConditions.IfNotModified,
+        )
+    except HttpResponseError as exc:
+        if exc.status_code != 412:
+            raise
+        raise ContentConflict("The schedule changed. Reload before saving.") from exc
+    return _game_info(entity)
 
 
 def delete_game(slug: str) -> None:
@@ -170,6 +216,10 @@ def delete_game(slug: str) -> None:
 
 class ContentConflict(ValueError):
     """Another operator modified the draft; never silently overwrite it."""
+
+
+class VersionDeletionError(ValueError):
+    """A published version cannot be safely deleted."""
 
 
 def _content_state(slug: str) -> TableEntity:
@@ -220,6 +270,26 @@ def list_versions(slug: str) -> list[dict[str, Any]]:
         {"version": int(e["version"]), "published_at": e["published_at"]}
         for e in entities if str(e["RowKey"]).startswith("v")
     ], key=lambda item: item["version"], reverse=True)
+
+
+def delete_version(slug: str, version: int) -> None:
+    state = _content_state(slug)
+    if int(state["version"]) == version:
+        raise VersionDeletionError("The current published version cannot be deleted.")
+    players = [
+        player for player in list_players(slug).values()
+        if int(player.get("game_version", 1)) == version
+    ]
+    if players:
+        noun = "player is" if len(players) == 1 else "players are"
+        raise VersionDeletionError(
+            f"Version {version} cannot be deleted because {len(players)} {noun} still assigned to it. "
+            "Reset those players first."
+        )
+    try:
+        _svc().get_table_client(QUESTS_TABLE).delete_entity(_validate_slug(slug), f"v{version}")
+    except ResourceNotFoundError as exc:
+        raise KeyError(f"Version {version} does not exist.") from exc
 
 
 def load_draft(slug: str) -> dict[str, Any]:

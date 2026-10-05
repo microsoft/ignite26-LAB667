@@ -2,18 +2,19 @@
 {% block game_content %}
 <section class="editor-toolbar panel">
   <div><span class="eyebrow">STORY STUDIO</span><h2 id="draft-title">Loading draft...</h2><span id="draft-status" role="status" class="muted"></span></div>
-  <div class="actions">
-    <button id="reload-draft" class="button button-quiet" disabled>Reload</button>
-    <button id="save-draft" class="button button-quiet" disabled>Save draft</button>
-    <button id="publish-draft" class="button button-primary" disabled>Publish</button>
+  <div class="editor-toolbar-actions">
+    <div class="actions">
+      <button id="reload-draft" class="button button-quiet" disabled>Reload</button>
+      <button id="save-draft" class="button button-quiet" disabled>Save draft</button>
+      <button id="publish-draft" class="button button-primary" disabled>Publish</button>
+    </div>
+    <div class="version-manager">
+      <div class="actions"><label for="version-management">Published version</label><select id="version-management" disabled></select><button id="delete-version" class="button button-danger" disabled>Delete</button></div>
+      <span id="version-delete-status" class="muted" aria-live="polite">Loading versions...</span>
+    </div>
   </div>
 </section>
 <div class="studio-controls">
-  <div class="segmented" role="group" aria-label="Editor view">
-    <button data-view="story" aria-pressed="false">Story</button>
-    <button data-view="split" aria-pressed="true">Story + map</button>
-    <button data-view="map" aria-pressed="false">Full map</button>
-  </div>
   <div class="actions">
     <label class="preview-toggle"><input type="checkbox" id="story-preview" /> Story preview</label>
     <button id="import-json" class="button button-quiet" disabled>Import JSON</button>
@@ -22,32 +23,68 @@
   </div>
 </div>
 <div id="validation-summary" class="validation-summary" role="status" hidden></div>
-<div id="story-studio" class="story-studio" data-view="split" aria-busy="true">
+<div id="story-studio" class="story-studio" aria-busy="true">
   <aside class="quest-rail panel" aria-label="Quests">
     <span class="eyebrow">YOUR QUESTS</span><div id="quest-list"></div>
     <button id="add-quest" class="button button-quiet button-wide" disabled>+ Add quest</button>
   </aside>
   <section id="story-pane" class="story-pane" aria-label="Story timeline"><div class="empty-state">Loading story...</div></section>
-  <section class="panel map-panel studio-map" id="editor-map-panel">
-    <div class="panel-heading"><h2>Story locations</h2><button id="fullscreen-map" class="button button-quiet">Fullscreen</button></div>
-    <div class="field"><label for="map-quest-filter">Show on map</label><select id="map-quest-filter"><option value="all">All quests</option></select></div>
-    <div class="map-tools"><button id="fit-map" class="button button-quiet">Fit all points</button><span class="muted">Select a point to find its scene</span></div>
-    <div id="game-map" class="game-map" aria-label="Draft story locations"></div>
-    <p id="map-status" class="map-status" role="status">Loading map...</p>
-    <div id="map-legend" class="map-legend"></div>
-    <p class="map-caption-text">Dashed lines show story order, not driving or walking directions. Missing coordinates are never guessed.</p>
-  </section>
 </div>
 <details class="panel advanced-editor"><summary>Advanced: raw JSON &amp; seed content</summary>
   <p>Changes here are not applied until you validate and confirm them. Unknown JSON fields are preserved by the visual editor.</p>
   <label for="raw-quests">Draft JSON</label><textarea id="raw-quests" class="code-editor" spellcheck="false"></textarea>
   <div class="actions"><button id="apply-json" class="button button-quiet" disabled>Validate &amp; apply JSON</button><button id="import-seed" class="button button-quiet" disabled>Import seed quests</button></div>
 </details>
+<section class="editor-settings" aria-labelledby="editor-settings-title">
+  <div class="section-heading">
+    <div><span class="eyebrow">GAME SETUP</span><h2 id="editor-settings-title">Schedule &amp; player</h2></div>
+  </div>
+  <div class="editor-settings-grid">
+    <article class="panel">
+      <h3>Play window</h3>
+      <p id="game-availability" role="status">{{ availability.message }}</p>
+      <form id="schedule-form" class="form-grid" data-revision="{{ game.schedule_revision }}">
+        {% include "admin_schedule_fields.html" %}
+        <div class="form-footer">
+          <button type="submit" class="button button-primary">Save settings</button>
+          <p id="schedule-error" class="form-error" role="alert" hidden></p>
+        </div>
+      </form>
+    </article>
+    <article class="panel">
+      <div class="panel-heading"><h3>Player experience</h3><span class="mode-pill badge" data-player-mode>{{ 'Challenge mode' if game.player_mode == 'challenge' else 'Guided mode' }}</span></div>
+      <div class="field">
+        <label for="player-mode">Player mode</label>
+        <select id="player-mode" name="player_mode" form="schedule-form">
+          <option value="guided" {% if game.player_mode != 'challenge' %}selected{% endif %}>Guided Mode</option>
+          <option value="challenge" {% if game.player_mode == 'challenge' %}selected{% endif %}>Challenge Mode</option>
+        </select>
+        <small>Guided Mode shows the complete workshop lessons. Challenge Mode shows setup, goals, and success criteria without step-by-step guidance.</small>
+      </div>
+      <p>The published city, story, game endpoint, and schedule are filled in automatically. Player content remains available before and after the play window.</p>
+      <div class="actions">
+        <a class="button button-quiet" href="{{ dashboard_url }}/{{ game.slug }}/player" target="_blank" rel="noopener">Open player &nearr;</a>
+        <a class="button button-quiet" href="/{{ game.slug }}/player" target="_blank" rel="noopener">Preview player &nearr;</a>
+      </div>
+    </article>
+  </div>
+</section>
 <dialog id="import-dialog" class="confirm-dialog" aria-labelledby="import-title">
   <form method="dialog"><span class="eyebrow">REVIEW BEFORE REPLACING</span><h2 id="import-title">Import story</h2>
     <div id="import-summary"></div><p>This replaces the draft in the editor only. Save it, then publish when ready. Existing players are unaffected.</p>
     <div class="actions"><button value="cancel" class="button button-quiet" autofocus>Cancel</button><button value="confirm" class="button button-primary">Replace editor draft</button></div>
   </form>
 </dialog>
+<dialog id="scene-dialog" class="editor-dialog" aria-labelledby="scene-dialog-title">
+  <div class="editor-dialog-header">
+    <div><span id="scene-dialog-label" class="eyebrow"></span><h2 id="scene-dialog-title"></h2></div>
+    <button id="close-scene-editor-top" type="button" class="button button-quiet" aria-label="Close editor">Close</button>
+  </div>
+  <div id="scene-dialog-body" class="editor-dialog-body"></div>
+  <div class="editor-dialog-footer"><button id="close-scene-editor" type="button" class="button button-primary">Done</button></div>
+</dialog>
 {% endblock %}
-{% block game_scripts %}<script src="/static/js/admin_editor.js"></script>{% endblock %}
+{% block game_scripts %}
+<script src="/static/js/admin_editor.js"></script>
+<script src="/static/js/admin_schedule.js"></script>
+{% endblock %}

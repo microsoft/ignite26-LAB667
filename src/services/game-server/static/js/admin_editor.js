@@ -6,19 +6,41 @@ let saved = '';
 let selectedQuest = 0;
 let selectedMission = null;
 let busy = false;
-let mapFilter = 'all';
-let view = 'split';
-const map = new GameMap.Controller({
-  onSelect: (point) => selectMission(point.questIndex, point.missionIndex),
-  onPick: (target, coords) => {
-    const mission = draft.document.quests[target.questIndex].missions[target.missionIndex];
-    mission[`${target.endpoint}_lat`] = Number(coords.lat.toFixed(6));
-    mission[`${target.endpoint}_lng`] = Number(coords.lng.toFixed(6));
-    markChanged();
-    render();
-    Admin.notify('Pin updated in the draft. Save when ready.');
-  },
-});
+let versionState = null;
+const editorDialog = document.getElementById('scene-dialog');
+const editorDialogBody = document.getElementById('scene-dialog-body');
+
+function updateVersionDelete() {
+  const select = document.getElementById('version-management');
+  const button = document.getElementById('delete-version');
+  const status = document.getElementById('version-delete-status');
+  const selected = versionState?.versions.find((item) => String(item.version) === select.value);
+  if (!selected) {
+    button.disabled = true;
+    status.textContent = versionState?.versions.length ? 'Select a published version.' : 'No published versions yet.';
+  } else if (selected.version === versionState.published_version) {
+    button.disabled = true;
+    status.textContent = 'Current version; new players receive this story.';
+  } else if (selected.player_count) {
+    button.disabled = true;
+    status.textContent = `${selected.player_count} ${selected.player_count === 1 ? 'player is' : 'players are'} assigned. Reset them before deleting.`;
+  } else {
+    button.disabled = false;
+    status.textContent = `Version ${selected.version} can be deleted.`;
+  }
+}
+
+async function refreshVersions(preserveSelection = false) {
+  const select = document.getElementById('version-management');
+  const previous = select.value;
+  versionState = await Admin.api(`${apiRoot}/versions`);
+  select.innerHTML = versionState.versions.map((item) =>
+    `<option value="${item.version}">Version ${item.version}${item.version === versionState.published_version ? ' (current)' : ''}</option>`).join('');
+  const available = versionState.versions.some((item) => String(item.version) === previous);
+  select.value = preserveSelection && available ? previous : String(versionState.published_version || '');
+  select.disabled = !versionState.versions.length;
+  updateVersionDelete();
+}
 
 function unsaved() { return draft && JSON.stringify(draft.document) !== saved; }
 
@@ -51,7 +73,6 @@ function feedback(errors = [], warnings = []) {
 }
 
 function acceptDraft(result) {
-  const initial = draft === null;
   draft = result;
   saved = JSON.stringify(draft.document);
   selectedQuest = Math.max(0, Math.min(selectedQuest, draft.document.quests.length - 1));
@@ -59,7 +80,6 @@ function acceptDraft(result) {
   studio.setAttribute('aria-busy', 'false');
   feedback(result.errors, result.warnings);
   render();
-  if (initial) syncMap(true);
 }
 
 async function action(callback) {
@@ -72,29 +92,6 @@ async function action(callback) {
   finally { busy = false; studio.inert = false; updateStatus(); }
 }
 
-function syncMap(fit = false) {
-  if (!draft) return;
-  map.update(draft.document, { filter: mapFilter, fit,
-    selected: selectedMission === null ? null : { questIndex: selectedQuest, missionIndex: selectedMission } });
-}
-
-function selectMission(qi, mi) {
-  if (qi == null || mi == null) return;
-  selectedQuest = qi;
-  selectedMission = mi;
-  render();
-  if (view === 'map') setView('split');
-  document.getElementById(`mission-${mi}`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-}
-
-function setView(next) {
-  view = next;
-  studio.dataset.view = next;
-  if (map.pending) { map.pending = null; syncMap(); }
-  document.querySelectorAll('button[data-view]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.view === next)));
-  requestAnimationFrame(() => map.resize());
-}
-
 function field(label, path, value, { multiline = false, type = 'text', hint = '' } = {}) {
   const id = `field-${path.replaceAll('.', '-')}`;
   const input = multiline
@@ -103,15 +100,20 @@ function field(label, path, value, { multiline = false, type = 'text', hint = ''
   return `<div class="field"><label for="${id}">${esc(label)}</label>${input}${hint ? `<small>${esc(hint)}</small>` : ''}</div>`;
 }
 
+function openEditor(label, title, content) {
+  document.getElementById('scene-dialog-label').textContent = label;
+  document.getElementById('scene-dialog-title').textContent = title;
+  editorDialogBody.innerHTML = content;
+  editorDialog.showModal();
+}
+
 function sceneCard(section, title, content) {
-  const prefix = `quests.${selectedQuest}.${section}`;
-  return `<article class="story-card story-bookend"><span class="eyebrow">${esc(title)}</span>
+  const label = section === 'begin' ? 'START' : 'FINISH';
+  return `<article class="story-card story-bookend ${section === 'begin' ? 'story-start' : 'story-finish'}">
+    <div class="scene-card-header"><div><span class="timeline-label">${label}</span><span class="eyebrow">${esc(title)}</span></div>
+      <button type="button" class="button button-quiet card-actions" data-action="edit-scene" data-section="${section}">Edit</button></div>
     <p class="story-prose">${esc(content.prompt || 'No scene written yet.')}</p>
-    ${content.flavor ? `<p class="story-flavor">${esc(content.flavor)}</p>` : ''}
-    <details class="scene-edit"><summary>Edit ${section === 'begin' ? 'opening' : 'ending'}</summary>
-      ${field('Scene text', `${prefix}.prompt`, content.prompt, { multiline: true })}
-      ${field('Atmosphere / flavor', `${prefix}.flavor`, content.flavor, { multiline: true })}
-    </details></article>`;
+    ${content.flavor ? `<p class="story-flavor">${esc(content.flavor)}</p>` : ''}</article>`;
 }
 
 function endpointFields(mission, mi, endpoint) {
@@ -120,60 +122,93 @@ function endpointFields(mission, mi, endpoint) {
   return `<fieldset class="location-fields"><legend>${endpoint === 'start' ? 'Origin' : 'Destination'} ${available ? '' : '<span class="coordinate-warning">Needs a map pin</span>'}</legend>
     ${field('Address', `${path}_address`, mission[`${endpoint}_address`])}
     <div class="coordinate-fields">${field('Latitude', `${path}_lat`, mission[`${endpoint}_lat`], { type: 'number' })}${field('Longitude', `${path}_lng`, mission[`${endpoint}_lng`], { type: 'number' })}</div>
-    <div class="actions"><button class="button button-quiet" data-action="geocode" data-mi="${mi}" data-endpoint="${endpoint}">Look up address</button>
-    <button class="button button-quiet" data-action="pick" data-mi="${mi}" data-endpoint="${endpoint}">Pick on map</button></div>
+    <div class="actions"><button class="button button-quiet" data-action="geocode" data-mi="${mi}" data-endpoint="${endpoint}">Look up address</button></div>
     <div id="candidates-${mi}-${endpoint}" class="geocode-candidates" role="status"></div>
   </fieldset>`;
 }
 
-function missionCard(mission, mi, count) {
+function routePreview(mission) {
+  const start = mission.start_address || 'Choose an origin';
+  const end = mission.end_address || 'Choose a destination';
+  const mapped = GameMap.valid(mission.start_lat, mission.start_lng) && GameMap.valid(mission.end_lat, mission.end_lng);
+  return `<div class="route-map-preview ${mapped ? 'is-mapped' : 'needs-pins'}" aria-label="Azure Maps preview from ${esc(start)} to ${esc(end)}"
+      ${mapped ? `data-start-lat="${mission.start_lat}" data-start-lng="${mission.start_lng}" data-end-lat="${mission.end_lat}" data-end-lng="${mission.end_lng}"` : ''}>
+      <div class="route-map-grid" data-route-map aria-hidden="true"></div>
+      <span class="route-map-state">${mapped ? 'Loading Azure Maps...' : 'Map pins needed'}</span>
+    </div>
+    <div class="route-timeline">
+      <div class="route-stop"><span class="route-stop-dot"></span><div><small>START</small><strong>${esc(start)}</strong></div></div>
+      <span class="route-arrow" aria-hidden="true">→</span>
+      <div class="route-stop route-stop-end"><span class="route-stop-dot"></span><div><small>END</small><strong>${esc(end)}</strong></div></div>
+    </div>`;
+}
+
+function answerPreview(mission, moving = false) {
+  const answers = mission.valid_answers?.length ? mission.valid_answers : moving ? ['car', 'walking', 'bike'] : [];
+  return `<div class="answer-panel" aria-label="Accepted answers"><span class="answer-label">${moving ? 'Accepted travel answers' : `Accepted ${answers.length === 1 ? 'answer' : 'answers'}`}</span>
+    <div class="answer-chips">${answers.length
+    ? answers.map((answer) => `<span>${esc(answer)}</span>`).join('')
+    : '<span class="answer-empty">No accepted answers yet</span>'}</div></div>`;
+}
+
+function missionActions(mi, count) {
+  return `<details class="action-menu card-actions"><summary aria-label="Actions for mission ${mi + 1}">Actions</summary>
+    <div class="action-menu-panel">
+      <button type="button" data-action="edit-mission" data-mi="${mi}">Edit</button>
+      <button type="button" data-action="up" data-mi="${mi}" ${mi === 0 ? 'disabled' : ''}>Move up</button>
+      <button type="button" data-action="down" data-mi="${mi}" ${mi === count - 1 ? 'disabled' : ''}>Move down</button>
+      <button type="button" data-action="duplicate-mission" data-mi="${mi}">Duplicate</button>
+      <button type="button" class="danger-action" data-action="delete-mission" data-mi="${mi}">Remove</button>
+    </div></details>`;
+}
+
+function missionEditor(mission, mi) {
   const path = `quests.${selectedQuest}.missions.${mi}`;
   const moving = mission.type === 'move';
-  const title = moving ? `${mission.start_address || 'Choose origin'} → ${mission.end_address || 'Choose destination'}`
-    : mission.mission || 'Write your question';
+  return `${field('Mission ID', `${path}.id`, mission.id)}
+    ${!moving ? field('Question', `${path}.mission`, mission.mission, { multiline: true }) : ''}
+    ${field('Arrival scene', `${path}.arrival_prompt`, mission.arrival_prompt, { multiline: true })}
+    ${field('Completion scene', `${path}.complete_prompt`, mission.complete_prompt, { multiline: true })}
+    ${moving ? endpointFields(mission, mi, 'start') + endpointFields(mission, mi, 'end') : ''}
+    ${field(moving ? 'Accepted transport choices (optional)' : 'Accepted answers — operator only', `${path}.valid_answers`, (mission.valid_answers || []).join('\n'), { multiline: true, hint: moving ? 'One per line. Leave empty for car, walking, and bike.' : 'One accepted answer per line. Hidden in story preview.' })}`;
+}
+
+function missionCard(mission, mi, count) {
+  const moving = mission.type === 'move';
+  const title = moving ? 'Travel to the next scene' : mission.mission || 'Write your question';
   return `<article id="mission-${mi}" class="story-card mission-card ${moving ? 'travel-card' : 'question-card'} ${selectedMission === mi ? 'is-selected' : ''}" data-mi="${mi}">
     <div class="scene-heading"><span class="mission-number">${String(mi + 1).padStart(2, '0')}</span>
-      <div><span class="eyebrow">${moving ? 'TRAVEL' : 'QUESTION'} / ${esc(mission.id)}</span><h3>${esc(title)}</h3></div></div>
-    <p class="story-prose">${esc(mission.arrival_prompt || 'No arrival scene written yet.')}</p>
-    ${mission.complete_prompt ? `<details class="completion-scene"><summary>After completing this mission</summary><p class="story-prose">${esc(mission.complete_prompt)}</p></details>` : ''}
-    <details class="scene-edit"><summary>Edit mission</summary>
-      ${field('Mission ID', `${path}.id`, mission.id)}
-      ${!moving ? field('Question', `${path}.mission`, mission.mission, { multiline: true }) : ''}
-      ${field('Arrival scene', `${path}.arrival_prompt`, mission.arrival_prompt, { multiline: true })}
-      ${field('Completion scene', `${path}.complete_prompt`, mission.complete_prompt, { multiline: true })}
-      ${moving ? endpointFields(mission, mi, 'start') + endpointFields(mission, mi, 'end') : ''}
-      ${field(moving ? 'Accepted transport choices (optional)' : 'Accepted answers — operator only', `${path}.valid_answers`, (mission.valid_answers || []).join('\n'), { multiline: true, hint: moving ? 'One per line. Leave empty for car, walking, and bike.' : 'One accepted answer per line. Hidden in story preview.' })}
-    </details>
-    <div class="scene-actions">
-      <button class="button button-quiet" data-action="up" data-mi="${mi}" ${mi === 0 ? 'disabled' : ''} aria-label="Move mission ${mi + 1} up">↑ Up</button>
-      <button class="button button-quiet" data-action="down" data-mi="${mi}" ${mi === count - 1 ? 'disabled' : ''} aria-label="Move mission ${mi + 1} down">↓ Down</button>
-      <button class="button button-quiet" data-action="duplicate-mission" data-mi="${mi}">Duplicate</button>
-      <button class="button button-danger" data-action="delete-mission" data-mi="${mi}">Remove</button>
+      <div class="scene-title"><span class="eyebrow">${moving ? 'TRAVEL' : 'QUESTION'} / ${esc(mission.id)}</span><h3>${esc(title)}</h3></div>
+      ${missionActions(mi, count)}</div>
+    <div class="mission-progress" aria-label="Mission flow"><span>Start</span><b aria-hidden="true">→</b><span>Answer</span><b aria-hidden="true">→</b><span>Complete</span></div>
+    <div class="mission-flow">
+      <section class="mission-phase phase-start"><span class="phase-label">START</span>
+        <div class="phase-content"><p class="story-prose">${esc(mission.arrival_prompt || 'No start scene written yet.')}</p></div></section>
+      <section class="mission-phase phase-answer"><span class="phase-label">ANSWER</span>
+        <div class="phase-content">${moving ? routePreview(mission) + answerPreview(mission, true) : answerPreview(mission)}</div></section>
+      <section class="mission-phase phase-complete"><span class="phase-label">COMPLETE</span>
+        <div class="phase-content"><p class="story-prose">${esc(mission.complete_prompt || 'No completion scene written yet.')}</p></div></section>
     </div>
   </article>`;
 }
 
 function render() {
-  map.pending = null;
   const quests = draft.document.quests;
   document.getElementById('quest-list').innerHTML = quests.map((quest, qi) =>
     `<button class="quest-link ${qi === selectedQuest ? 'selected' : ''}" data-quest="${qi}" ${qi === selectedQuest ? 'aria-current="true"' : ''}>
       <span>${String(qi + 1).padStart(2, '0')}</span><span>${esc(quest.name || 'Untitled quest')}<small>${quest.missions.length} missions</small></span></button>`).join('');
-  const filter = document.getElementById('map-quest-filter');
-  if (mapFilter !== 'all' && !quests[Number(mapFilter)]) mapFilter = 'all';
-  filter.innerHTML = '<option value="all">All quests</option>' + quests.map((q, qi) => `<option value="${qi}">${esc(q.name || 'Untitled quest')}</option>`).join('');
-  filter.value = mapFilter;
   const quest = quests[selectedQuest];
   document.getElementById('story-pane').innerHTML = !quest
     ? '<div class="empty-state"><h2>Your next story starts here.</h2><p>Add a quest or import a JSON file. Nothing goes live until you publish.</p></div>'
-    : `<div class="quest-heading"><span class="eyebrow">QUEST ${esc(quest.id)}</span><h2>${esc(quest.name || 'Untitled quest')}</h2>
-      <details class="scene-edit"><summary>Quest settings</summary>${field('Quest name', `quests.${selectedQuest}.name`, quest.name)}
-      <div class="actions"><button class="button button-quiet" data-action="duplicate-quest">Duplicate quest</button><button class="button button-danger" data-action="delete-quest">Remove quest</button></div></details></div>
+    : `<div class="quest-heading"><div><span class="eyebrow">QUEST ${esc(quest.id)}</span><h2>${esc(quest.name || 'Untitled quest')}</h2></div>
+      <details class="action-menu quest-action-menu card-actions"><summary aria-label="Quest actions">Actions</summary><div class="action-menu-panel">
+        <button type="button" data-action="edit-quest">Edit</button><button type="button" data-action="duplicate-quest">Duplicate</button>
+        <button type="button" class="danger-action" data-action="delete-quest">Remove</button></div></details></div>
       <div class="story-timeline">${sceneCard('begin', 'OPENING SCENE', quest.begin || {})}
       ${quest.missions.map((m, mi) => missionCard(m, mi, quest.missions.length)).join('')}
       <div class="add-mission-actions"><button class="button button-quiet" data-action="add-move">+ Travel mission</button><button class="button button-quiet" data-action="add-question">+ Question mission</button></div>
       ${sceneCard('end', 'ENDING SCENE', quest.end || {})}</div>`;
-  syncMap();
+  GameMap.renderRoutePreviews(document.getElementById('story-pane'));
   updateStatus();
 }
 
@@ -194,15 +229,13 @@ async function previewImport(document, source) {
   draft.document = document;
   selectedQuest = 0;
   selectedMission = null;
-  mapFilter = 'all';
   markChanged();
   feedback([], result.warnings);
   render();
-  map.fit();
   Admin.notify('Imported into the editor. Save draft, then publish when ready.');
 }
 
-document.getElementById('story-pane').addEventListener('input', (event) => {
+function updateField(event) {
   const path = event.target.dataset.field;
   if (!path || busy) return;
   const keys = path.split('.');
@@ -214,41 +247,44 @@ document.getElementById('story-pane').addEventListener('input', (event) => {
   else if (event.target.type === 'number') value = value === '' ? null : Number(value);
   target[key] = value;
   markChanged();
-  syncMap();
-  const card = event.target.closest('.story-card');
-  if (card && (key === 'arrival_prompt' || key === 'prompt')) card.querySelector('.story-prose').textContent = value;
-  if (card && key === 'mission') card.querySelector('h3').textContent = value;
-  if (key === 'name') document.querySelector('.quest-heading h2').textContent = value;
-});
+}
+document.getElementById('story-pane').addEventListener('input', updateField);
+editorDialog.addEventListener('input', updateField);
 
 document.getElementById('quest-list').addEventListener('click', (event) => {
   const button = event.target.closest('[data-quest]');
   if (!button || busy) return;
   selectedQuest = Number(button.dataset.quest);
   selectedMission = null;
-  mapFilter = String(selectedQuest);
-  render(); map.fit();
+  render();
 });
 
-document.getElementById('story-pane').addEventListener('click', async (event) => {
+async function handleStoryAction(event) {
   const button = event.target.closest('[data-action]');
-  if (!button || busy) {
-    const card = event.target.closest('.mission-card');
-    if (card && draft) { selectedMission = Number(card.dataset.mi); syncMap(); }
-    return;
-  }
+  if (!button || busy) return;
   const quest = draft.document.quests[selectedQuest];
   const mi = Number(button.dataset.mi);
   const endpoint = button.dataset.endpoint;
   const actionName = button.dataset.action;
   try {
-    if (actionName === 'pick') {
-      selectedMission = mi;
-      mapFilter = String(selectedQuest);
-      setView('split');
-      syncMap();
-      map.pick({ questIndex: selectedQuest, missionIndex: mi, endpoint });
-      document.getElementById('editor-map-panel').scrollIntoView({ block: 'nearest' });
+    if (actionName === 'edit-quest') {
+      openEditor('QUEST SETTINGS', quest.name || 'Untitled quest',
+        field('Quest name', `quests.${selectedQuest}.name`, quest.name));
+      return;
+    }
+    if (actionName === 'edit-scene') {
+      const section = button.dataset.section;
+      const content = quest[section] || {};
+      const prefix = `quests.${selectedQuest}.${section}`;
+      openEditor(section === 'begin' ? 'OPENING SCENE' : 'ENDING SCENE', section === 'begin' ? 'Edit the opening' : 'Edit the ending',
+        `${field('Scene text', `${prefix}.prompt`, content.prompt, { multiline: true })}
+        ${field('Atmosphere / flavor', `${prefix}.flavor`, content.flavor, { multiline: true })}`);
+      return;
+    }
+    if (actionName === 'edit-mission') {
+      const mission = quest.missions[mi];
+      openEditor(`${mission.type === 'move' ? 'TRAVEL' : 'QUESTION'} / MISSION ${mi + 1}`,
+        mission.type === 'move' ? 'Edit travel mission' : 'Edit question mission', missionEditor(mission, mi));
       return;
     }
     if (actionName === 'geocode') {
@@ -267,8 +303,10 @@ document.getElementById('story-pane').addEventListener('click', async (event) =>
             choice.addEventListener('click', () => {
               quest.missions[mi][`${endpoint}_lat`] = candidate.lat;
               quest.missions[mi][`${endpoint}_lng`] = candidate.lng;
-              markChanged(); render(); map.fit();
-              Admin.notify('Location selected. Verify its pin on the map before publishing.');
+              markChanged();
+              if (editorDialog.open) editorDialog.close();
+              render();
+              Admin.notify('Location selected. Verify the route preview before publishing.');
             });
             resultBox.append(choice);
           });
@@ -304,6 +342,14 @@ document.getElementById('story-pane').addEventListener('click', async (event) =>
     } else return;
     markChanged(); render();
   } catch (error) { Admin.notify(error.message, true); }
+}
+document.getElementById('story-pane').addEventListener('click', handleStoryAction);
+editorDialog.addEventListener('click', handleStoryAction);
+document.getElementById('close-scene-editor').addEventListener('click', () => editorDialog.close());
+document.getElementById('close-scene-editor-top').addEventListener('click', () => editorDialog.close());
+editorDialog.addEventListener('close', () => {
+  editorDialogBody.replaceChildren();
+  if (draft) render();
 });
 
 document.getElementById('add-quest').addEventListener('click', () => {
@@ -323,6 +369,7 @@ document.getElementById('publish-draft').addEventListener('click', () => action(
   if (check.errors.length) throw new Error('Correct the validation errors before publishing.');
   if (!await Admin.confirmAction('Publish this story?', `New players will receive version ${draft.published_version + 1}. Existing players keep their assigned version.${check.warnings.length ? ` ${check.warnings.length} map endpoints have no coordinates.` : ''}`, 'Publish version')) return;
   acceptDraft(await Admin.api(`${apiRoot}/publish`, { method: 'POST', body: JSON.stringify({ revision: draft.revision }) }));
+  await refreshVersions();
   Admin.notify(`Version ${draft.published_version} published for new players.`);
 }));
 document.getElementById('reload-draft').addEventListener('click', () => action(async () => {
@@ -352,17 +399,25 @@ document.getElementById('export-json').addEventListener('click', () => {
   link.href = url; link.download = `${document.body.dataset.slug}-draft.json`; link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 });
-document.querySelectorAll('button[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 document.getElementById('story-preview').addEventListener('change', (event) => {
   studio.classList.toggle('preview-mode', event.target.checked);
   if (draft) render();
-  requestAnimationFrame(() => map.resize());
 });
-document.getElementById('map-quest-filter').addEventListener('change', (event) => { mapFilter = event.target.value; syncMap(true); });
-document.getElementById('fit-map').addEventListener('click', () => map.fit());
-document.getElementById('fullscreen-map').addEventListener('click', (event) => Admin.busy(event.currentTarget, () => map.fullscreen(document.getElementById('editor-map-panel'))));
-document.addEventListener('fullscreenchange', () => map.resize());
+document.getElementById('version-management').addEventListener('change', updateVersionDelete);
+document.getElementById('delete-version').addEventListener('click', async (event) => {
+  const button = event.currentTarget;
+  const version = Number(document.getElementById('version-management').value);
+  if (!await Admin.confirmAction(`Delete version ${version}?`, 'This permanently removes the published story version. This cannot be undone.', 'Delete version')) return;
+  await Admin.busy(button, async () => {
+    await Admin.api(`${apiRoot}/versions/${version}`, { method: 'DELETE' });
+    Admin.notify(`Version ${version} deleted.`);
+    await refreshVersions();
+  });
+});
 window.addEventListener('beforeunload', (event) => { if (unsaved()) { event.preventDefault(); event.returnValue = ''; } });
+refreshVersions().catch((error) => {
+  document.getElementById('version-delete-status').textContent = `Versions unavailable: ${error.message}`;
+});
 Admin.api(`${apiRoot}/draft`).then(acceptDraft).catch((error) => {
   document.getElementById('draft-title').textContent = 'Draft unavailable';
   document.getElementById('story-pane').textContent = `${error.message} Reload the page to retry.`;

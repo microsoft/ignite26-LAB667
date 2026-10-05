@@ -181,6 +181,8 @@ class AdminAuthTests(unittest.TestCase):
             ("POST", "/api/games/san-francisco/publish", {"revision": 1}),
             ("POST", "/api/games/san-francisco/validate", {"document": {}}),
             ("GET", "/api/games/san-francisco/activity", None),
+            ("GET", "/api/games/san-francisco/versions", None),
+            ("DELETE", "/api/games/san-francisco/versions/1", None),
             ("GET", "/api/maps/config", None),
             ("GET", "/api/maps/geocode?query=San+Francisco", None),
         ]
@@ -282,13 +284,17 @@ class AdminAuthTests(unittest.TestCase):
         response = self.client.post("/api/games", json={"slug": "demo", "display_name": "Demo"}, headers=headers)
         self.assertEqual(response.json()["ok"], True)
         self.assertEqual(self.client.put("/api/games/demo/quests", json={"quests": []}, headers=headers).status_code, 409)
-        self.assertEqual(self.client.get("/api/games/demo/quests").json(), {"quests": []})
+        self.assertEqual(self.client.get("/api/games/demo/quests").json(), {"city": "Demo", "quests": []})
         draft = self.client.get("/api/games/demo/draft").json()
         saved = self.client.put("/api/games/demo/draft", json={"revision": draft["revision"], "document": storage.load_seed_quests()}, headers=headers)
         self.assertEqual(saved.status_code, 200)
         self.assertEqual(self.client.post("/api/games/demo/publish", json={"revision": saved.json()["revision"]}, headers=headers).status_code, 200)
         storage.save_player("demo", "p1", {"name": "Player", "status": "registered"})
         self.assertIn("p1", self.client.get("/api/games/demo/players").json()["players"])
+        versions = self.client.get("/api/games/demo/versions").json()
+        self.assertEqual(versions["published_version"], 1)
+        self.assertEqual(versions["versions"][0]["player_count"], 1)
+        self.assertEqual(self.client.delete("/api/games/demo/versions/1", headers=headers).status_code, 409)
         self.assertEqual(self.client.delete("/api/games/demo/players/p1", headers=headers).status_code, 200)
         self.assertEqual(self.client.delete("/api/games/demo", headers=headers).status_code, 200)
         self.assertIsNone(storage.get_game("demo"))
@@ -349,6 +355,7 @@ class AdminAuthTests(unittest.TestCase):
                 page.locator("main").get_by_role("link", name="Create a game").click()
                 expect(page).to_have_url(f"{origin}/games/new")
                 page.get_by_label("Game name", exact=True).fill("Browser adventure")
+                page.get_by_label("City", exact=True).fill("Amsterdam")
                 page.get_by_label("URL slug").fill("browser-adventure")
                 page.get_by_role("button", name="Create game").click()
                 expect(page).to_have_url(f"{origin}/games/browser-adventure/edit")
@@ -369,7 +376,8 @@ class AdminAuthTests(unittest.TestCase):
                 expect(page.locator("#draft-title")).to_have_text("Draft / live version 1")
                 self.assertEqual(storage.load_published("browser-adventure")[0], 1)
                 page.get_by_role("link", name="Dashboard", exact=True).click()
-                expect(page.locator("#live-version")).to_contain_text("New players join version 1")
+                expect(page.locator("#player-count")).to_have_text("0")
+                expect(page.get_by_role("region", name="Player summary")).to_be_visible()
                 page.get_by_role("button", name="Sign out").click()
                 expect(page).to_have_url(f"{origin}/login")
                 page.goto(origin)

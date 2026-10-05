@@ -11,11 +11,13 @@
     <p>Give your game a name and a unique route. You'll go straight to the story editor to add quests and missions. Your game starts as a draft: publish it when you're ready for players.</p></div>
   <form id="new-game-form" class="form-grid">
     <div class="field"><label for="new-name">Game name</label><input id="new-name" name="display_name" placeholder="Lost in San Francisco" maxlength="150" required autofocus /></div>
+    <div class="field"><label for="new-city">City</label><input id="new-city" name="city" placeholder="San Francisco" maxlength="100" required /></div>
     <div class="field"><label for="new-slug">URL slug</label><input id="new-slug" name="slug" placeholder="san-francisco" pattern="[a-z0-9][a-z0-9_-]{0,62}" maxlength="63" aria-describedby="slug-help" required />
       <small id="slug-help">Lowercase letters, numbers, dashes or underscores. Start with a letter or number. “new” is reserved.</small></div>
+    {% include "admin_schedule_fields.html" %}
     <div class="form-footer"><p id="add-status" class="form-error" role="alert" hidden></p></div>
     <div class="form-footer"><button type="submit" class="button button-primary">Create game <span aria-hidden="true">&rarr;</span></button><a href="/" class="button button-quiet">Cancel</a></div>
   </form>
 </section>
 {% endblock %}
-{% block scripts %}<script src="/static/js/admin_create_game.js"></script>{% endblock %}
+{% block scripts %}<script src="/static/js/admin_schedule.js"></script><script src="/static/js/admin_create_game.js"></script>{% endblock %}

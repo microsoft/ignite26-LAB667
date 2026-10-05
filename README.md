@@ -23,7 +23,7 @@ If you're following along during a live session:
 
 1. Step 1
 2. Step 2
-3. Open [`instructions/`](instructions/README.md) when this session includes
+3. Open [`player/`](player/README.md) when this session includes
    attendee step-by-step guidance
 
 #### On your own
@@ -32,7 +32,7 @@ If you're learning at your own pace:
 
 1. Clone this repository
 2. Set up your environment
-3. Follow the session guidance in [`instructions/`](instructions/README.md), or
+3. Follow the session guidance in [`player/`](player/README.md), or
    use the linked docs-site entry point when this repository uses that pattern
 
 ### Repository layout
@@ -40,7 +40,7 @@ If you're learning at your own pace:
 | Folder | Contents |
 | --- | --- |
 | [src/](src/README.md) | Shared game services, Agent42, and the reference player agent |
-| [instructions/](instructions/README.md) | Numbered attendee walkthrough and screenshots |
+| [player/](player/README.md) | Guided and challenge player chapters plus screenshots |
 | [data/](data/README.md) | San Francisco city-guide source material for retrieval |
 | [docs/](docs/README.md) | Workshop overview, local setup, gameplay, and authoring references |
 | [infra/](infra/README.md) | azd shared-service deployment and inactive legacy workflows |

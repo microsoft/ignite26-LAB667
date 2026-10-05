@@ -8,11 +8,11 @@ Use these repository-specific facts when working on Skillable export and deploym
 
 ## Key files
 
-- Workshop source files live in `instructions/[0-9][0-9]_*.md`.
-- `scripts/sync-to-skillable.py` generates `instructions/skillable.md` and `instructions/index.html`.
-- `instructions/skillable.md` is generated. Do not hand-edit it unless explicitly requested.
-- `instructions/index.html` is generated. Prefer updating `scripts/sync-to-skillable.py` and regenerating it.
-- `instructions/staticwebapp.config.json` configures Azure Static Web Apps MIME behavior for markdown.
+- Guided workshop source files live in `player/guided/[0-9][0-9]_*.md`.
+- `scripts/sync-to-skillable.py` generates `player/skillable.md` and `player/index.html`.
+- `player/skillable.md` is generated. Do not hand-edit it unless explicitly requested.
+- `player/index.html` is generated. Prefer updating `scripts/sync-to-skillable.py` and regenerating it.
+- `player/staticwebapp.config.json` configures Azure Static Web Apps MIME behavior for markdown.
 
 ## Skillable link format
 
@@ -78,9 +78,9 @@ The workshop no longer uploads markdown to Azure Blob Storage. Do not reintroduc
 
 The preserved deployment flow is:
 
-1. `scripts/sync-to-skillable.py` generates `instructions/skillable.md` and `instructions/index.html` locally.
+1. `scripts/sync-to-skillable.py` generates `player/skillable.md` and `player/index.html` locally.
 2. The inactive [mirror workflow](../../infra/legacy-workflows/mirror-workshop.yml)
-   defines mirroring of `instructions/` to the public repo `GlobalAICommunity/lab530-skillable`.
+   defines mirroring of `player/` to the public repo `GlobalAICommunity/lab530-skillable`.
 3. Skillable consumes the raw GitHub URLs from that public repo.
 
 ## GitHub Actions
