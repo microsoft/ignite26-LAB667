@@ -69,7 +69,19 @@
         </select>
         <small>Guided Mode shows the complete workshop lessons. Challenge Mode shows setup, goals, and success criteria without step-by-step guidance.</small>
       </div>
-      <p>The published city, story, game endpoint, and schedule are filled in automatically. Player content remains available before and after the play window.</p>
+      <div class="field">
+        <label class="setting-switch" for="competitive-mode">
+          <span class="setting-switch-copy">
+            <strong>Competitive mode</strong>
+            <small>Enable points, rankings, and leaderboards for this game. It is off by default.</small>
+          </span>
+          <span class="switch-control">
+            <input id="competitive-mode" name="competitive_mode" type="checkbox" role="switch" form="schedule-form" {% if game.competitive_mode %}checked{% endif %} />
+            <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          </span>
+        </label>
+      </div>
+      <p>The published city, story, game endpoint, and schedule are filled in automatically. Outside the play window, the Player page hides all instructions and shows a closed-window message.</p>
       <div class="actions">
         <a class="button button-quiet" href="{{ dashboard_url }}/{{ game.slug }}/player" target="_blank" rel="noopener">Open player &nearr;</a>
         <a class="button button-quiet" href="/{{ game.slug }}/player" target="_blank" rel="noopener">Preview player &nearr;</a>

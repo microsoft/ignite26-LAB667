@@ -4,7 +4,7 @@
 {% block body_attrs %} data-slug="{{ slug }}" data-display-name="{{ display_name }}" data-azure-maps-key="{{ azure_maps_key }}"{% endblock %}
 {% block head %}
   <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" />
-  <link rel="stylesheet" href="/static/css/dashboard.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=welcome-overlay-v1" />
   <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
 {% endblock %}
 {% block content %}
@@ -17,7 +17,14 @@
     <div id="map-status" class="pointer-events-none absolute left-4 top-4 hidden bg-ink/85 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-paper"></div>
   </section>
 </main>
+<div id="player-welcome-overlay" class="dashboard-welcome-overlay" role="status" aria-live="polite" hidden>
+  <div class="dashboard-welcome-card">
+    <span>New player</span>
+    <strong>Welcome, <span id="player-welcome-name"></span>!</strong>
+    <p>Your adventure starts now.</p>
+  </div>
+</div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/dashboard.js"></script>
+<script src="/static/js/dashboard.js?v=welcome-overlay-v1"></script>
 {% endblock %}

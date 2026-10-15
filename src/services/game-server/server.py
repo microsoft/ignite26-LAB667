@@ -20,6 +20,7 @@ import os
 import re
 from pathlib import Path
 from typing import Annotated, Any, AsyncGenerator
+from urllib.parse import quote
 
 import anyio
 from anyio.abc import TaskGroup, TaskStatus
@@ -48,6 +49,7 @@ from quest_logic import (
     _as_text,
     _canonical_answer,
     _compute_score,
+    _elapsed_minutes,
     _current_mission_index,
     _mission_type,
     _normalize_quest,
@@ -59,6 +61,7 @@ load_dotenv(override=True)
 MCP_HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.environ.get("MCP_PORT", "8000"))
 ROUTE_REF_RE = re.compile(r"^[a-z0-9]{15}$")
+DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:8090").rstrip("/")
 
 BASE_DIR = Path(__file__).resolve().parent
 ACTIVE_PLAYER_STATUSES = {"mission"}
@@ -152,7 +155,9 @@ def _abandoned_msg() -> dict[str, Any]:
 # in the MCP server module.
 
 
-def _mission_payload(player: dict[str, Any], quest: dict[str, Any]) -> dict[str, Any]:
+def _mission_payload(
+    player: dict[str, Any], quest: dict[str, Any], slug: str = "",
+) -> dict[str, Any]:
     quest = _normalize_quest(quest)
     missions = quest.get("missions") or []
     index = _current_mission_index(player)
@@ -211,10 +216,27 @@ def _mission_payload(player: dict[str, Any], quest: dict[str, Any]) -> dict[str,
     # the server.
     if mission_type == "move":
         payload["transport_options"] = ["car", "walking", "bike"]
+    elif slug and str(quest.get("city_guide") or "").strip():
+        quest_id = quote(str(quest.get("id", "")), safe="")
+        version = int(player.get("game_version", 1))
+        payload["resources"] = [{
+            "name": f"{quest.get('name') or 'Challenge'} city guide",
+            "description": "Download this guide and add it to Foundry IQ to answer the mission question.",
+            "url": f"{DASHBOARD_URL}/{quote(slug, safe='')}/guides/{version}/{quest_id}.md",
+            "media_type": "text/markdown",
+        }]
+        payload["ask_user"] = (
+            "Read the full scene and question to the user. Give them the city guide "
+            "download URL from resources and tell them to use that document with "
+            "Foundry IQ. Do not answer the question yourself."
+        )
     return payload
 
 
-def _resume_scene(player: dict[str, Any], quest: dict[str, Any], display_name: str) -> dict[str, Any]:
+def _resume_scene(
+    player: dict[str, Any], quest: dict[str, Any], display_name: str,
+    competitive_mode: bool, slug: str = "",
+) -> dict[str, Any]:
     status = player.get("status")
     if status == "registered":
         quest = _normalize_quest(quest)
@@ -227,7 +249,7 @@ def _resume_scene(player: dict[str, Any], quest: dict[str, Any], display_name: s
             "next_action": "When the human says ready, call start_quest().",
         }
     if status in ACTIVE_PLAYER_STATUSES:
-        payload = _mission_payload(player, quest)
+        payload = _mission_payload(player, quest, slug)
         scene = _as_text(
             f"Welcome back, {player.get('name')}. Your quest is still in progress.",
             payload.get("narration", ""),
@@ -238,6 +260,15 @@ def _resume_scene(player: dict[str, Any], quest: dict[str, Any], display_name: s
             **payload,
         }
     if status == "complete":
+        if not competitive_mode:
+            return {
+                "narration": (
+                    f"{player.get('name')} already finished in "
+                    f"{player.get('time_taken_minutes')} minutes."
+                ),
+                "ask_user": "Congratulate the user on completing the game.",
+                "next_action": "The quest is done.",
+            }
         return {
             "narration": (
                 f"{player.get('name')} already finished. Score: "
@@ -276,6 +307,10 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             "narration": availability["message"],
             "next_action": "Tell the player the game is not open. Do not attempt gameplay until the play window opens.",
         }
+
+    def competitive_mode() -> bool:
+        current = storage.get_game(slug)
+        return bool(current and current["competitive_mode"])
 
     def current_player() -> tuple[str, dict[str, Any]]:
         api_key = PLAYER_API_KEY.get()
@@ -341,7 +376,7 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             return error
         _, player = current_player()
         quest = storage.get_quest(slug, player.get("quest_id"), player["game_version"]) or {}
-        scene = _resume_scene(player, quest, display_name)
+        scene = _resume_scene(player, quest, display_name, competitive_mode(), slug)
         return {
             "status": "resumed",
             "game": display_name,
@@ -386,7 +421,7 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         storage.update_player(slug, player_id, mutate)
         player = storage.get_player(slug, player_id) or player
 
-        payload = _mission_payload(player, quest)
+        payload = _mission_payload(player, quest, slug)
         if first_start:
             begin = quest["begin"]
             opening_scene = _as_text(begin.get("prompt", ""), begin.get("flavor", ""))
@@ -487,7 +522,7 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
                 return None
             storage.update_player(slug, player_id, advance)
             player = storage.get_player(slug, player_id) or player
-            next_payload = _mission_payload(player, quest)
+            next_payload = _mission_payload(player, quest, slug)
             return {
                 "status": "mission_complete",
                 "completed_mission_index": index,
@@ -509,21 +544,29 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
         def finish(p: dict[str, Any]):
             p["completed_at"] = storage.utcnow_iso()
             p["status"] = "complete"
-            score, minutes = _compute_score(p)
-            p["score"] = score
+            enabled = competitive_mode()
+            if enabled:
+                score, minutes = _compute_score(p)
+                p["score"] = score
+            else:
+                score = None
+                minutes = _elapsed_minutes(p)
+                p.pop("score", None)
             p["time_taken_minutes"] = minutes
             append_timeline_event(
                 p,
                 "quest_complete",
                 "Adventure complete",
-                detail=f"Score {score} in {minutes} minutes.",
+                detail=f"Score {score} in {minutes} minutes." if enabled else f"Completed in {minutes} minutes.",
             )
-            return {"score": score, "minutes": minutes}
+            return {"competitive_mode": enabled, "score": score if enabled else None, "minutes": minutes}
         result = storage.update_player(slug, player_id, finish)
 
-        board = storage.get_leaderboard(slug, limit=1000)
-        position = next((i + 1 for i, entry in enumerate(board) if entry["player_id"] == player_id), None)
-        return {
+        position = None
+        if result["competitive_mode"]:
+            board = storage.get_leaderboard(slug, limit=1000)
+            position = next((i + 1 for i, entry in enumerate(board) if entry["player_id"] == player_id), None)
+        response = {
             "status": "quest_complete",
             "completed_mission_index": index,
             "completed_mission_id": mission.get("id", index + 1),
@@ -532,17 +575,24 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             "end_prompt": end_prompt,
             "arrival_message": end_prompt,
             "scene": _as_text(complete_prompt, end_prompt),
-            "narration": (
-                f"{_as_text(complete_prompt, end_prompt)} "
-                f"Score: {result['score']} - Time: {result['minutes']} min - "
-                f"Leaderboard position: #{position}."
-            ).strip(),
-            "score": result["score"],
+            "narration": _as_text(complete_prompt, end_prompt),
             "time_taken_minutes": result["minutes"],
-            "leaderboard_position": position,
-            "ask_user": "Read the full final narration to the user, then read out their score and position.",
-            "next_action": "The quest is done. You may call get_leaderboard() if the user wants to see the standings.",
+            "competitive_mode": result["competitive_mode"],
+            "ask_user": "Read the full final narration to the user and congratulate them.",
+            "next_action": "The quest is done.",
         }
+        if result["competitive_mode"]:
+            response.update(
+                narration=(
+                    f"{response['narration']} Score: {result['score']} - Time: {result['minutes']} min - "
+                    f"Leaderboard position: #{position}."
+                ).strip(),
+                score=result["score"],
+                leaderboard_position=position,
+                ask_user="Read the full final narration to the user, then read out their score and position.",
+                next_action="The quest is done. You may call get_leaderboard() if the user wants to see the standings.",
+            )
+        return response
 
     @mcp.tool()
     def abandon_quest(
@@ -577,8 +627,16 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
     @mcp.tool()
     def get_leaderboard() -> dict[str, Any]:
         """Return the top 10 players by score for this game."""
+        if not competitive_mode():
+            return {
+                "game": display_name,
+                "competitive_mode": False,
+                "leaderboard": [],
+                "count": 0,
+                "message": "Competitive mode is not enabled for this game.",
+            }
         top = storage.get_leaderboard(slug, limit=10)
-        return {"game": display_name, "leaderboard": top, "count": len(top)}
+        return {"game": display_name, "competitive_mode": True, "leaderboard": top, "count": len(top)}
 
     @mcp.tool()
     def get_player_status() -> dict[str, Any]:
@@ -599,6 +657,7 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             }
             for result in (player.get("mission_results") or [])
         ]
+        enabled = competitive_mode()
         return {
             "game": display_name,
             "player_id": player.get("player_ref") or public_player_ref(player_id),
@@ -607,13 +666,14 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
             "quest_name": quest.get("name"),
             "status": player.get("status"),
             "current_mission_index": _current_mission_index(player),
-            "current_mission": _mission_payload(player, quest) if player.get("status") in ACTIVE_PLAYER_STATUSES else None,
+            "current_mission": _mission_payload(player, quest, slug) if player.get("status") in ACTIVE_PLAYER_STATUSES else None,
             "started_at": player.get("started_at"),
             "completed_at": player.get("completed_at"),
             "mission_results": safe_results,
             "answer_attempts": attempts,
             "failed_attempts": max(0, attempts - successes),
-            "score": player.get("score"),
+            "competitive_mode": enabled,
+            **({"score": player.get("score")} if enabled else {}),
         }
 
     return mcp

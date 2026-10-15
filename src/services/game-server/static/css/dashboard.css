@@ -13,6 +13,81 @@
   height: 100%;
 }
 
+.dashboard-welcome-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  padding: 2rem;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(20, 20, 18, 0.78);
+  color: #f7f3ea;
+  pointer-events: none;
+  backdrop-filter: blur(10px);
+}
+
+.dashboard-welcome-overlay[hidden] {
+  display: none;
+}
+
+.dashboard-welcome-overlay.is-visible {
+  animation: dashboard-welcome-overlay 4s ease both;
+}
+
+.dashboard-welcome-card {
+  width: min(760px, 90vw);
+  padding: clamp(2.5rem, 7vw, 5.5rem);
+  border: 1px solid rgba(247, 243, 234, 0.28);
+  border-radius: 36px;
+  background:
+    radial-gradient(circle at top, rgba(210, 238, 135, 0.24), transparent 48%),
+    #20221b;
+  box-shadow: 0 36px 100px rgba(0, 0, 0, 0.45);
+  text-align: center;
+}
+
+.dashboard-welcome-card > span {
+  display: block;
+  margin-bottom: 1rem;
+  color: #d2ee87;
+  font-size: clamp(0.75rem, 1.4vw, 1rem);
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.dashboard-welcome-card strong {
+  display: block;
+  font-size: clamp(3rem, 8vw, 7rem);
+  line-height: 0.95;
+  letter-spacing: -0.06em;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-welcome-card p {
+  margin: 1.5rem 0 0;
+  color: rgba(247, 243, 234, 0.72);
+  font-size: clamp(1rem, 2vw, 1.35rem);
+}
+
+@keyframes dashboard-welcome-overlay {
+  0% { opacity: 0; transform: scale(1.03); }
+  10%, 82% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.99); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-welcome-overlay.is-visible {
+    animation-name: dashboard-welcome-overlay-reduced;
+  }
+}
+
+@keyframes dashboard-welcome-overlay-reduced {
+  0%, 82% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Custom map markers. */
 .map-pin {
   position: relative;

@@ -1,6 +1,7 @@
 """Game-local schedule input, UTC persistence, and play-window checks."""
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 from typing import Any, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -30,6 +31,7 @@ class GameSchedule(BaseModel):
     ends_at: datetime | None = None
     timezone: str = "UTC"
     player_mode: Literal["guided", "challenge"] = "guided"
+    competitive_mode: bool = False
 
     @model_validator(mode="after")
     def validate_window(self) -> GameSchedule:
@@ -46,12 +48,13 @@ class GameSchedule(BaseModel):
                 raise ValueError("The end must be after the start.")
         return self
 
-    def storage_fields(self) -> dict[str, str]:
+    def storage_fields(self) -> dict[str, str | bool]:
         return {
             "starts_at": self.starts_at.isoformat() if self.starts_at else "",
             "ends_at": self.ends_at.isoformat() if self.ends_at else "",
             "timezone": self.timezone,
             "player_mode": self.player_mode,
+            "competitive_mode": self.competitive_mode,
         }
 
 
@@ -61,10 +64,11 @@ def schedule_for(game: dict[str, Any]) -> GameSchedule:
         ends_at=game.get("ends_at") or None,
         timezone=game.get("timezone", "UTC"),
         player_mode=game.get("player_mode", "guided"),
+        competitive_mode=bool(game.get("competitive_mode", False)),
     )
 
 
-def local_fields(game: dict[str, Any]) -> dict[str, str]:
+def local_fields(game: dict[str, Any]) -> dict[str, str | bool]:
     schedule = schedule_for(game)
     zone = ZoneInfo(schedule.timezone)
     return {
@@ -72,6 +76,7 @@ def local_fields(game: dict[str, Any]) -> dict[str, str]:
         "ends_at": schedule.ends_at.astimezone(zone).strftime("%Y-%m-%dT%H:%M:%S") if schedule.ends_at else "",
         "timezone": schedule.timezone,
         "player_mode": schedule.player_mode,
+        "competitive_mode": schedule.competitive_mode,
     }
 
 
@@ -79,7 +84,7 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def game_availability(game: dict[str, Any]) -> dict[str, str]:
+def game_availability(game: dict[str, Any]) -> dict[str, Any]:
     schedule = schedule_for(game)
     if schedule.starts_at is None or schedule.ends_at is None:
         return {"state": "open", "message": "No play window is set. Gameplay is unrestricted."}
@@ -87,7 +92,12 @@ def game_availability(game: dict[str, Any]) -> dict[str, str]:
     local = local_fields(game)
     window = f"{local['starts_at'].replace('T', ' ')} to {local['ends_at'].replace('T', ' ')} ({schedule.timezone})"
     if now < schedule.starts_at:
-        return {"state": "scheduled", "message": f"This game has not started. Play window: {window}."}
+        return {
+            "state": "scheduled",
+            "message": f"This game has not started. Play window: {window}.",
+            "starts_at": schedule.starts_at.isoformat(),
+            "seconds_until_start": math.ceil((schedule.starts_at - now).total_seconds()),
+        }
     if now >= schedule.ends_at:
         return {"state": "ended", "message": f"This game has ended. Play window: {window}."}
     return {"state": "open", "message": f"This game is open. Play window: {window}."}

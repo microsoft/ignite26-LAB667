@@ -3,6 +3,10 @@
 const SLUG = document.body.dataset.slug;
 const AZURE_MAPS_KEY = document.body.dataset.azureMapsKey || '';
 const PLAYER_LIMIT = 50;
+const WELCOME_DURATION_MS = 4000;
+let knownPlayerIds = null;
+let welcomeTimer = null;
+const welcomeQueue = [];
 
 const STATUS_STYLES = {
   registered: 'border-gold/80 text-gold',
@@ -53,7 +57,7 @@ function trophyForRank(rank) {
   return '';
 }
 
-function renderPlayers(players, leaderboard) {
+function renderPlayers(players, leaderboard, competitive) {
   const lbByPlayer = new Map((leaderboard || []).map((entry, index) => [entry.player_id, { rank: index + 1, score: entry.score }]));
   const slots = Array.from({ length: PLAYER_LIMIT }, (_, index) => players[index] || null);
   document.getElementById('players').innerHTML = slots.map((player, index) => {
@@ -61,7 +65,7 @@ function renderPlayers(players, leaderboard) {
       return `<div class="flex min-h-0 items-center border border-dashed border-paper/10 px-2 text-sm font-bold text-paper/16">${index + 1}</div>`;
     }
     const style = STATUS_STYLES[player.status] || 'border-paper/40 text-paper/70';
-    const lb = lbByPlayer.get(player.player_id);
+    const lb = competitive ? lbByPlayer.get(player.player_id) : null;
     const trophy = lb ? trophyForRank(lb.rank) : '';
     const isActive = ACTIVE_STATUSES.has(player.status);
     let meta;
@@ -88,12 +92,43 @@ function renderPlayers(players, leaderboard) {
   }).join('');
 }
 
+function showNextWelcome() {
+  const overlay = document.getElementById('player-welcome-overlay');
+  const name = document.getElementById('player-welcome-name');
+  if (welcomeTimer || !welcomeQueue.length || !overlay || !name) return;
+  name.textContent = welcomeQueue.shift();
+  overlay.hidden = false;
+  overlay.classList.remove('is-visible');
+  requestAnimationFrame(() => overlay.classList.add('is-visible'));
+  welcomeTimer = setTimeout(() => {
+    overlay.hidden = true;
+    overlay.classList.remove('is-visible');
+    welcomeTimer = null;
+    showNextWelcome();
+  }, WELCOME_DURATION_MS);
+}
+
+function welcomeNewPlayers(players) {
+  if (knownPlayerIds === null) {
+    knownPlayerIds = new Set(players.map((player) => player.player_id));
+    return;
+  }
+  players.forEach((player) => {
+    if (!knownPlayerIds.has(player.player_id)) {
+      knownPlayerIds.add(player.player_id);
+      welcomeQueue.push(player.name || 'Player');
+    }
+  });
+  showNextWelcome();
+}
+
 async function refreshDashboard() {
   try {
     const response = await fetch(`/${SLUG}/dashboard/data`, { cache: 'no-store' });
     const data = await response.json();
     const players = data.players || [];
-    renderPlayers(players, data.leaderboard || []);
+    renderPlayers(players, data.leaderboard || [], Boolean(data.game?.competitive_mode));
+    welcomeNewPlayers(players);
     syncPlayerAnimations(players);
     if (mapRef && JSON.stringify(data.quest_versions || []) !== questMapVersions) {
       await loadQuestLocations(mapRef);

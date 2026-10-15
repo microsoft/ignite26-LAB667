@@ -123,7 +123,10 @@ class AdminAuthTests(unittest.TestCase):
         self.service, self.tables = fake_service()
         self.storage_patch = patch.object(storage, "_service", self.service)
         self.storage_patch.start()
-        self.env_patch = patch.dict("os.environ", {"ADMIN_COOKIE_SECURE": "true"})
+        self.env_patch = patch.dict("os.environ", {
+            "ADMIN_COOKIE_SECURE": "true",
+            "ADMIN_DEVELOPMENT_MODE": "false",
+        })
         self.env_patch.start()
         self.client = TestClient(admin.app, base_url=ORIGIN, follow_redirects=False)
         self.client.__enter__()
@@ -164,6 +167,30 @@ class AdminAuthTests(unittest.TestCase):
         self.assertFalse(user["must_change_password"])
         self.assertTrue(admin_auth.verify_password(NEW_PASSWORD, user["password_hash"]))
         self.assertFalse(admin_auth.verify_password("admin", user["password_hash"]))
+
+    def test_development_mode_keeps_default_admin_credentials(self) -> None:
+        service, tables = fake_service()
+        production = admin_auth.AuthStore(service)
+        production.initialize()
+        original = tables[admin_auth.USERS_TABLE].get_entity("users", "admin")
+        self.assertTrue(original["must_change_password"])
+
+        development = admin_auth.AuthStore(service, development_mode=True)
+        development.initialize()
+        user = tables[admin_auth.USERS_TABLE].get_entity("users", "admin")
+        self.assertEqual(user["password_hash"], original["password_hash"])
+        self.assertFalse(user["must_change_password"])
+        _, session = development.login("admin", "admin")
+        self.assertFalse(session.must_change_password)
+
+    def test_development_mode_setting_is_explicit_and_validated(self) -> None:
+        with patch.dict("os.environ", {"ADMIN_DEVELOPMENT_MODE": "true"}):
+            self.assertTrue(admin.development_mode())
+        with patch.dict("os.environ", {"ADMIN_DEVELOPMENT_MODE": "false"}):
+            self.assertFalse(admin.development_mode())
+        with patch.dict("os.environ", {"ADMIN_DEVELOPMENT_MODE": "sometimes"}):
+            with self.assertRaisesRegex(ValueError, "ADMIN_DEVELOPMENT_MODE must be true or false"):
+                admin.development_mode()
 
     def test_all_game_routes_require_login(self) -> None:
         routes = [

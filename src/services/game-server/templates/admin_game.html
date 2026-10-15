@@ -20,7 +20,7 @@
   <p id="players-status" class="muted" role="status"></p>
   <div id="players" class="table-wrap" tabindex="0" aria-label="Players">Loading players...</div>
 </section>
-<section class="panel">
+<section class="panel" id="leaderboard-panel" {% if not game.competitive_mode %}hidden{% endif %}>
   <div class="panel-heading"><div><span class="eyebrow">THE FINISH LINE</span><h2>Leaderboard</h2></div><span class="badge">TOP 10</span></div>
   <div id="leaderboard" class="table-wrap" tabindex="0" aria-label="Leaderboard">Loading leaderboard...</div>
 </section>

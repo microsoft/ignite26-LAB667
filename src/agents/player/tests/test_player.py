@@ -215,6 +215,24 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
                 await transport.main()
         remote.__aexit__.assert_awaited_once()
 
+    def test_agent42_client_allows_transport_workflow_to_complete(self) -> None:
+        http_client = MagicMock()
+        with (
+            patch.object(transport.httpx, "AsyncClient", return_value=http_client) as client_factory,
+            patch.object(transport, "A2AAgent") as agent_factory,
+        ):
+            transport.build_agent42_agent()
+
+        timeout = client_factory.call_args.kwargs["timeout"]
+        self.assertEqual(timeout.connect, 10.0)
+        self.assertEqual(timeout.read, 60.0)
+        agent_factory.assert_called_once_with(
+            name="Agent42",
+            description=unittest.mock.ANY,
+            url=ENV["AGENT42_URL"],
+            http_client=http_client,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

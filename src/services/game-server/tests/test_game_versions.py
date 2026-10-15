@@ -15,12 +15,14 @@ import storage
 import server
 import player_identity
 from dashboard import Dashboard
+from game_schedule import GameSchedule
 from quest_validation import validate_document
 
 
 def story(answer: str = "OLD", name: str = "Original story") -> dict:
     return {"quests": [{
-        "id": 1, "name": name, "begin": {"prompt": "The beginning"}, "end": {"prompt": "The ending"},
+        "id": 1, "name": name, "city_guide": "# Test city guide\n\nThe code is documented here.",
+        "begin": {"prompt": "The beginning"}, "end": {"prompt": "The ending"},
         "missions": [{"id": "question-one", "type": "question", "mission": "What is the code?",
                       "arrival_prompt": "Read the guide.", "complete_prompt": "Well done.", "valid_answers": [answer],
                       "start_address": "Test location", "start_lat": 37.77, "start_lng": -122.42}],
@@ -33,7 +35,10 @@ class GameVersionTests(unittest.TestCase):
         self.patch = patch.object(storage, "_service", self.service)
         self.patch.start()
         self.addCleanup(self.patch.stop)
-        storage.create_game("test-city", "Test city", quests=story())
+        storage.create_game(
+            "test-city", "Test city", quests=story(),
+            schedule=GameSchedule(competitive_mode=True),
+        )
 
     def call(self, mcp: MCPServer, tool: str, arguments: dict, api_key: str) -> dict:
         context_token = server.PLAYER_API_KEY.set(api_key)
@@ -64,6 +69,20 @@ class GameVersionTests(unittest.TestCase):
         self.assertFalse(published["dirty"])
         self.assertEqual(storage.get_quest("test-city", 1)["name"], "New story")
         self.assertEqual(storage.get_quest("test-city", 1, 1)["name"], "Original story")
+
+    def test_question_mission_exposes_versioned_city_guide_resource(self) -> None:
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        api_key, _ = player_identity.register_player("test-city", "Guide reader")
+        result = self.call(mcp, "start_quest", {}, api_key)
+
+        self.assertEqual(result["mission_type"], "question")
+        self.assertEqual(result["resources"], [{
+            "name": "Original story city guide",
+            "description": "Download this guide and add it to Foundry IQ to answer the mission question.",
+            "url": "http://localhost:8090/test-city/guides/1/1.md",
+            "media_type": "text/markdown",
+        }])
+        self.assertNotIn("valid_answers", result)
 
     def test_browser_registration_pins_story_and_all_mcp_actions(self) -> None:
         mcp = server.build_mcp_for_game(storage.get_game("test-city"))
@@ -120,6 +139,27 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(timeline[-2]["type"], "mission_complete")
         self.assertEqual(timeline[-2]["transport"], "bike")
 
+    def test_noncompetitive_game_completes_without_points_or_ranking(self) -> None:
+        storage.save_schedule("test-city", GameSchedule(), 1)
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        api_key, _ = player_identity.register_player("test-city", "Explorer")
+        self.call(mcp, "start_quest", {}, api_key)
+        result = self.call(mcp, "submit_mission_answer", {"answer": "OLD"}, api_key)
+        self.assertFalse(result["competitive_mode"])
+        self.assertNotIn("score", result)
+        self.assertNotIn("leaderboard_position", result)
+        self.assertNotIn("Score:", result["narration"])
+        player = storage.get_player("test-city", api_key)
+        self.assertNotIn("score", player)
+        self.assertEqual(storage.get_leaderboard("test-city"), [])
+        board = self.call(mcp, "get_leaderboard", {}, api_key)
+        self.assertFalse(board["competitive_mode"])
+        self.assertEqual(board["leaderboard"], [])
+        self.assertIn("not enabled", board["message"])
+        status = self.call(mcp, "get_player_status", {}, api_key)
+        self.assertFalse(status["competitive_mode"])
+        self.assertNotIn("score", status)
+
     def test_invalid_or_duplicate_creation_does_not_overwrite_a_game(self) -> None:
         with self.assertRaises(ValueError):
             storage.create_game("invalid", "Invalid", quests={"quests": []})
@@ -130,6 +170,37 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(storage.get_game("test-city")["city"], "Test city")
         self.assertEqual(storage.get_quest("test-city", 1)["name"], "Original story")
 
+    def test_init_storage_adds_missing_seed_games_without_overwriting_existing_games(self) -> None:
+        storage.init_storage()
+        games = {game["slug"]: game for game in storage.list_games()}
+        self.assertEqual(
+            set(games),
+            {"test-city", "san-francisco", "philadelphia"},
+        )
+        self.assertEqual(games["san-francisco"]["event_name"], "Microsoft Ignite")
+        self.assertEqual(games["san-francisco"]["display_name"], "Lost in San Francisco")
+        self.assertEqual(games["philadelphia"]["event_name"], "Open Hack Philadelphia")
+        self.assertEqual(games["philadelphia"]["display_name"], "Lost in Philadelphia")
+        self.assertEqual(games["philadelphia"]["player_mode"], "challenge")
+        self.assertEqual(storage.load_published("san-francisco")[1]["city"], "San Francisco")
+        self.assertEqual(storage.load_published("philadelphia")[1]["city"], "Philadelphia")
+
+        revision = games["san-francisco"]["schedule_revision"]
+        storage.save_schedule(
+            "san-francisco",
+            GameSchedule(),
+            revision,
+            event_name="Customized event",
+        )
+        storage.init_storage()
+        self.assertEqual(storage.get_game("san-francisco")["event_name"], "Customized event")
+
+    def test_built_in_seed_documents_are_publishable(self) -> None:
+        for seed in storage.SEED_GAMES:
+            with self.subTest(slug=seed.slug):
+                result = validate_document(storage.load_seed_quests(seed.slug), publish=True)
+                self.assertEqual(result["errors"], [])
+
     def test_reset_removes_all_versions_but_preserves_admin_tables(self) -> None:
         self.publish_new(story("NEW"))
         auth = self.service.get_table_client("adminusers")
@@ -138,7 +209,9 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(result["deleted"][storage.QUESTS_TABLE], 3)
         self.assertIsNone(storage.get_game("test-city"))
         self.assertEqual(storage.load_published("fresh")[0], 1)
+        self.assertEqual(storage.load_published("philadelphia")[0], 1)
         self.assertEqual(len(storage.list_versions("fresh")), 1)
+        self.assertEqual(len(result["games"]), 2)
         self.assertEqual(auth.get_entity("admin", "admin")["hash"], "test-hash")
 
     def test_legacy_migration_preserves_unversioned_players(self) -> None:

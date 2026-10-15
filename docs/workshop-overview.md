@@ -8,7 +8,8 @@ clues, and reach the final destination before time runs out.
 
 The default seed game is **Lost in San Francisco**, but the game server supports
 multiple city games. Each game has its own MCP endpoint, dashboard, Player URL,
-player mode, optional play window, quest list, players, and leaderboard.
+player mode, optional play window, optional Competitive Mode, quest list, and
+players.
 
 ## What's in this repo
 
@@ -35,9 +36,10 @@ player mode, optional play window, quest list, players, and leaderboard.
        agent can call Agent42 for weather-aware route advice.
     - Question missions ask the player to recover a secret answer from the city
       guide knowledge base.
-4. The server tracks progress, failed answer attempts, elapsed time, and final
-    score.
-5. The dashboard and admin UI show player status and leaderboards for each game.
+4. The server tracks progress, failed answer attempts, and elapsed time. Games
+    with Competitive Mode enabled also calculate a final score.
+5. The dashboard and admin UI show player status and, for competitive games,
+    leaderboards.
 
 ## Prerequisites
 
@@ -97,30 +99,38 @@ python admin.py
 
 For local HTTP, set `ADMIN_COOKIE_SECURE=false` as in the environment example.
 Open the admin UI at `http://localhost:8080`, sign in with `admin` / `admin`,
-and replace the default password. You can then create games, edit quests,
-import [quests.json](../src/services/game-server/quests.json), reset players, and
-watch leaderboards. See the [game-server README](../src/services/game-server/README.md) for the
-full tool reference, quest schema, storage model, and deployment notes.
+and keep those development credentials when `ADMIN_DEVELOPMENT_MODE=true`.
+Never enable development mode in a deployed environment. You can then create
+games, edit quests, import [quests.json](../src/services/game-server/quests.json),
+reset players, and watch leaderboards. See the
+[game-server README](../src/services/game-server/README.md) for the full tool
+reference, quest schema, storage model, and deployment notes.
 
 ### Per-game Player mode and schedule
 
-Open **Manage > Schedule & player** to choose Guided or Challenge Mode and set a
-start date/time, end date/time, and IANA timezone. You can also set the schedule
-when creating a game. Both endpoints are optional together; existing games remain
-unrestricted until a schedule is set. Settings take effect immediately,
-separately from story publication.
+Open **Manage > Schedule & player** to choose Guided or Challenge Mode, enable
+Competitive Mode, and set a start date/time, end date/time, and IANA timezone.
+Competitive Mode is off by default; enable it to calculate points and show
+rankings and leaderboards. You can also set these options when creating a game.
+Both schedule endpoints are optional together; existing games remain unrestricted
+until a schedule is set. Settings take effect immediately, separately from story
+publication.
 
 Share `http://localhost:8090/<slug>/player` with players (use the dashboard host
-in Azure). Guided Mode renders the step-by-step chapters; Challenge Mode renders
-the parallel outcome-focused chapters. Both use the game's name, endpoint, dates,
-times, and timezone. **Preview player** serves the same content through the admin
-host for local development. No player login is required and no credentials are
-published.
+in Azure). Guided Mode renders the ten step-by-step chapters; Challenge Mode
+renders four outcome-focused game stages: setup and MCP, Agent42 travel, a
+Foundry IQ grounded question, and final arrival. Both use the game's name,
+endpoint, dates, times, and timezone. **Preview player** serves the same content
+through the admin host for local development. No player login is required and no
+credentials are published.
 
 The MCP server enforces `start <= current UTC time < end`: starting/resuming
 sessions, registration, quest starts, and answer submissions are blocked outside
-the window, including for existing players. Status, leaderboards, Player content,
-and abandoning a quest remain available. All checks use the latest saved schedule.
+the window, including for existing players. The Player page does not send lesson
+content or navigation outside the window. It shows **Player window is closed** and,
+during the final 24 hours before opening, a live **Enter the city in** countdown.
+Status and abandoning a quest remain available. Leaderboards remain available for
+games with Competitive Mode enabled. All checks use the latest saved schedule.
 
 ### 2. Run Agent42
 
@@ -290,8 +300,12 @@ and [game-server README](../src/services/game-server/README.md).
 ## Repository notes
 
 - Game state lives in Azure Tables: `games`, `quests`, and `players`.
-- If no games exist, the game server seeds `DEFAULT_GAME_SLUG` from
-   [quests.json](../src/services/game-server/quests.json).
+- On startup, the game server adds any missing built-in games: Microsoft
+  Ignite — Lost in San Francisco from
+  [quests.json](../src/services/game-server/quests.json), and Open Hack
+  Philadelphia — Lost in Philadelphia from
+  [quests-philadelphia.json](../src/services/game-server/quests-philadelphia.json).
+  Existing games are not overwritten.
 - Quest content can be edited through the admin UI or imported from
    [quests.json](../src/services/game-server/quests.json) into a draft. The
    **Edit game** page shows the story timeline and location map. Publishing

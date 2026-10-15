@@ -90,6 +90,9 @@ password before managing games.** Restrict access until this setup is complete.
 Review [deployment prerequisites, costs, and access limitations](infra/README.md)
 before running it.
 
+For automated deployments on pushes to `main` or manual runs, configure the
+[GitHub Actions deployment](infra/README.md#deploy-from-github-actions).
+
 ### 🎯 Learning outcomes
 
 By the end of this session, you will be able to:

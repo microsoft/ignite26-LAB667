@@ -10,6 +10,7 @@ function scheduleValues(form) {
     ends_at: form.elements.ends_at.value || null,
     timezone: form.elements.timezone.value.trim(),
     player_mode: form.elements.player_mode?.value || 'guided',
+    competitive_mode: Boolean(form.elements.competitive_mode?.checked),
   };
 }
 

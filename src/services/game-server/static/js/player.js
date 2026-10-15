@@ -65,6 +65,15 @@
     document.getElementById('player-progress-status').hidden = true;
     document.getElementById('player-name').textContent = player.name;
     document.getElementById('player-api-key').textContent = apiKey;
+    document.querySelectorAll('[data-player-quest-name]').forEach((element) => {
+      element.textContent = player.quest_name
+        ? `${player.quest_name} with Foundry IQ`
+        : 'Solve Your City Guide Question with Foundry IQ';
+    });
+    document.querySelectorAll('[data-player-quest-question]').forEach((element) => {
+      element.textContent = player.quest_question || '';
+      element.hidden = !player.quest_question;
+    });
     const events = player.timeline || [];
     const completedMissions = new Set(events
       .filter((event) => event.type === 'mission_complete')

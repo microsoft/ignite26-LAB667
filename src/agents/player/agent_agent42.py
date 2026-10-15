@@ -12,8 +12,13 @@ from dotenv import load_dotenv
 
 def build_agent42_agent() -> A2AAgent:
     # Agent42 is a deployed A2A agent. The URL comes from .env.
+    timeout = httpx.Timeout(
+        float(os.getenv("AGENT42_TIMEOUT_SECONDS", "60")),
+        connect=10.0,
+    )
     client = httpx.AsyncClient(
-        headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"}
+        headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"},
+        timeout=timeout,
     )
     return A2AAgent(
         name="Agent42",

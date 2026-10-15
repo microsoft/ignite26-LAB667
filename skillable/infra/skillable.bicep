@@ -3,32 +3,26 @@
 // ===============================================
 
 @description('The location where all resources will be deployed')
-param location string = 'swedencentral'
-//param location string = 'eastus2'
-
-@description('Bump this value if role assignment deployment fails due to stale ARM tombstones')
-param roleAssignmentSuffix string = 'v2'
-
-@description('Lab id for uniqe sufffix')
-param LabID string
+//param location string = 'swedencentral'
+param location string = 'centralus'
 
 @description('Public zip file containing the city guide content to upload into blob storage')
-param cityGuideZipUrl string = 'https://lab530storage.blob.${environment().suffixes.storage}/workshop/city-guide.zip'
+param cityGuideZipUrl string = 'https://lab667.blob.core.windows.net/cityguides/city-guide.zip'
 
 @description('Bump this value to force the city guide upload deployment script to run again')
 param cityGuideUploadForceUpdateTag string = 'v2'
 
 // Variables for resource naming and configuration
-//var uniqueSuffix = uniqueString(resourceGroup().id)
+var uniqueSuffix = uniqueString(resourceGroup().id)
 
 var resourceNames = {
-  microsoftFoundry: 'foundry-${LabID}'
-  microsoftFoundryProject: 'foundry-project-${LabID}'
-  searchService: 'search-${LabID}'
-  storageAccount: 'stor${LabID}'
+  microsoftFoundry: 'foundry-${uniqueSuffix}'
+  microsoftFoundryProject: 'foundry-project-${uniqueSuffix}'
+  searchService: 'search-${uniqueSuffix}'
+  storageAccount: 'stor${uniqueSuffix}'
   cityGuideContainer: 'city-guide'
-  cityGuideUploadIdentity: 'city-guide-upload-${LabID}'
-  cityGuideUploadScript: 'city-guide-upload-${LabID}'
+  cityGuideUploadIdentity: 'city-guide-upload-${uniqueSuffix}'
+  cityGuideUploadScript: 'city-guide-upload-${uniqueSuffix}'
 }
 
 // ===============================================
@@ -70,18 +64,18 @@ resource microsoftFoundryProject 'Microsoft.CognitiveServices/accounts/projects@
   properties: {}
 }
 
-@description('GPT-5.5 model deployment')
+@description('gpt-5.6-luna model deployment')
 resource llmModelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-10-01-preview' = {
   parent: microsoftFoundryAccount
-  name: 'gpt-5.5'
+  name: 'gpt-5.6-luna'
   dependsOn: [
     microsoftFoundryProject
   ]
   properties: {
     model: {
       format: 'OpenAI'
-      name: 'gpt-5.5'
-      version: '2026-04-24'
+      name: 'gpt-5.6-luna'
+      version: '2026-07-09'
     }
     versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
     raiPolicyName: 'Microsoft.DefaultV2'
@@ -221,58 +215,122 @@ resource cityGuideUploadIdentity 'Microsoft.ManagedIdentity/userAssignedIdentiti
 // ROLE ASSIGNMENTS
 // ===============================================
 
-// Search service identity needs to call the Foundry LLM for query planning
-resource searchToFoundryRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(microsoftFoundryAccount.id, searchService.id, 'CognitiveServicesUser', roleAssignmentSuffix)
-  scope: microsoftFoundryAccount
+// An inline deployment keeps this file self-contained and resolves principal IDs before naming assignments.
+#disable-next-line no-deployments-resources
+resource roleAssignments 'Microsoft.Resources/deployments@2022-09-01' = {
+  name: 'role-assignments-${uniqueString(deployment().name)}'
   properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
-    principalId: searchService.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Search service identity needs to read city guide content from blob storage in this resource group
-resource searchToStorageBlobReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(resourceGroup().id, searchService.id, 'StorageBlobDataReader', roleAssignmentSuffix)
-  scope: resourceGroup()
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
-    principalId: searchService.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Foundry project identity needs to read/write search indexes
-resource projectToSearchDataRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(searchService.id, microsoftFoundryProject.id, 'SearchIndexDataContributor', roleAssignmentSuffix)
-  scope: searchService
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')
-    principalId: microsoftFoundryProject.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Foundry project identity needs to manage search service config (create knowledge bases)
-resource projectToSearchServiceRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(searchService.id, microsoftFoundryProject.id, 'SearchServiceContributor', roleAssignmentSuffix)
-  scope: searchService
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')
-    principalId: microsoftFoundryProject.identity.principalId
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Foundry project identity needs to read/write blobs in the storage account
-resource projectToStorageBlobRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, microsoftFoundryProject.id, 'StorageBlobDataContributor', roleAssignmentSuffix)
-  scope: storageAccount
-  properties: {
-    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
-    principalId: microsoftFoundryProject.identity.principalId
-    principalType: 'ServicePrincipal'
+    mode: 'Incremental'
+    expressionEvaluationOptions: {
+      scope: 'inner'
+    }
+    parameters: {
+      microsoftFoundryAccountName: {
+        value: microsoftFoundryAccount.name
+      }
+      searchServiceName: {
+        value: searchService.name
+      }
+      storageAccountName: {
+        value: storageAccount.name
+      }
+      searchPrincipalId: {
+        value: searchService.identity.principalId
+      }
+      projectPrincipalId: {
+        value: microsoftFoundryProject.identity.principalId
+      }
+    }
+    // Keep an object here: ARM deserializes template before evaluating expressions.
+    // With inner scope, deployment() refers to this nested deployment. ARM exposes
+    // its parameter values, but Bicep's deployment() type does not include them.
+    template: {
+      '$schema': 'https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#'
+      contentVersion: '1.0.0.0'
+      parameters: {
+        microsoftFoundryAccountName: { type: 'string' }
+        searchServiceName: { type: 'string' }
+        storageAccountName: { type: 'string' }
+        searchPrincipalId: { type: 'string' }
+        projectPrincipalId: { type: 'string' }
+      }
+      resources: [
+        {
+          type: 'Microsoft.Authorization/roleAssignments'
+          apiVersion: '2022-04-01'
+          name: guid(
+            resourceId('Microsoft.CognitiveServices/accounts', any(deployment()).properties.parameters.microsoftFoundryAccountName.value),
+            any(deployment()).properties.parameters.searchPrincipalId.value,
+            subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
+          )
+          scope: resourceId('Microsoft.CognitiveServices/accounts', any(deployment()).properties.parameters.microsoftFoundryAccountName.value)
+          properties: {
+            roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'a97b65f3-24c7-4388-baec-2e87135dc908')
+            principalId: any(deployment()).properties.parameters.searchPrincipalId.value
+            principalType: 'ServicePrincipal'
+          }
+        }
+        {
+          type: 'Microsoft.Authorization/roleAssignments'
+          apiVersion: '2022-04-01'
+          name: guid(
+            resourceGroup().id,
+            any(deployment()).properties.parameters.searchPrincipalId.value,
+            subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
+          )
+          properties: {
+            roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '2a2b9908-6ea1-4ae2-8e65-a410df84e7d1')
+            principalId: any(deployment()).properties.parameters.searchPrincipalId.value
+            principalType: 'ServicePrincipal'
+          }
+        }
+        {
+          type: 'Microsoft.Authorization/roleAssignments'
+          apiVersion: '2022-04-01'
+          name: guid(
+            resourceId('Microsoft.Search/searchServices', any(deployment()).properties.parameters.searchServiceName.value),
+            any(deployment()).properties.parameters.projectPrincipalId.value,
+            subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')
+          )
+          scope: resourceId('Microsoft.Search/searchServices', any(deployment()).properties.parameters.searchServiceName.value)
+          properties: {
+            roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '8ebe5a00-799e-43f5-93ac-243d3dce84a7')
+            principalId: any(deployment()).properties.parameters.projectPrincipalId.value
+            principalType: 'ServicePrincipal'
+          }
+        }
+        {
+          type: 'Microsoft.Authorization/roleAssignments'
+          apiVersion: '2022-04-01'
+          name: guid(
+            resourceId('Microsoft.Search/searchServices', any(deployment()).properties.parameters.searchServiceName.value),
+            any(deployment()).properties.parameters.projectPrincipalId.value,
+            subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')
+          )
+          scope: resourceId('Microsoft.Search/searchServices', any(deployment()).properties.parameters.searchServiceName.value)
+          properties: {
+            roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '7ca78c08-252a-4471-8644-bb5ff32d4ba0')
+            principalId: any(deployment()).properties.parameters.projectPrincipalId.value
+            principalType: 'ServicePrincipal'
+          }
+        }
+        {
+          type: 'Microsoft.Authorization/roleAssignments'
+          apiVersion: '2022-04-01'
+          name: guid(
+            resourceId('Microsoft.Storage/storageAccounts', any(deployment()).properties.parameters.storageAccountName.value),
+            any(deployment()).properties.parameters.projectPrincipalId.value,
+            subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+          )
+          scope: resourceId('Microsoft.Storage/storageAccounts', any(deployment()).properties.parameters.storageAccountName.value)
+          properties: {
+            roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')
+            principalId: any(deployment()).properties.parameters.projectPrincipalId.value
+            principalType: 'ServicePrincipal'
+          }
+        }
+      ]
+    }
   }
 }
 

@@ -5,6 +5,7 @@
     {
       "id": 1,
       "name": "Mission to Moscone",
+      "city_guide": "# Mission District and Hayes Valley City Guide\n\n## Valencia Street coffee\n\nValencia Street is one of the Mission District's busiest corridors for independent food, design, and coffee. Ritual Coffee Roasters opened its original cafe on Valencia Street in 2005. The Valencia Street original remains the roaster's flagship and helped establish San Francisco's modern specialty-coffee scene.\n\n## Hayes Valley\n\nHayes Valley grew around Patricia's Green, a neighborhood park created after removal of the Central Freeway. Its compact streets are known for small restaurants, local shops, and quick connections toward Civic Center and SoMa.\n\n## Getting downtown\n\nMoscone Center is in SoMa near Howard and Third Streets. From Hayes Valley, travelers generally continue east and south toward Market Street before entering SoMa.",
       "begin": {
         "prompt": "You step out of a taqueria on Valencia Street and find a Microsoft Ignite 2026 badge in your jacket pocket. Your phone lights up: 9:15am. The opening session starts at 10:00 at Moscone Center. You have forty-five minutes, a half-charged battery, and one message from the event team: follow the city guide, collect the clue, and get to SoMa.",
         "flavor": "A delivery bike rattles past while a street musician plays near the curb. Behind you, a mural of impossible colors seems to point downtown."
@@ -53,6 +54,7 @@
     {
       "id": 2,
       "name": "Lanterns to Ignite",
+      "city_guide": "# Chinatown and North Beach City Guide\n\n## Grant Avenue\n\nGrant Avenue is the ceremonial heart of San Francisco's Chinatown, marked by lanterns, historic storefronts, and the Dragon Gate farther south. Columbus Avenue leads northwest from Chinatown into North Beach.\n\n## North Beach and the Beats\n\nNorth Beach became a center of Beat Generation writing in the 1950s. Poet Lawrence Ferlinghetti co-founded City Lights Bookstore in 1953. The independent bookstore and publisher remains an anchor of North Beach and a landmark for readers and writers.\n\n## Toward SoMa\n\nMoscone Center lies south of Market Street. A traveler leaving North Beach must cross the northeastern downtown area before continuing into SoMa.",
       "begin": {
         "prompt": "You find yourself on Grant Avenue beneath rows of paper lanterns with a Microsoft Ignite 2026 badge clipped to your coat. Market stalls crowd the sidewalk, and the badge screen shows one instruction: reach Moscone Center before the 10:00 opening session. A second message points toward North Beach and says the route will unlock when you solve a city-guide clue.",
         "flavor": "A cable car bell rings somewhere downhill. The air smells like fresh buns, incense, and rain on warm pavement, while the clock on your badge keeps counting down."
@@ -101,6 +103,7 @@
     {
       "id": 3,
       "name": "Embarcadero Express",
+      "city_guide": "# Embarcadero and SoMa City Guide\n\n## From the waterfront\n\nThe Ferry Building stands at the foot of Market Street on the Embarcadero. Following Market Street southwest leads toward the museums and conference spaces of SoMa.\n\n## The museum district\n\nSFMOMA occupies Third Street in SoMa and presents modern and contemporary art. Nearby, the Museum of the African Diaspora, commonly called MoAD, focuses on the history, art, and cultural heritage of the African diaspora. The two museums are close neighbors in the Yerba Buena cultural district.\n\n## Moscone Center\n\nMoscone Center spans blocks around Howard Street and is a short walk from the Third Street museums.",
       "begin": {
         "prompt": "You are standing at the Ferry Building with the bay wind tugging at your jacket and a Microsoft Ignite 2026 badge clipped crookedly to your shirt. Fog rolls low over the water, and the clock tower reads 9:18am. The opening session begins at Moscone Center in forty-two minutes, but your badge route says you must check in near SFMOMA first.",
         "flavor": "A ferry horn echoes across the water. Gulls wheel overhead like they know the fastest way to SoMa and are refusing to share it."

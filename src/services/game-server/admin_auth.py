@@ -58,8 +58,9 @@ class Session:
 
 
 class AuthStore:
-    def __init__(self, service: TableServiceClient) -> None:
+    def __init__(self, service: TableServiceClient, development_mode: bool = False) -> None:
         self.service = service
+        self.development_mode = development_mode
         self.users = service.get_table_client(USERS_TABLE)
         self.sessions = service.get_table_client(SESSIONS_TABLE)
         self.attempts = service.get_table_client(ATTEMPTS_TABLE)
@@ -67,20 +68,28 @@ class AuthStore:
     def initialize(self) -> None:
         for name in (USERS_TABLE, SESSIONS_TABLE, ATTEMPTS_TABLE):
             self.service.create_table_if_not_exists(name)
-        if self._get(self.users, "users", "admin") is None:
+        admin = self._get(self.users, "users", "admin")
+        if admin is None:
             try:
                 self.users.create_entity({
                     "PartitionKey": "users",
                     "RowKey": "admin",
                     "password_hash": hash_password("admin"),
                     "password_version": secrets.token_hex(16),
-                    "must_change_password": True,
+                    "must_change_password": not self.development_mode,
                     "role": "admin",
                     "enabled": True,
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
+                return
             except ResourceExistsError:
-                pass  # Another replica completed the one-time bootstrap.
+                admin = self._get(self.users, "users", "admin")
+        if self.development_mode and admin is not None and admin["must_change_password"]:
+            admin["must_change_password"] = False
+            self.users.update_entity(
+                admin, mode=UpdateMode.REPLACE, etag=admin.metadata["etag"],
+                match_condition=MatchConditions.IfNotModified,
+            )
 
     @staticmethod
     def _get(table: TableClient, partition: str, key: str) -> TableEntity | None:

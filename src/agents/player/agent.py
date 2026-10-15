@@ -46,17 +46,17 @@ async def main() -> None:
                 },
             ) as game_mcp,
             build_agent42_agent() as agent42,
-            build_city_guide_agent() as guide_agent,
+           # build_city_guide_agent() as guide_agent,
         ):
             game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
             agent42_tool = build_agent42_tool(agent42)
-            guide_tool = build_city_guide_tool(guide_agent)
+          #  guide_tool = build_city_guide_tool(guide_agent)
 
             agent = Agent(
                 client=client,
                 name="Game Play Agent",
                 instructions=game_play_prompt,
-                tools=[game_mcp, agent42_tool, guide_tool],
+                tools=[game_mcp, agent42_tool],
                 middleware=[agent_mw, chat_mw, function_mw],
             )
 

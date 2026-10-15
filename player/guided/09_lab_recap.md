@@ -1,10 +1,33 @@
-# Lab Recap
+# Arrived: Complete the Game
+
+Your agent has solved the city-guide question. One final journey remains:
+ask Agent42 for help, choose how to travel, and arrive at the event destination.
+
+> [!Hint] 🖥️ **In VS Code** — keep the player running in the terminal from the
+> previous lesson. If you stopped it, run `python agent.py` again.
+
+## Finish the Final Travel Mission
+
+1. Ask the player agent to continue the quest.
+2. When MCP presents the final travel mission, ask the agent to get help from
+   **Agent42**.
+3. Read Agent42's route advice and give the agent your final choice of `car`,
+   `walking`, or `bike`.
+4. Let the agent submit that choice and the private route metadata to MCP.
+5. Wait for the full arrival narration and confirmation that the quest is
+   complete.
+6. Return to this Player page and confirm that the timeline shows the final
+   Agent42 route and completed mission.
+
+> **Checkpoint:** MCP confirms that you arrived at the event destination, the
+> final Agent42 route appears on the Player timeline, and no private API key or
+> route metadata appears in the conversation.
+
+## Lab Recap
 
 You built a working player agent for the **Lost in the City** workshop. The
 agent can start or resume a game, choose tools, ask other services for help,
 retrieve guidebook knowledge, remember useful state, and log what happened.
-
-> [!Hint] 📖 **Just reading** — this recap has no hands-on steps; nothing to switch to.
 
 ## What You Built
 

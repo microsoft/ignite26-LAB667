@@ -1,0 +1,152 @@
+{
+  "city": "Philadelphia",
+  "story": "Open Hack Philadelphia is about to begin at the Microsoft office at 45 Liberty Boulevard in Malvern, but you are somewhere across Philadelphia with a low battery, an event badge, and a trail of clues between you and the opening session. Navigate the city, read its landmarks, and reach Malvern before the doors close.",
+  "quests": [
+    {
+      "id": 1,
+      "name": "Market Dash",
+      "city_guide": "# Rittenhouse and Reading Terminal City Guide\n\n## Rittenhouse Square\n\nRittenhouse Square is one of William Penn's original public squares and a central landmark in Center City. Traveling east across Center City leads toward the Pennsylvania Convention Center and Reading Terminal Market.\n\n## Reading Terminal Market\n\nReading Terminal Market opened in 1893 beneath the Reading Railroad's train shed. It brought many independent merchants into one indoor market and remains known for Pennsylvania Dutch food, produce, baked goods, and local specialties.\n\n## Continuing to Malvern\n\nMalvern is west of Philadelphia in Chester County. The Microsoft office at 45 Liberty Boulevard is well beyond Center City, so the final leg is substantially longer than the route between the downtown landmarks.",
+      "begin": {
+        "prompt": "You are standing beside Rittenhouse Square when your Open Hack Philadelphia badge lights up. The opening session begins soon at the Microsoft office in Malvern, but your route is locked. A message tells you to find the historic market beneath the old Reading Railroad train shed and solve its clue.",
+        "flavor": "Morning traffic rolls along Walnut Street while commuters cut across the square and your badge clock keeps counting down."
+      },
+      "missions": [
+        {
+          "id": "rittenhouse-to-reading-terminal",
+          "type": "move",
+          "start_address": "Rittenhouse Square, Philadelphia, PA 19103, United States",
+          "start_lat": 39.9495,
+          "start_lng": -75.1719,
+          "end_address": "Reading Terminal Market, 1136 Arch St, Philadelphia, PA 19107, United States",
+          "end_lat": 39.9533,
+          "end_lng": -75.1593,
+          "arrival_prompt": "You reach Reading Terminal Market beneath the former Reading Railroad train shed. Your badge points inside, where an Open Hack volunteer is waiting with the clue.",
+          "complete_prompt": "The volunteer spots your badge among the breakfast crowd. 'Good timing. Solve the market clue and the route to Malvern will unlock.'"
+        },
+        {
+          "id": "reading-terminal-year",
+          "type": "question",
+          "mission": "In what year did Reading Terminal Market open?",
+          "arrival_prompt": "A plaque beside the volunteer explains that Reading Terminal Market opened in 1893. The badge asks: in what year did the market open?",
+          "complete_prompt": "1893 is accepted. The badge draws a final route from Center City to the Microsoft office in Malvern.",
+          "valid_answers": [
+            "1893"
+          ]
+        },
+        {
+          "id": "market-to-malvern",
+          "type": "move",
+          "start_address": "Reading Terminal Market, 1136 Arch St, Philadelphia, PA 19107, United States",
+          "start_lat": 39.9533,
+          "start_lng": -75.1593,
+          "end_address": "Microsoft, 45 Liberty Blvd, Malvern, PA 19355, United States",
+          "end_lat": 40.056057,
+          "end_lng": -75.521785,
+          "arrival_prompt": "The clue is solved, but Malvern is well beyond Center City and the opening countdown is nearly finished. Choosing the right route matters.",
+          "complete_prompt": "You reach the Microsoft office at 45 Liberty Boulevard in Malvern. Your badge flashes green and the Open Hack Philadelphia doors open."
+        }
+      ],
+      "end": {
+        "prompt": "You made it to Open Hack Philadelphia through Rittenhouse Square and Reading Terminal Market. The clue is solved, your badge is active, and the challenge can begin."
+      }
+    },
+    {
+      "id": 2,
+      "name": "Rocky Route",
+      "city_guide": "# Parkway and Museum Steps City Guide\n\n## From the station to the Parkway\n\nWilliam H. Gray III 30th Street Station is Philadelphia's major intercity rail station. The Benjamin Franklin Parkway runs toward the Philadelphia Museum of Art and links several cultural institutions.\n\n## The famous steps\n\nThe broad steps of the Philadelphia Museum of Art became internationally famous through the training sequence in the film Rocky. The fictional boxer Rocky Balboa runs up the steps and raises his arms above the city. A bronze Rocky statue stands near the museum.\n\n## Continuing to Malvern\n\nThe Microsoft office at 45 Liberty Boulevard in Malvern lies west of Philadelphia, beyond the museum district and Center City.",
+      "begin": {
+        "prompt": "You arrive at 30th Street Station with an Open Hack Philadelphia badge and one urgent instruction: visit the famous museum steps before checking in at the Microsoft office in Malvern. The opening clock is running, and the badge will not reveal the final route until you solve the landmark clue.",
+        "flavor": "Trains rumble below the grand concourse while taxis and buses stream toward Center City."
+      },
+      "missions": [
+        {
+          "id": "station-to-art-museum",
+          "type": "move",
+          "start_address": "William H. Gray III 30th Street Station, 2955 Market St, Philadelphia, PA 19104, United States",
+          "start_lat": 39.9556,
+          "start_lng": -75.181,
+          "end_address": "Philadelphia Museum of Art, 2600 Benjamin Franklin Pkwy, Philadelphia, PA 19130, United States",
+          "end_lat": 39.9656,
+          "end_lng": -75.1809,
+          "arrival_prompt": "The museum rises above the Benjamin Franklin Parkway. Your badge directs you toward the broad front steps, where an Open Hack volunteer waits beside the Rocky statue.",
+          "complete_prompt": "You reach the museum steps. The volunteer points from the statue to the skyline. 'Name the movie character who made this climb famous, and your route to Malvern is unlocked.'"
+        },
+        {
+          "id": "rocky-steps-clue",
+          "type": "question",
+          "mission": "Which movie character made the Philadelphia Museum of Art steps famous?",
+          "arrival_prompt": "The bronze statue and famous training scene both point to the same fictional boxer. Which movie character made these steps famous?",
+          "complete_prompt": "Rocky Balboa is accepted. Your badge unlocks the route from the museum to the Microsoft office in Malvern.",
+          "valid_answers": [
+            "Rocky Balboa",
+            "Rocky"
+          ]
+        },
+        {
+          "id": "art-museum-to-malvern",
+          "type": "move",
+          "start_address": "Philadelphia Museum of Art, 2600 Benjamin Franklin Pkwy, Philadelphia, PA 19130, United States",
+          "start_lat": 39.9656,
+          "start_lng": -75.1809,
+          "end_address": "Microsoft, 45 Liberty Blvd, Malvern, PA 19355, United States",
+          "end_lat": 40.056057,
+          "end_lng": -75.521785,
+          "arrival_prompt": "The landmark clue is solved. The distance from the museum to Malvern makes every transport option matter.",
+          "complete_prompt": "You reach the Microsoft office in Malvern before the countdown expires. An event host scans your badge and welcomes you to Open Hack Philadelphia."
+        }
+      ],
+      "end": {
+        "prompt": "You completed the Rocky Route from 30th Street Station to the museum steps and onward to Malvern. Open Hack Philadelphia is ready for you."
+      }
+    },
+    {
+      "id": 3,
+      "name": "Liberty Bell Sprint",
+      "city_guide": "# Old City and Independence Hall City Guide\n\n## Elfreth's Alley\n\nElfreth's Alley is a preserved residential street in Philadelphia's Old City. Its brick homes reflect the neighborhood's colonial-era development.\n\n## Independence National Historical Park\n\nThe Liberty Bell Center faces Independence Hall across the park. Delegates meeting at Independence Hall adopted the Declaration of Independence on July 4, 1776. The building later hosted the Constitutional Convention of 1787.\n\n## Continuing to Malvern\n\nThe Microsoft office at 45 Liberty Boulevard in Malvern is west of central Philadelphia. Reaching it from Old City requires a much longer final leg than the walk between the historic sites.",
+      "begin": {
+        "prompt": "You begin on Elfreth's Alley with an Open Hack Philadelphia badge clipped to your jacket. The Microsoft office in Malvern is waiting, but your badge sends you first through the heart of historic Philadelphia to recover one final clue.",
+        "flavor": "Brick facades, narrow sidewalks, and morning footsteps make Old City feel like a page of history that has not finished turning."
+      },
+      "missions": [
+        {
+          "id": "elfreths-to-liberty-bell",
+          "type": "move",
+          "start_address": "Elfreth's Alley, Philadelphia, PA 19106, United States",
+          "start_lat": 39.9527,
+          "start_lng": -75.1425,
+          "end_address": "Liberty Bell Center, 526 Market St, Philadelphia, PA 19106, United States",
+          "end_lat": 39.9496,
+          "end_lng": -75.1503,
+          "arrival_prompt": "You reach Independence National Historical Park. The Liberty Bell is ahead, and an Open Hack volunteer waits with a question about the building across the street.",
+          "complete_prompt": "The volunteer gestures toward Independence Hall. 'One document changed the course of the country here. Name it, and the route to Open Hack is yours.'"
+        },
+        {
+          "id": "independence-hall-document",
+          "type": "question",
+          "mission": "Which document was adopted at Independence Hall on July 4, 1776?",
+          "arrival_prompt": "The clue states that the document was adopted at Independence Hall on July 4, 1776. Which document was it?",
+          "complete_prompt": "The Declaration of Independence is accepted. Your badge unlocks the final journey to the Microsoft office in Malvern.",
+          "valid_answers": [
+            "Declaration of Independence",
+            "The Declaration of Independence"
+          ]
+        },
+        {
+          "id": "liberty-bell-to-malvern",
+          "type": "move",
+          "start_address": "Liberty Bell Center, 526 Market St, Philadelphia, PA 19106, United States",
+          "start_lat": 39.9496,
+          "start_lng": -75.1503,
+          "end_address": "Microsoft, 45 Liberty Blvd, Malvern, PA 19355, United States",
+          "end_lat": 40.056057,
+          "end_lng": -75.521785,
+          "arrival_prompt": "The history clue is solved, but the opening session is in Malvern and the route out of Philadelphia still stands between you and Open Hack.",
+          "complete_prompt": "You reach the Microsoft office at 45 Liberty Boulevard in Malvern with your badge glowing green. The doors open and Open Hack Philadelphia begins."
+        }
+      ],
+      "end": {
+        "prompt": "You crossed Old City, solved the Independence Hall clue, and reached Open Hack Philadelphia. The challenge is ready to start."
+      }
+    }
+  ]
+}

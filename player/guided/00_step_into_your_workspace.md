@@ -1,8 +1,8 @@
 # Lost in the City Agent Workshop
 
 Welcome to **{{ game_name }}**. Your facilitator sets the play window in
-**{{ game_timezone }}**. You can read these instructions at any time; game actions
-are available only during the scheduled window shown above.
+**{{ game_timezone }}**. The Player page, instructions, city guides, and game
+actions are available only while that window is open.
 
 > [!Hint] 🖥️ **In VS Code** — you'll do all of this lab's hands-on work in VS Code, except where a step tells you to switch to the browser.
 
@@ -21,7 +21,8 @@ agent** that takes on the *Lost in the City* quest on your behalf. It will:
 - Remember who the player is between runs, and write a clear log of every
    model call, tool call, and decision it made.
 
-Whoever's agent solves the most missions, fastest, takes the leaderboard.
+If the facilitator enables **Competitive Mode**, completed quests also receive
+points and appear on the leaderboard.
 
 ## What You'll Build
 

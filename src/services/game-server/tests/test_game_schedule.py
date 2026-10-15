@@ -49,11 +49,15 @@ class ScheduleTests(unittest.TestCase):
     def test_persistence_legacy_clear_and_conflicts(self) -> None:
         table = self.tables[storage.GAMES_TABLE]
         old = table.entities[("games", "timed")]
-        for field in ("event_name", "starts_at", "ends_at", "timezone", "player_mode", "schedule_revision"):
+        for field in (
+            "event_name", "starts_at", "ends_at", "timezone", "player_mode",
+            "competitive_mode", "schedule_revision",
+        ):
             del old[field]
         legacy = storage.get_game("timed")
         self.assertEqual(legacy["event_name"], "")
         self.assertEqual(legacy["player_mode"], "guided")
+        self.assertFalse(legacy["competitive_mode"])
         self.assertEqual(game_schedule.game_availability(legacy)["state"], "open")
         schedule = GameSchedule(starts_at="2026-10-05T09:00Z", ends_at="2026-10-05T10:00Z")
         saved = storage.save_schedule("timed", schedule, 0)
@@ -67,6 +71,7 @@ class ScheduleTests(unittest.TestCase):
         cleared = storage.save_schedule("timed", GameSchedule(timezone="Europe/Amsterdam"), 1)
         self.assertEqual(cleared["starts_at"], "")
         self.assertEqual(cleared["player_mode"], "guided")
+        self.assertFalse(cleared["competitive_mode"])
         self.assertEqual(game_schedule.game_availability(cleared)["state"], "open")
 
     def test_player_mode_is_validated_and_persisted(self) -> None:
@@ -75,6 +80,30 @@ class ScheduleTests(unittest.TestCase):
         saved = storage.save_schedule("timed", GameSchedule(player_mode="challenge"), 1)
         self.assertEqual(saved["player_mode"], "challenge")
         self.assertEqual(storage.list_games()[0]["player_mode"], "challenge")
+
+    def test_scheduled_availability_includes_countdown_metadata(self) -> None:
+        game = {
+            **storage.get_game("timed"),
+            **GameSchedule(
+                starts_at="2026-10-05T09:00Z",
+                ends_at="2026-10-05T17:00Z",
+            ).storage_fields(),
+        }
+        with patch.object(
+            game_schedule,
+            "utcnow",
+            return_value=datetime(2026, 10, 5, 8, 59, 59, 500000, tzinfo=timezone.utc),
+        ):
+            availability = game_schedule.game_availability(game)
+        self.assertEqual(availability["state"], "scheduled")
+        self.assertEqual(availability["starts_at"], "2026-10-05T09:00:00+00:00")
+        self.assertEqual(availability["seconds_until_start"], 1)
+
+    def test_competitive_mode_defaults_off_and_is_persisted(self) -> None:
+        self.assertFalse(storage.get_game("timed")["competitive_mode"])
+        saved = storage.save_schedule("timed", GameSchedule(competitive_mode=True), 1)
+        self.assertTrue(saved["competitive_mode"])
+        self.assertTrue(storage.list_games()[0]["competitive_mode"])
 
     def test_cached_mcp_enforces_fresh_schedule_without_mutating_players(self) -> None:
         mcp = server.build_mcp_for_game(storage.get_game("timed"))
@@ -155,6 +184,7 @@ class ScheduleTests(unittest.TestCase):
             self.assertEqual(result.json()["game"]["event_name"], "Open Hack")
             self.assertEqual(result.json()["game"]["display_name"], "Timed challenge")
             self.assertEqual(result.json()["game"]["starts_at"], "2026-10-05T07:00:00+00:00")
+            self.assertFalse(result.json()["game"]["competitive_mode"])
             self.assertEqual(client.put("/api/games/timed/schedule", json=payload, headers=auth).status_code, 409)
             self.assertEqual(client.put("/api/games/missing/schedule", json=payload, headers=auth).status_code, 404)
             new = client.post("/api/games", json={
@@ -163,6 +193,7 @@ class ScheduleTests(unittest.TestCase):
             }, headers=auth)
             self.assertEqual(new.status_code, 200, new.text)
             self.assertEqual(storage.get_game("new-timed")["timezone"], "Europe/Amsterdam")
+            self.assertFalse(storage.get_game("new-timed")["competitive_mode"])
             self.assertEqual(storage.load_draft("new-timed")["document"]["city"], "New timed")
             settings = client.get("/games/new-timed/settings", follow_redirects=False)
             self.assertEqual(settings.status_code, 303)

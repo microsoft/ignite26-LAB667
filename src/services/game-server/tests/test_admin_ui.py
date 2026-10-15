@@ -43,7 +43,8 @@ class AdminUITests(unittest.TestCase):
         )
         self.games = [{"slug": "san-francisco", "event_name": "Open Hack",
                        "display_name": "Lost in San Francisco",
-                       "city": "San Francisco", "created_at": "2026-01-01T12:00:00Z"}]
+                       "city": "San Francisco", "created_at": "2026-01-01T12:00:00Z",
+                       "competitive_mode": False}]
         self.quests = json.loads((ROOT / "quests.json").read_text())
         self.draft = copy.deepcopy(self.quests)
         self.revision = 1
@@ -133,6 +134,7 @@ class AdminUITests(unittest.TestCase):
                 self.revision += 1
                 route.fulfill(json=self.draft_response())
             elif path.endswith("/activity"):
+                game = next(game for game in self.games if game["slug"] == path.split("/")[3])
                 players = [{
                     "player_id": pid, "name": p["name"], "game_version": p.get("game_version", 1),
                     "quest_id": 1, "quest_name": self.quests["quests"][0]["name"],
@@ -140,7 +142,7 @@ class AdminUITests(unittest.TestCase):
                     "current_mission_id": "mission-to-hayes-valley", "mission_count": 3,
                     "answer_attempts": 0, "score": p["score"], "location": None,
                 } for pid, p in self.players.items()]
-                route.fulfill(json={"players": players, "published_version": self.version,
+                route.fulfill(json={"game": game, "players": players, "published_version": self.version,
                                     "versions": [{"version": version} for version in self.versions],
                                     "documents": {str(version): self.quests for version in self.versions}})
             elif path.endswith("/versions") and method == "GET":
@@ -269,6 +271,7 @@ class AdminUITests(unittest.TestCase):
             "slug": "evening", "event_name": "Open Hack",
             "display_name": "Evening adventure", "city": "Amsterdam",
             "starts_at": None, "ends_at": None, "timezone": "UTC", "player_mode": "guided",
+            "competitive_mode": False,
         }), self.requests)
         self.page.goto(ORIGIN)
         expect(self.page.locator(".game-card")).to_have_count(2)
@@ -318,8 +321,9 @@ class AdminUITests(unittest.TestCase):
         self.page.get_by_label("Challenge name", exact=True).fill("Lost across San Francisco")
         self.page.get_by_label("Start date and time").fill("2026-10-06T09:00")
         self.page.get_by_label("End date and time").fill("2026-10-06T17:00")
-        self.page.get_by_label("Timezone", exact=True).fill("Europe/Amsterdam")
+        self.page.get_by_label("Timezone", exact=True).select_option("Europe/Amsterdam")
         self.page.get_by_label("Player mode").select_option("challenge")
+        self.page.get_by_label("Competitive mode").check()
         self.page.get_by_role("button", name="Save settings").click()
         expect(self.page.locator("#notice")).to_contain_text("Game settings saved")
         self.assertEqual(self.games[0]["city"], "San Francisco")
@@ -327,6 +331,7 @@ class AdminUITests(unittest.TestCase):
         self.assertEqual(self.games[0]["display_name"], "Lost across San Francisco")
         self.assertEqual(self.games[0]["starts_at"], "2026-10-06T07:00:00+00:00")
         self.assertEqual(self.games[0]["player_mode"], "challenge")
+        self.assertTrue(self.games[0]["competitive_mode"])
         self.assertEqual(self.games[0]["schedule_revision"], 1)
         expect(self.page.locator("[data-player-mode]").first).to_have_text("Challenge mode")
         self.assertEqual(self.page.get_by_role("link", name="Open player").get_attribute("href"),
@@ -578,6 +583,14 @@ class AdminUITests(unittest.TestCase):
     def test_map_points_deduplicate_and_never_guess_missing_coordinates(self) -> None:
         self.page.goto(f"{ORIGIN}/games/san-francisco/edit")
         expect(self.page.locator("#draft-title")).to_contain_text("Draft")
+        graph = self.page.evaluate("(doc) => GameMap.pointsFor(doc)", self.quests)
+        self.assertEqual(
+            sorted(point["number"] for point in graph["points"]),
+            ["1", "1", "1", "2", "2", "2", "3"],
+        )
+        shared_finish = next(point for point in graph["points"] if point["number"] == "3")
+        self.assertEqual(len({member["questIndex"] for member in shared_finish["members"]}), 3)
+
         document = copy.deepcopy(self.quests)
         del document["quests"][0]["missions"][0]["start_lat"]
         graph = self.page.evaluate("(doc) => GameMap.pointsFor(doc)", document)
@@ -589,10 +602,11 @@ class AdminUITests(unittest.TestCase):
 
     def test_public_map_updates_versions_without_removing_player_markers(self) -> None:
         version = 1
+        players = []
 
         def serve_public(route: Route) -> None:
             if route.request.url.endswith("/data"):
-                route.fulfill(json={"players": [], "leaderboard": [], "quest_versions": [version]})
+                route.fulfill(json={"players": players, "leaderboard": [], "quest_versions": [version]})
             else:
                 route.fulfill(json={"versions": [version], "quests": [{
                     "name": f"Story v{version}",
@@ -604,7 +618,9 @@ class AdminUITests(unittest.TestCase):
         self.page.route(f"{ORIGIN}/city/dashboard/*", serve_public)
         self.page.set_content(
             '<body data-slug="city" data-azure-maps-key="test-key">'
-            '<div id="players"></div><div id="map"></div><div id="map-status"></div></body>'
+            '<div id="players"></div><div id="map"></div><div id="map-status"></div>'
+            '<div id="player-welcome-overlay" hidden><span id="player-welcome-name"></span></div>'
+            '</body>'
         )
         self.page.evaluate("""() => {
             window.pins = [];
@@ -636,6 +652,16 @@ class AdminUITests(unittest.TestCase):
         self.assertEqual(self.page.evaluate("window.pins.length"), 2)
         self.assertIn("Version 2", self.page.evaluate("window.pins.find(pin => !pin.player).options.htmlContent"))
         self.assertTrue(self.page.evaluate("window.pins.some(pin => pin.player)"))
+        players.append({
+            "player_id": "new-player",
+            "name": "City Fox",
+            "status": "registered",
+            "location": None,
+            "mission_results": [],
+        })
+        self.page.evaluate("refreshDashboard()")
+        expect(self.page.locator("#player-welcome-overlay")).to_be_visible()
+        expect(self.page.locator("#player-welcome-name")).to_have_text("City Fox")
 
     def test_login_and_password_change_forms(self) -> None:
         self.page.goto(f"{ORIGIN}/login")

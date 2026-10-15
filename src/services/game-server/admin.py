@@ -49,11 +49,21 @@ def cookie_secure() -> bool:
     return value == "true"
 
 
+def development_mode() -> bool:
+    value = os.environ.get("ADMIN_DEVELOPMENT_MODE", "false").lower()
+    if value not in ("true", "false"):
+        raise ValueError("ADMIN_DEVELOPMENT_MODE must be true or false")
+    return value == "true"
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     application.state.cookie_secure = cookie_secure()
+    is_development = development_mode()
+    if is_development:
+        logger.warning("Admin development mode is enabled; the built-in admin/admin credentials remain active")
     await run_in_threadpool(storage.init_storage)
-    application.state.auth = AuthStore(storage._svc())
+    application.state.auth = AuthStore(storage._svc(), development_mode=is_development)
     await run_in_threadpool(application.state.auth.initialize)
     yield
 
@@ -499,7 +509,7 @@ def api_delete_version(slug: str, version: int) -> dict[str, Any]:
 @app.post("/api/games/{slug}/quests/import-seed", dependencies=[Depends(require_operator)])
 def api_import_seed_quests(slug: str, payload: RevisionBody) -> dict[str, Any]:
     existing_game(slug)
-    return storage.save_draft(slug, storage.load_seed_quests(), payload.revision)
+    return storage.save_draft(slug, storage.load_seed_quests(slug), payload.revision)
 
 
 @app.get("/api/maps/config", dependencies=[Depends(require_operator)])
@@ -538,7 +548,11 @@ async def api_geocode(query: str = Query(min_length=3, max_length=500)) -> dict[
 
 @app.get("/api/games/{slug}/leaderboard", dependencies=[Depends(require_operator)])
 def api_leaderboard(slug: str) -> dict[str, Any]:
-    return {"leaderboard": storage.get_leaderboard(slug, limit=10)}
+    game = existing_game(slug)
+    return {
+        "competitive_mode": game["competitive_mode"],
+        "leaderboard": storage.get_leaderboard(slug, limit=10),
+    }
 
 
 @app.get("/api/games/{slug}/players", dependencies=[Depends(require_operator)])

@@ -1,0 +1,124 @@
+name: Deploy shared services
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy.yml'
+      - 'azure.yaml'
+      - 'infra/*.bicep'
+      - 'infra/main.parameters.json'
+      - 'src/services/**'
+      - 'player/**'
+      - '.dockerignore'
+      - 'scripts/clean-local-docker.sh'
+      - 'scripts/restore-azd-images.sh'
+      - 'scripts/test-restore-azd-images.sh'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-shared-services-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        shell: bash
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ secrets.AZURE_ENV_NAME }}
+      AZURE_LOCATION: ${{ secrets.AZURE_LOCATION }}
+      AGENT42_MODEL_LOCATION: ${{ vars.AGENT42_MODEL_LOCATION || secrets.AZURE_LOCATION }}
+      AGENT42_MODEL_NAME: ${{ vars.AGENT42_MODEL_NAME || 'gpt-5.6-luna' }}
+      AGENT42_MODEL_VERSION: ${{ vars.AGENT42_MODEL_VERSION || '2026-07-09' }}
+      AGENT42_MODEL_SKU: ${{ vars.AGENT42_MODEL_SKU || 'GlobalStandard' }}
+      AGENT42_MODEL_CAPACITY: ${{ vars.AGENT42_MODEL_CAPACITY || '10' }}
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Test image restoration
+        run: bash scripts/test-restore-azd-images.sh
+
+      - name: Validate deployment configuration
+        run: |
+          set -euo pipefail
+          for variable in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_ENV_NAME AZURE_LOCATION; do
+            if [[ -z "$(printenv "$variable")" ]]; then
+              echo "::error::Set the ${variable} secret in the production GitHub environment."
+              exit 1
+            fi
+          done
+
+      - name: Install Azure Developer CLI
+        uses: Azure/setup-azd@v2
+        with:
+          version: '1.35.1'
+
+      - name: Sign in to Azure CLI with OIDC
+        uses: azure/login@v3
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign in to azd with OIDC
+        run: |
+          azd auth login \
+            --client-id "$AZURE_CLIENT_ID" \
+            --tenant-id "$AZURE_TENANT_ID" \
+            --federated-credential-provider github \
+            --no-prompt
+
+      - name: Initialize deployment environment
+        run: |
+          azd env new "$AZURE_ENV_NAME" \
+            --subscription "$AZURE_SUBSCRIPTION_ID" \
+            --location "$AZURE_LOCATION" \
+            --no-prompt
+
+      - name: Preserve existing application images
+        run: bash scripts/restore-azd-images.sh
+
+      - name: Provision and deploy all services
+        run: azd up --no-prompt
+
+      - name: Verify public endpoints
+        run: |
+          set -euo pipefail
+          for key in DASHBOARD_URL AGENT42_CARD_URL; do
+            url="$(azd env get-value "$key")"
+            curl --fail --silent --show-error --location \
+              --retry 12 --retry-all-errors --retry-delay 5 --max-time 20 \
+              --output /dev/null "$url"
+          done
+
+      - name: Summarize deployment
+        run: |
+          set -euo pipefail
+          {
+            echo "## Shared services deployed"
+            echo
+            for key in GAME_MCP_URL DASHBOARD_URL ADMIN_URL AGENT42_URL; do
+              url="$(azd env get-value "$key")"
+              printf -- '- **%s:** %s\n' "$key" "$url"
+            done
+            echo
+            echo "On a new environment, change the initial admin password before opening access to attendees."
+          } >> "$GITHUB_STEP_SUMMARY"

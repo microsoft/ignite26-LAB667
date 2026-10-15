@@ -140,6 +140,18 @@ def player_state(slug: str, api_key: str, player: dict[str, Any] | None = None) 
     quest = _normalize_quest(quest) if quest else {}
     missions = _quest_missions(quest) if quest else []
     current_index = _current_mission_index(player)
+    question_index = next(
+        (
+            index for index, mission in enumerate(missions)
+            if mission.get("type") == "question"
+        ),
+        None,
+    )
+    question_unlocked = (
+        question_index is not None
+        and player.get("status") in {"mission", "complete"}
+        and current_index >= question_index
+    )
     timeline = []
     for event_index, stored_event in enumerate(player.get("timeline") or []):
         event = {
@@ -156,6 +168,11 @@ def player_state(slug: str, api_key: str, player: dict[str, Any] | None = None) 
         "name": player.get("name"),
         "status": player.get("status"),
         "quest_name": quest.get("name"),
+        "quest_question": (
+            missions[question_index].get("mission")
+            if question_unlocked and question_index is not None
+            else None
+        ),
         "game_version": player.get("game_version"),
         "current_mission_index": current_index,
         "mission_count": len(missions),

@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=agent42-details-overlay-v1" />
+  <link rel="stylesheet" href="/static/css/player.css?v=player-window-v1" />
 </head>
-<body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}">
-<a class="skip-link" href="#player">Skip to player content</a>
+<body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
+<a class="skip-link" href="{{ '#player' if availability.state == 'open' else '#player-window-title' }}">Skip to player content</a>
 <header class="workshop-header">
   {% if game.event_name %}<span class="player-event-name">{{ game.event_name }}</span>{% endif %}
   <h1>{{ game.display_name }}</h1>
+  {% if availability.state == 'open' %}
   <div id="player-header-identity" class="player-header-identity" hidden>
     <span>Player: <strong id="player-name"></strong></span>
     <button id="open-player-key" class="button button-quiet player-key-trigger" type="button">API key</button>
@@ -25,18 +26,37 @@
       <button id="player-timeline-next" class="player-timeline-control player-timeline-control-next" type="button" aria-label="Scroll timeline right">&rarr;</button>
     </div>
   </section>
+  {% endif %}
 </header>
+{% if availability.state != 'open' %}
+<section class="player-session player-window-session" aria-labelledby="player-window-title">
+  <div class="player-session-card player-window-card">
+    <span class="eyebrow">PLAYER WINDOW</span>
+    <h2 id="player-window-title">Player window is closed</h2>
+    <p class="player-window-message">{{ availability.message }}</p>
+    {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
+    <div class="player-window-countdown" aria-live="polite">
+      <span>Enter the city in</span>
+      <strong id="player-window-countdown" data-seconds-until-start="{{ availability.seconds_until_start }}">--:--:--</strong>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% else %}
 <section id="player-session" class="player-session" aria-labelledby="player-session-title">
   <div id="player-registration" class="player-session-card">
-    <span class="eyebrow">YOUR PLAYER</span>
+    <span class="eyebrow">YOUR ADVENTURE STARTS HERE</span>
     <h2 id="player-session-title">Enter the city</h2>
-    <p>Choose a nickname to create your private game key and begin tracking your adventure.</p>
+    <p class="player-game-story">{{ variables.game_story }}</p>
     <form id="player-registration-form">
-      <label for="player-nickname">Nickname</label>
+      <label for="player-nickname">Choose your nickname</label>
       <div class="player-registration-controls">
-        <input id="player-nickname" name="nickname" maxlength="40" autocomplete="nickname" required />
-        <button class="button button-primary" type="submit">Start game</button>
+        <input id="player-nickname" name="nickname" maxlength="40" autocomplete="nickname" placeholder="Your player name" required />
+        <button class="button button-primary player-start-button" type="submit">
+          Start game <span aria-hidden="true">&rarr;</span>
+        </button>
       </div>
+      <p class="player-registration-note">We'll create your private game key and track your progress.</p>
       <p id="player-registration-error" class="form-error" role="alert" hidden></p>
     </form>
   </div>
@@ -90,11 +110,33 @@
 </dialog>
 <div id="player-content" class="workshop-layout" hidden>
   <nav class="workshop-nav" aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
+    {% if mission_navigation %}
+    {% for mission in mission_navigation %}
+    <section class="workshop-nav-mission" aria-labelledby="guided-mission-{{ loop.index }}">
+      <div class="workshop-nav-mission-heading" id="guided-mission-{{ loop.index }}">
+        <span>{{ mission.label }}</span>
+        <strong{% if mission.label == 'Mission 3' %} data-player-quest-name{% endif %}>{{ mission.name }}</strong>
+        {% if mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
+      </div>
+      {% for item in mission.lessons %}
+      <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
+      {% endfor %}
+    </section>
+    {% endfor %}
+    {% else %}
     {% for item in lessons %}
     <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
     {% endfor %}
+    {% endif %}
   </nav>
   <main id="player">
+    {% if current_mission %}
+    <header class="lesson-mission-heading">
+      <span>{{ current_mission.label }}</span>
+      <strong{% if current_mission.label == 'Mission 3' %} data-player-quest-name{% endif %}>{{ current_mission.name }}</strong>
+      {% if current_mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
+    </header>
+    {% endif %}
     <article class="lesson-content">{{ content | safe }}</article>
     <nav class="lesson-pagination" aria-label="Lesson navigation">
       {% if previous %}<a class="button button-quiet" href="/{{ game.slug }}/player/{{ previous.slug }}">&larr; Previous lesson</a>{% endif %}
@@ -102,6 +144,10 @@
     </nav>
   </main>
 </div>
-<script src="/static/js/player.js?v=agent42-details-overlay-v2"></script>
+<script src="/static/js/player.js?v=guided-quest-details-v1"></script>
+{% endif %}
+{% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
+<script src="/static/js/player_window.js"></script>
+{% endif %}
 </body>
 </html>

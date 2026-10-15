@@ -68,7 +68,7 @@ function feedback(errors = [], warnings = []) {
   box.hidden = !errors.length && !warnings.length;
   box.innerHTML = [
     errors.length ? `<strong>Before publishing</strong><ul>${errors.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '',
-    warnings.length ? `<strong>Map checks</strong><ul>${warnings.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '',
+    warnings.length ? `<strong>Review before publishing</strong><ul>${warnings.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : '',
   ].join('');
 }
 
@@ -269,7 +269,11 @@ async function handleStoryAction(event) {
   try {
     if (actionName === 'edit-quest') {
       openEditor('QUEST SETTINGS', quest.name || 'Untitled quest',
-        field('Quest name', `quests.${selectedQuest}.name`, quest.name));
+        `${field('Quest name', `quests.${selectedQuest}.name`, quest.name)}
+        ${field('City guide (Markdown)', `quests.${selectedQuest}.city_guide`, quest.city_guide, {
+          multiline: true,
+          hint: 'Players receive this downloadable guide when they reach this route’s question. Include enough evidence for Foundry IQ to retrieve the answer.',
+        })}`);
       return;
     }
     if (actionName === 'edit-scene') {
@@ -354,7 +358,7 @@ editorDialog.addEventListener('close', () => {
 
 document.getElementById('add-quest').addEventListener('click', () => {
   const id = Math.max(0, ...draft.document.quests.map((q) => q.id)) + 1;
-  draft.document.quests.push({ id, name: 'New quest', begin: { prompt: '', flavor: '' }, missions: [], end: { prompt: '' } });
+  draft.document.quests.push({ id, name: 'New quest', city_guide: '', begin: { prompt: '', flavor: '' }, missions: [], end: { prompt: '' } });
   selectedQuest = draft.document.quests.length - 1;
   selectedMission = null; markChanged(); render();
 });

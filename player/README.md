@@ -3,25 +3,36 @@
 Follow these steps to build an agent that plays **Lost in the City**.
 Players open **/<game-slug>/player** on the dashboard service. In **Guided
 Mode**, the shared lessons below are rendered with the selected game's values.
-In **Challenge Mode**, players receive a compact setup, goal, and success brief
-without the step-by-step lessons. The experience assumes a prepared Windows
-workshop machine; the facilitator supplies credentials privately.
+In **Challenge Mode**, players receive four outcome-focused game missions
+without the Guided Mode implementation walkthrough. The experience assumes a
+prepared Windows workshop machine; the facilitator supplies credentials
+privately.
 For local service setup, see the [workshop overview](../docs/workshop-overview.md).
 
-Both modes contain the same ten chapters:
+Guided Mode groups its ten detailed lessons into the same four named missions
+as the game:
 
-1. [Step into your workspace](guided/00_step_into_your_workspace.md)
-2. [Get Azure OpenAI details from Microsoft Foundry](guided/01_get_azure_openai_details_from_foundry.md)
-3. [Create a hello world agent](guided/02_create_hello_world_agent.md)
-4. [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
-5. [Use the Player API key](guided/04_use_the_player_api_key.md)
-6. [Add session logging](guided/05_add_session_logging.md)
-7. [Test Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
-8. [Test the city guide agent](guided/07_test_the_city_guide_agent.md)
-9. [Bring the specialist agents into the main agent](guided/08_bring_specialists_into_main_agent.md)
-10. [Lab recap](guided/09_lab_recap.md)
+1. **Mission 1: Get Ready and Start the Game**
+   - [Step into your workspace](guided/00_step_into_your_workspace.md)
+   - [Get Azure OpenAI details from Microsoft Foundry](guided/01_get_azure_openai_details_from_foundry.md)
+   - [Create a hello world agent](guided/02_create_hello_world_agent.md)
+   - [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
+   - [Use the Player API key](guided/04_use_the_player_api_key.md)
+   - [Add session logging](guided/05_add_session_logging.md)
+2. **Mission 2: Use Agent42 to Travel**
+   - [Test Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
+3. **Mission 3: Solve the Quest with Foundry IQ**
+   - [Test the city guide agent](guided/07_test_the_city_guide_agent.md)
+   - [Bring the specialist agents into the main agent](guided/08_bring_specialists_into_main_agent.md)
+4. **Arrived: Complete the Game**
+   - [Complete the final journey and review the lab](guided/09_lab_recap.md)
 
-The matching outcome-focused briefs live in [challenge/](challenge/).
+Challenge Mode follows the game itself:
+
+1. [Mission 1: Get ready and start the game](challenge/00_mission_1_get_ready_and_start_the_game.md)
+2. [Mission 2: Use Agent42 to travel](challenge/01_mission_2_use_agent42_to_travel.md)
+3. [Mission 3: Solve the quest with Foundry IQ](challenge/02_mission_3_solve_the_quest_with_foundry_iq.md)
+4. [Arrived: Complete the game](challenge/03_arrived_complete_the_game.md)
 
 The canonical runnable sample is in
 [src/agents/player/](../src/agents/player/). Steps 2–5 build it incrementally;
@@ -52,6 +63,11 @@ display **Not scheduled** when the play window is unset. If a legacy document
 has no `city`, the player experience uses the city retained in the game record. If a
 legacy or unpublished game has no `story`, the player experience shows a generic
 city-specific introduction.
+
+When a play window is configured, the dashboard does not send lesson
+navigation, lesson HTML, registration controls, or city-guide downloads outside
+that window. The closed page shows **Player window is closed**. During the final
+24 hours before opening it also shows a live **Enter the city in** countdown.
 
 Screenshots shared by Guided Mode are in [assets/](assets/). The admin and dashboard container builds
 bundle these source lessons and images; redeploy those services after updating

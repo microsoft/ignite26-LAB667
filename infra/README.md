@@ -70,6 +70,67 @@ on each service's target port. `azd deploy` replaces it with the real image.
 Keep the ignored `.azure/` environment directory: azd saves published image
 references there so later provisioning reuses the application images.
 
+### Deploy from GitHub Actions
+
+The [deployment workflow](../.github/workflows/deploy.yml) runs on pushes to
+`main` affecting infrastructure, service code, player content, or deployment
+tooling. It also supports **Actions > Deploy shared services > Run workflow**
+on `main`. It deploys this root azd project, not the separate Skillable template.
+
+Before enabling it:
+
+1. Create a GitHub environment named `production`. Restrict deployments to
+   `main`, and add required reviewers if deployments should need approval.
+2. Create or reuse a Microsoft Entra application/service principal with an
+   Azure federated identity credential:
+   - Issuer: `https://token.actions.githubusercontent.com`
+   - Subject: `repo:microsoft/ignite26-LAB667:environment:production`
+   - Audience: `api://AzureADTokenExchange`
+   - For a fork, replace the owner/repository in the subject.
+3. Grant that principal **Contributor** on the target subscription. The current
+   template creates a resource group through a subscription-scoped deployment
+   and reads resource keys; it does not create role assignments, so Owner is
+   not required. Follow your organization's policies for tighter custom roles.
+4. Add these **environment secrets** under the GitHub environment's
+   **Environment secrets** settings (not a committed environment file):
+
+   | Secret | Value |
+   | --- | --- |
+   | `AZURE_CLIENT_ID` | Entra application's client ID |
+   | `AZURE_TENANT_ID` | Entra tenant ID |
+   | `AZURE_SUBSCRIPTION_ID` | Target Azure subscription ID |
+   | `AZURE_ENV_NAME` | Existing azd environment name, or a new name for a new deployment |
+   | `AZURE_LOCATION` | Existing resource-group region, or a supported region for a new deployment |
+
+   Set any optional `AGENT42_MODEL_*` overrides from the table below under
+   **Environment variables** in the same GitHub environment. When taking over
+   a local deployment, copy its effective model
+   settings as well as its environment name, subscription, and location.
+   Otherwise the workflow uses the documented defaults.
+
+Authentication uses OIDC for both Azure CLI and azd; no client secret or
+registry password needs to be stored in GitHub. See
+[GitHub OIDC with Azure](https://learn.microsoft.com/azure/developer/github/connect-from-azure-openid-connect)
+for identity setup details.
+
+Each run initializes a fresh local azd environment and
+[restores deployed image references](../scripts/restore-azd-images.sh) from the
+four tagged Container Apps before `azd up --no-prompt`. This prevents
+provisioning from replacing existing images with the bootstrap sample container
+just because the runner has no local `.azure/` state. Azure lookup failures,
+duplicate service tags, and missing images fail the run rather than silently
+falling back. New apps still use the normal first-deployment bootstrap.
+
+Runs are serialized and an active deployment is not cancelled by a newer push.
+Avoid simultaneous local deployments to the same environment. The workflow
+checks the dashboard and Agent42 card HTTP endpoints, then lists the public
+URLs in the run summary. It does not exercise model inference or a full game.
+No `.azure/` state or resource keys are uploaded as artifacts.
+
+The initial admin-password change is still required for a new environment.
+Configure the GitHub environment and Azure identity before pushing the workflow;
+the file alone does not grant deployment access.
+
 ### Model settings
 
 Set overrides before `azd up`, or before a later `azd provision`:
@@ -131,10 +192,14 @@ azd deploy agent42         # Rebuild and deploy just Agent42
 azd provision              # Apply infrastructure or model-setting changes
 ```
 
-Codespaces automatically cleans old local workshop deployment tags after
-deployment and trims unused Docker build cache toward 1 GB. It retains the
-newest tag per service/environment repository and images used by containers;
-volumes and Azure registry images are untouched. See the
+Codespaces automatically cleans old local workshop deployment tags before
+packaging and after deployment, and trims unused Docker build cache toward 1 GB.
+The pre-package pass removes all unused, already-pushed workshop deployment images
+so old and new builds do not consume disk at the same time. The post-deploy
+pass removes superseded tags and retains the newest tag per
+service/environment repository. Both passes protect images used by containers;
+volumes, unrelated images, and images stored in Azure Container Registry are
+untouched. See the
 [cleanup policy and manual preview command](../scripts/README.md#keep-local-docker-storage-small).
 
 When upgrading to the versioned story editor, apply provisioning to supply the

@@ -64,6 +64,15 @@ def validate_document(document: Any, *, publish: bool = False) -> dict[str, list
             continue
         if publish and not missions:
             errors.append(f"{prefix} needs at least one mission before publishing.")
+        has_question = any(
+            isinstance(mission, dict) and mission.get("type") == "question"
+            for mission in missions
+        )
+        text(
+            quest.get("city_guide", ""),
+            f"{prefix} city guide",
+            publish and has_question,
+        )
         mission_ids: set[str] = set()
         for mi, mission in enumerate(missions):
             label = f"{prefix}, mission {mi + 1}"

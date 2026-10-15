@@ -26,6 +26,7 @@ def quest_document(story: str, city: str = "Amsterdam") -> dict:
         "quests": [{
             "id": 1,
             "name": "Test route",
+            "city_guide": "# Amsterdam route guide\n\nThe trusted guide says the answer is ANSWER.",
             "begin": {"prompt": "Begin"},
             "end": {"prompt": "End"},
             "missions": [{
@@ -46,6 +47,13 @@ class InstructionsTests(unittest.TestCase):
         self.patch = patch.object(storage, "_service", service)
         self.patch.start()
         self.addCleanup(self.patch.stop)
+        self.clock = patch.object(
+            game_schedule,
+            "utcnow",
+            return_value=datetime(2026, 10, 5, 10, tzinfo=timezone.utc),
+        )
+        self.clock.start()
+        self.addCleanup(self.clock.stop)
         self.env = patch.dict("os.environ", {
             "GAME_SERVER_URL": "https://mcp.example.test",
             "AGENT42_URL": "https://transport.example.test",
@@ -104,9 +112,58 @@ class InstructionsTests(unittest.TestCase):
             self.assertEqual(client.get("/missing/player").status_code, 404)
             self.assertEqual(client.get("/amsterdam/player/README").status_code, 404)
             self.assertEqual(client.get("/amsterdam/player/").status_code, 200)
+            guide = client.get("/amsterdam/guides/1/1.md")
+            self.assertEqual(guide.status_code, 200)
+            self.assertEqual(guide.text, "# Amsterdam route guide\n\nThe trusted guide says the answer is ANSWER.\n")
+            self.assertEqual(guide.headers["content-type"], "text/markdown; charset=utf-8")
+            self.assertIn('filename="test-route.md"', guide.headers["content-disposition"])
+            self.assertEqual(client.get("/amsterdam/guides/1/missing.md").status_code, 404)
             legacy = client.get("/amsterdam/instructions", follow_redirects=False)
             self.assertEqual(legacy.status_code, 308)
             self.assertEqual(legacy.headers["location"], "/amsterdam/player")
+
+    def test_player_instructions_are_not_sent_outside_play_window(self) -> None:
+        with TestClient(dashboard.build_app()) as client:
+            with patch.object(
+                game_schedule,
+                "utcnow",
+                return_value=datetime(2026, 10, 4, 6, tzinfo=timezone.utc),
+            ):
+                scheduled = client.get(
+                    "/amsterdam/player/00_step_into_your_workspace"
+                )
+                guide = client.get("/amsterdam/guides/1/1.md")
+            self.assertEqual(scheduled.status_code, 200)
+            self.assertIn("Player window is closed", scheduled.text)
+            self.assertNotIn('class="lesson-content"', scheduled.text)
+            self.assertNotIn('class="workshop-nav"', scheduled.text)
+            self.assertNotIn('id="player-registration-form"', scheduled.text)
+            self.assertNotIn('id="player-window-countdown"', scheduled.text)
+            self.assertNotIn("/static/js/player.js", scheduled.text)
+            self.assertEqual(guide.status_code, 403)
+            self.assertIn("Player window is closed", guide.text)
+
+            with patch.object(
+                game_schedule,
+                "utcnow",
+                return_value=datetime(2026, 10, 4, 8, tzinfo=timezone.utc),
+            ):
+                countdown = client.get("/amsterdam/player")
+            self.assertIn("Player window is closed", countdown.text)
+            self.assertIn("Enter the city in", countdown.text)
+            self.assertIn('data-seconds-until-start="82800"', countdown.text)
+            self.assertIn("/static/js/player_window.js", countdown.text)
+            self.assertNotIn('class="lesson-content"', countdown.text)
+
+            with patch.object(
+                game_schedule,
+                "utcnow",
+                return_value=datetime(2026, 10, 5, 17, tzinfo=timezone.utc),
+            ):
+                ended = client.get("/amsterdam/player")
+            self.assertIn("Player window is closed", ended.text)
+            self.assertNotIn("Enter the city in", ended.text)
+            self.assertNotIn('class="lesson-content"', ended.text)
 
     def test_admin_preview_is_public_but_settings_are_not(self) -> None:
         with TestClient(admin.app) as client:
@@ -127,6 +184,8 @@ class InstructionsTests(unittest.TestCase):
             api_key = payload["api_key"]
             self.assertTrue(api_key.startswith("litc.amsterdam."))
             self.assertEqual(payload["player"]["name"], "City Fox")
+            self.assertEqual(payload["player"]["quest_name"], "Test route")
+            self.assertIsNone(payload["player"]["quest_question"])
             self.assertNotEqual(payload["player"]["player_id"], api_key)
             self.assertEqual(payload["player"]["timeline"][0]["type"], "registered")
             self.assertEqual(client.get("/api/games/amsterdam/player").status_code, 401)
@@ -136,7 +195,23 @@ class InstructionsTests(unittest.TestCase):
             )
             self.assertEqual(state.status_code, 200)
             self.assertNotIn(api_key, state.text)
+            self.assertNotIn("valid_answers", state.text)
             self.assertEqual(state.json()["player"]["mission_count"], 1)
+
+            def unlock_question(player: dict) -> None:
+                player["status"] = "mission"
+
+            storage.update_player("amsterdam", api_key, unlock_question)
+            unlocked = client.get(
+                "/api/games/amsterdam/player",
+                headers={"Authorization": f"Bearer {api_key}"},
+            )
+            self.assertEqual(unlocked.status_code, 200)
+            self.assertEqual(
+                unlocked.json()["player"]["quest_question"],
+                "What is the answer?",
+            )
+            self.assertNotIn("valid_answers", unlocked.text)
             self.assertEqual(
                 client.get(
                     "/api/games/london/player",
@@ -254,27 +329,65 @@ class InstructionsTests(unittest.TestCase):
             timezone="Europe/Amsterdam", player_mode="challenge",
         ), 1)
         with TestClient(dashboard.build_app()) as client:
-            guided = sorted(path.name for path in workshop_instructions.GUIDED_DIR.glob("[0-9][0-9]_*.md"))
             challenge = sorted(path.name for path in workshop_instructions.CHALLENGE_DIR.glob("[0-9][0-9]_*.md"))
-            self.assertEqual(challenge, guided)
-            self.assertEqual(len(challenge), 10)
+            self.assertEqual(challenge, [
+                "00_mission_1_get_ready_and_start_the_game.md",
+                "01_mission_2_use_agent42_to_travel.md",
+                "02_mission_3_solve_the_quest_with_foundry_iq.md",
+                "03_arrived_complete_the_game.md",
+            ])
             for chapter in workshop_instructions.CHALLENGE_DIR.glob("[0-9][0-9]_*.md"):
                 chapter_response = client.get(f"/amsterdam/player/{chapter.stem}")
                 self.assertEqual(chapter_response.status_code, 200, chapter_response.text)
                 self.assertNotIn("Challenge mode", chapter_response.text)
-                self.assertIn("Expected outcome", chapter_response.text)
+                self.assertIn("Objectives", chapter_response.text)
+                self.assertIn("Completion check", chapter_response.text)
                 self.assertNotIn("{{", chapter_response.text)
             response = client.get("/amsterdam/player")
             self.assertEqual(response.status_code, 200)
             self.assertNotIn("Challenge mode", response.text)
-            self.assertIn("Prepare Your Workspace", response.text)
+            self.assertIn("Mission 1: Get Ready and Start the Game", response.text)
             self.assertIn("A published Amsterdam story from the quest document.", response.text)
-            self.assertIn("Expected outcome", response.text)
+            self.assertIn("Load the <code>game_play_prompt</code> instructions", response.text)
             self.assertIn("Next lesson", response.text)
-            self.assertEqual(response.text.count('/amsterdam/player/'), 11)
-            connection = client.get("/amsterdam/player/03_connect_to_the_gaming_mcp_server")
-            self.assertIn("GAME_MCP_URL=https://mcp.example.test/amsterdam/mcp", connection.text)
-            self.assertNotIn("Connect the MCP tool", connection.text)
+            self.assertEqual(response.text.count('/amsterdam/player/'), 5)
+            self.assertIn("GAME_MCP_URL=https://mcp.example.test/amsterdam/mcp", response.text)
+            agent42 = client.get("/amsterdam/player/01_mission_2_use_agent42_to_travel")
+            self.assertIn("AGENT42_URL=https://transport.example.test/", agent42.text)
+            foundry_iq = client.get("/amsterdam/player/02_mission_3_solve_the_quest_with_foundry_iq")
+            self.assertIn("Foundry IQ", foundry_iq.text)
+
+    def test_guided_lessons_are_grouped_into_named_missions(self) -> None:
+        lessons = [
+            {
+                "slug": path.stem,
+                "title": path.read_text(encoding="utf-8").splitlines()[0].removeprefix("# "),
+            }
+            for path in sorted(workshop_instructions.GUIDED_DIR.glob("[0-9][0-9]_*.md"))
+        ]
+        missions = workshop_instructions.guided_mission_navigation(lessons)
+        self.assertEqual(
+            [(mission["label"], mission["name"], len(mission["lessons"])) for mission in missions],
+            [
+                ("Mission 1", "Get Ready and Start the Game", 6),
+                ("Mission 2", "Use Agent42 to Travel", 1),
+                ("Mission 3", "Solve Your City Guide Question with Foundry IQ", 2),
+                ("Arrived", "Complete the Game", 1),
+            ],
+        )
+
+        with TestClient(dashboard.build_app()) as client:
+            response = client.get(
+                "/amsterdam/player/06_test_agent42_transport_specialist"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text.count('class="workshop-nav-mission"'), 4)
+        self.assertRegex(
+            response.text,
+            r'class="lesson-mission-heading">\s*<span>Mission 2</span>\s*'
+            r'<strong>Use Agent42 to Travel</strong>',
+        )
+        self.assertEqual(response.text.count('aria-current="page"'), 1)
 
     def test_variable_values_are_text_not_markdown_html_or_templates(self) -> None:
         rendered = workshop_instructions.render_lesson(
@@ -316,8 +429,19 @@ class InstructionsTests(unittest.TestCase):
 
             page.route("**/*", serve)
             page.goto("https://instructions.test/amsterdam/player/03_connect_to_the_gaming_mcp_server")
-            page.get_by_label("Nickname").fill("Browser Fox")
-            page.get_by_role("button", name="Start game").click()
+            expect(page.locator(".player-game-story")).to_have_text(
+                "A published Amsterdam story from the quest document."
+            )
+            registration_layout = page.locator("#player-registration").evaluate(
+                "(element) => { const style = getComputedStyle(element); "
+                "return { textAlign: style.textAlign, width: element.getBoundingClientRect().width }; }"
+            )
+            self.assertEqual(registration_layout["textAlign"], "center")
+            self.assertLessEqual(registration_layout["width"], 760)
+            start_button = page.get_by_role("button", name="Start game")
+            self.assertGreaterEqual(start_button.bounding_box()["height"], 64)
+            page.get_by_label("Choose your nickname").fill("Browser Fox")
+            start_button.click()
             expect(page.get_by_text("Player: Browser Fox", exact=True)).to_be_visible()
             expect(page.get_by_text("LIVE PROGRESS", exact=True)).to_be_visible()
             expect(page.get_by_text("missions completed")).to_have_count(0)
@@ -328,6 +452,24 @@ class InstructionsTests(unittest.TestCase):
                 ),
                 "flex",
             )
+            marker_alignment = page.locator(".player-timeline-event").first.evaluate(
+                """(element) => {
+                    const event = element.getBoundingClientRect();
+                    const marker = element.querySelector('.player-timeline-marker').getBoundingClientRect();
+                    const connector = getComputedStyle(element, '::after');
+                    return {
+                        horizontal: Math.abs(
+                            marker.left + marker.width / 2 - event.left - parseFloat(connector.left)
+                        ),
+                        vertical: Math.abs(
+                            marker.top + marker.height / 2 - event.top
+                            - parseFloat(connector.top) - parseFloat(connector.borderTopWidth) / 2
+                        ),
+                    };
+                }"""
+            )
+            self.assertLessEqual(marker_alignment["horizontal"], .5)
+            self.assertLessEqual(marker_alignment["vertical"], .5)
             expect(page.locator(".player-timeline-pending")).to_have_count(1)
             expect(page.locator(".player-timeline-pending")).to_contain_text("Mission 1")
             expect(page.locator("#player-timeline time")).to_have_count(0)
@@ -354,7 +496,7 @@ class InstructionsTests(unittest.TestCase):
             self.assertFalse(page.evaluate(
                 "Boolean(localStorage.getItem('lost-in-the-city:amsterdam:api-key'))"
             ))
-            page.get_by_label("Nickname").fill("Browser Fox")
+            page.get_by_label("Choose your nickname").fill("Browser Fox")
             page.get_by_role("button", name="Start game").click()
             page.wait_for_function(
                 "Boolean(localStorage.getItem('lost-in-the-city:amsterdam:api-key'))"
@@ -364,6 +506,21 @@ class InstructionsTests(unittest.TestCase):
             browser_api_key = page.evaluate(
                 "localStorage.getItem('lost-in-the-city:amsterdam:api-key')"
             )
+            expect(page.locator("[data-player-quest-name]")).to_have_text(
+                "Test route with Foundry IQ"
+            )
+            expect(page.locator("[data-player-quest-question]")).to_be_hidden()
+
+            def unlock_browser_question(player: dict) -> None:
+                player["status"] = "mission"
+
+            storage.update_player(
+                "amsterdam", browser_api_key, unlock_browser_question
+            )
+            expect(page.locator("[data-player-quest-question]")).to_have_text(
+                "What is the answer?", timeout=6_000
+            )
+            expect(page.locator("[data-player-quest-question]")).to_be_visible()
 
             def add_browser_advice(player: dict) -> None:
                 player_identity.append_timeline_event(

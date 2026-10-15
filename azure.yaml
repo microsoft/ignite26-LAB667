@@ -5,6 +5,17 @@ infra:
   path: infra
   module: main
 hooks:
+  prepackage:
+    posix:
+      shell: sh
+      run: |
+        if [ "${CODESPACES:-false}" = "true" ]; then
+          bash scripts/clean-local-docker.sh --apply --all-deployment-images
+        else
+          echo "Automatic Docker cleanup is Codespaces-only; use scripts/clean-local-docker.sh manually."
+        fi
+      continueOnError: true
+      interactive: false
   postdeploy:
     posix:
       shell: sh

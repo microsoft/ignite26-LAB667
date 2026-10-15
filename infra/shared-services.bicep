@@ -177,6 +177,10 @@ module mcp './container-app.bicep' = {
         name: 'MCP_PORT'
         value: '8000'
       }
+      {
+        name: 'DASHBOARD_URL'
+        value: 'https://${dashboardName}.${containerEnvironment.properties.defaultDomain}'
+      }
     ])
     secrets: tableSecrets
   }
@@ -252,6 +256,10 @@ module admin './container-app.bicep' = {
       {
         name: 'ADMIN_COOKIE_SECURE'
         value: 'true'
+      }
+      {
+        name: 'ADMIN_DEVELOPMENT_MODE'
+        value: 'false'
       }
       {
         name: 'AZURE_MAPS_KEY'

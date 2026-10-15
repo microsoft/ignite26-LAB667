@@ -8,7 +8,10 @@
 </div>
 <div class="field form-span">
   <label for="game-timezone">Timezone</label>
-  <input id="game-timezone" name="timezone" list="timezones" value="{{ schedule.timezone }}" placeholder="Europe/Amsterdam" required />
-  <datalist id="timezones">{% for zone in timezones %}<option value="{{ zone }}"></option>{% endfor %}</datalist>
+  <select id="game-timezone" name="timezone" required>
+    {% for zone in timezones %}
+    <option value="{{ zone }}" {% if zone == schedule.timezone %}selected{% endif %}>{{ zone|replace('_', ' ') }}</option>
+    {% endfor %}
+  </select>
   <small id="schedule-help">Dates and times use this timezone, not your browser's timezone. Set both to restrict gameplay; leave both empty for unrestricted play. Saving changes the live play window immediately, including for existing players.</small>
 </div>

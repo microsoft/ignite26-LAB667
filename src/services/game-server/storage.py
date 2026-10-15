@@ -6,13 +6,14 @@ Tables (auto-created on startup):
   quests   PK=slug     RK="vN"      {payload: immutable published story}
   players  PK=slug     RK=player_id {data: JSON-encoded player state}
 
-The default game is seeded from quests.json on first start if no games exist.
+Missing built-in games are seeded from their quest documents on startup.
 """
 from __future__ import annotations
 
 import json
 import os
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -28,9 +29,31 @@ load_dotenv(override=True)
 
 BASE_DIR = Path(__file__).resolve().parent
 SEED_QUESTS_FILE = BASE_DIR / "quests.json"
+PHILADELPHIA_SEED_QUESTS_FILE = BASE_DIR / "quests-philadelphia.json"
 DEFAULT_SLUG = os.environ.get("DEFAULT_GAME_SLUG", "san-francisco")
 DEFAULT_DISPLAY = os.environ.get("DEFAULT_GAME_NAME", "Lost in San Francisco")
-DEFAULT_EVENT_NAME = os.environ.get("DEFAULT_EVENT_NAME", "Open Hack")
+DEFAULT_EVENT_NAME = os.environ.get("DEFAULT_EVENT_NAME", "Microsoft Ignite")
+
+
+@dataclass(frozen=True)
+class SeedGame:
+    slug: str
+    display_name: str
+    event_name: str
+    quests_file: Path
+    player_mode: str = "guided"
+
+
+SEED_GAMES = (
+    SeedGame(DEFAULT_SLUG, DEFAULT_DISPLAY, DEFAULT_EVENT_NAME, SEED_QUESTS_FILE),
+    SeedGame(
+        "philadelphia",
+        "Lost in Philadelphia",
+        "Open Hack Philadelphia",
+        PHILADELPHIA_SEED_QUESTS_FILE,
+        "challenge",
+    ),
+)
 
 GAMES_TABLE = "games"
 QUESTS_TABLE = "quests"
@@ -77,38 +100,46 @@ def _default_city(display_name: str) -> str:
 
 
 def init_storage() -> None:
-    """Create tables if missing and seed the default game if none exist."""
+    """Create tables if missing and add any missing built-in games."""
     svc = _svc()
     for name in (GAMES_TABLE, QUESTS_TABLE, PLAYERS_TABLE):
         try:
             svc.create_table(name)
         except ResourceExistsError:
             pass
-    if not list_games():
+    for seed in SEED_GAMES:
+        if get_game(seed.slug) is not None:
+            continue
         try:
             create_game(
-                DEFAULT_SLUG,
-                DEFAULT_DISPLAY,
-                quests=load_seed_quests(),
-                event_name=DEFAULT_EVENT_NAME,
+                seed.slug,
+                seed.display_name,
+                quests=load_seed_quests(seed.slug),
+                event_name=seed.event_name,
+                schedule=GameSchedule(player_mode=seed.player_mode),
             )
         except ResourceExistsError:
             # Another service may seed the same game during coordinated startup.
-            if get_game(DEFAULT_SLUG) is None:
+            if get_game(seed.slug) is None:
                 raise
 
 
-def load_seed_quests() -> dict[str, Any]:
-    """Load the local quests.json seed file."""
-    if SEED_QUESTS_FILE.exists():
-        return json.loads(SEED_QUESTS_FILE.read_text(encoding="utf-8"))
+def load_seed_quests(slug: str | None = None) -> dict[str, Any]:
+    """Load the quest seed for a built-in game, defaulting to San Francisco."""
+    target_slug = slug or DEFAULT_SLUG
+    seed_file = next(
+        (seed.quests_file for seed in SEED_GAMES if seed.slug == target_slug),
+        SEED_QUESTS_FILE,
+    )
+    if seed_file.exists():
+        return json.loads(seed_file.read_text(encoding="utf-8"))
     return {"quests": []}
 
 
 def import_seed_quests(slug: str) -> dict[str, Any]:
     """Import the local seed into the draft, without affecting live players."""
     slug = _validate_slug(slug)
-    data = load_seed_quests()
+    data = load_seed_quests(slug)
     save_quests(slug, data)
     return data
 
@@ -144,6 +175,7 @@ def _game_info(e: TableEntity) -> dict[str, Any]:
         "ends_at": e.get("ends_at", ""),
         "timezone": e.get("timezone", "UTC"),
         "player_mode": e.get("player_mode", "guided"),
+        "competitive_mode": bool(e.get("competitive_mode", False)),
         "schedule_revision": int(e.get("schedule_revision", 0)),
     }
 
@@ -456,6 +488,9 @@ def delete_all_players(slug: str) -> None:
 
 
 def get_leaderboard(slug: str, limit: int = 10) -> list[dict[str, Any]]:
+    game = get_game(slug)
+    if game is None or not game["competitive_mode"]:
+        return []
     quests_by_version: dict[int, dict[int, Any]] = {}
     entries: list[dict[str, Any]] = []
     for pid, p in list_players(slug).items():

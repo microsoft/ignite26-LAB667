@@ -13,6 +13,9 @@ function showPlayer(id) {
   const player = activity.players.find((p) => p.player_id === id);
   if (!player) return;
   document.getElementById('player-detail-title').textContent = player.name;
+  const score = activity.game.competitive_mode
+    ? `<dt>Score</dt><dd>${escapeHtml(player.score ?? 'Not completed')}</dd>`
+    : '';
   document.getElementById('player-detail').innerHTML = `<dl class="player-facts">
     <dt>Player ID</dt><dd>${escapeHtml(player.player_id)}</dd>
     <dt>Story</dt><dd>Version ${escapeHtml(player.game_version)} / ${escapeHtml(player.quest_name)}</dd>
@@ -20,13 +23,14 @@ function showPlayer(id) {
     <dt>Mission</dt><dd>${escapeHtml(player.current_mission_id || 'Finished')} (${Math.min(player.current_mission_index + 1, player.mission_count)} / ${player.mission_count})</dd>
     <dt>Attempts</dt><dd>${escapeHtml(player.answer_attempts)}</dd>
     <dt>Recorded location</dt><dd>${escapeHtml(player.location?.address || 'No recorded coordinates')}<small>Story position, not live GPS</small></dd>
-    <dt>Score</dt><dd>${escapeHtml(player.score ?? 'Not completed')}</dd>
+    ${score}
   </dl>`;
   document.getElementById('player-dialog').showModal();
 }
 
 function renderActivity(fit = false) {
   const players = selectedPlayers();
+  const competitive = Boolean(activity.game.competitive_mode);
   document.getElementById('dashboard-version').textContent = `Live · Version ${activity.published_version}`;
   const counts = {
     player: players.length, registered: 0, active: 0, completed: 0, abandoned: 0,
@@ -42,11 +46,12 @@ function renderActivity(fit = false) {
     <td><span class="player-status">${escapeHtml(player.status)}</span></td>
     <td><progress max="${Math.max(1, player.mission_count)}" value="${player.status === 'complete' ? player.mission_count : player.current_mission_index}"></progress>
       <small class="table-subtitle">${player.status === 'complete' ? player.mission_count : Math.min(player.current_mission_index + 1, player.mission_count)} / ${player.mission_count} missions</small></td>
-    <td>${escapeHtml(player.answer_attempts)}</td><td class="score">${escapeHtml(player.score ?? '-')}</td>
+    <td>${escapeHtml(player.answer_attempts)}</td>${competitive ? `<td class="score">${escapeHtml(player.score ?? '-')}</td>` : ''}
     <td><button class="button button-quiet" data-reset="${escapeHtml(player.player_id)}" aria-label="Reset player ${escapeHtml(player.name)}">Reset</button></td>
   </tr>`).join('');
-  document.getElementById('players').innerHTML = `<table><thead><tr><th>Player</th><th>Quest / version</th><th>Status</th><th>Progress</th><th>Attempts</th><th>Score</th><th>Actions</th></tr></thead>
-    <tbody>${rows || '<tr><td colspan="7" class="table-empty">No players in this view. Share the MCP endpoint after publishing a story.</td></tr>'}</tbody></table>`;
+  document.getElementById('players').innerHTML = `<table><thead><tr><th>Player</th><th>Quest / version</th><th>Status</th><th>Progress</th><th>Attempts</th>${competitive ? '<th>Score</th>' : ''}<th>Actions</th></tr></thead>
+    <tbody>${rows || `<tr><td colspan="${competitive ? 7 : 6}" class="table-empty">No players in this view. Share the MCP endpoint after publishing a story.</td></tr>`}</tbody></table>`;
+  document.getElementById('leaderboard-panel').hidden = !competitive;
   const top = players.filter((p) => p.status === 'complete' && p.score != null)
     .sort((a, b) => b.score - a.score || (a.time_taken_minutes || 0) - (b.time_taken_minutes || 0)).slice(0, 10);
   document.getElementById('leaderboard').innerHTML = `<table><thead><tr><th>Rank</th><th>Player</th><th>Story</th><th>Score</th><th>Minutes</th></tr></thead><tbody>

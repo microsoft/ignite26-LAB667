@@ -11,6 +11,7 @@ window.GameMap = (() => {
     (document.quests || []).forEach((quest, qi) => {
       if (filter !== 'all' && String(qi) !== String(filter)) return;
       const color = colors[qi % colors.length];
+      const questPointNumbers = new Map();
       legend.push({ name: quest.name || `Quest ${qi + 1}`, color });
       (quest.missions || []).forEach((mission, mi) => {
         const pair = [];
@@ -22,14 +23,22 @@ window.GameMap = (() => {
             return;
           }
           const key = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-          if (!points.has(key)) points.set(key, { position: [lng, lat], members: [], color, number: points.size + 1 });
+          if (!questPointNumbers.has(key)) questPointNumbers.set(key, questPointNumbers.size + 1);
+          if (!points.has(key)) points.set(key, {
+            position: [lng, lat], members: [], color, numbers: new Set(),
+          });
+          points.get(key).numbers.add(questPointNumbers.get(key));
           points.get(key).members.push({ questIndex: qi, missionIndex: mi, endpoint, address, questName: quest.name, missionId: mission.id });
           pair.push([lng, lat]);
         });
         if (pair.length === 2) lines.push({ positions: pair, color });
       });
     });
-    return { points: [...points.values()], lines, missing, legend };
+    const numberedPoints = [...points.values()].map((point) => ({
+      ...point,
+      number: [...point.numbers].sort((a, b) => a - b).join('/'),
+    }));
+    return { points: numberedPoints, lines, missing, legend };
   }
 
   let sdkPromise;

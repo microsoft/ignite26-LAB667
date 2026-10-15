@@ -7,10 +7,11 @@ from html import escape
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from azure.core.exceptions import ResourceNotFoundError
 from markdown_it import MarkdownIt
 from starlette.exceptions import HTTPException
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, RedirectResponse
+from starlette.responses import HTMLResponse, RedirectResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
@@ -27,6 +28,38 @@ GUIDED_DIR = PLAYER_DIR / "guided"
 CHALLENGE_DIR = PLAYER_DIR / "challenge"
 TEMPLATES = Jinja2Templates(directory=BASE_DIR / "templates")
 VARIABLE = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
+GUIDED_MISSIONS = (
+    {
+        "label": "Mission 1",
+        "name": "Get Ready and Start the Game",
+        "lessons": (
+            "00_step_into_your_workspace",
+            "01_get_azure_openai_details_from_foundry",
+            "02_create_hello_world_agent",
+            "03_connect_to_the_gaming_mcp_server",
+            "04_use_the_player_api_key",
+            "05_add_session_logging",
+        ),
+    },
+    {
+        "label": "Mission 2",
+        "name": "Use Agent42 to Travel",
+        "lessons": ("06_test_agent42_transport_specialist",),
+    },
+    {
+        "label": "Mission 3",
+        "name": "Solve Your City Guide Question with Foundry IQ",
+        "lessons": (
+            "07_test_the_city_guide_agent",
+            "08_bring_specialists_into_main_agent",
+        ),
+    },
+    {
+        "label": "Arrived",
+        "name": "Complete the Game",
+        "lessons": ("09_lab_recap",),
+    },
+)
 
 
 def public_url(name: str, default: str) -> str:
@@ -65,6 +98,31 @@ def instruction_city(document: dict[str, object], legacy_city: str) -> str:
     return legacy_city
 
 
+def guided_mission_navigation(
+    navigation: list[dict[str, str]],
+) -> list[dict[str, object]]:
+    items = {item["slug"]: item for item in navigation}
+    configured = {
+        lesson
+        for mission in GUIDED_MISSIONS
+        for lesson in mission["lessons"]
+    }
+    if configured != set(items):
+        missing = sorted(set(items) - configured)
+        stale = sorted(configured - set(items))
+        raise RuntimeError(
+            f"Guided mission mapping is out of date. Unmapped: {missing}; missing files: {stale}."
+        )
+    return [
+        {
+            "label": mission["label"],
+            "name": mission["name"],
+            "lessons": [items[slug] for slug in mission["lessons"]],
+        }
+        for mission in GUIDED_MISSIONS
+    ]
+
+
 def instructions_page(request: Request) -> HTMLResponse:
     game = storage.get_game(request.path_params["slug"])
     if game is None:
@@ -87,27 +145,47 @@ def instructions_page(request: Request) -> HTMLResponse:
         "game_end_time": end_time or "Not scheduled",
         "game_timezone": schedule["timezone"],
     }
+    availability = game_availability(game)
     player_mode = game.get("player_mode", "guided")
     content_dir = CHALLENGE_DIR if player_mode == "challenge" else GUIDED_DIR
     lessons = sorted(content_dir.glob("[0-9][0-9]_*.md"))
     if not lessons:
         raise RuntimeError(f"Shared {player_mode} player content was not packaged with this service.")
     selected = request.path_params.get("lesson", lessons[0].stem)
-    lesson = next((path for path in lessons if path.stem == selected), None)
-    if lesson is None:
-        raise HTTPException(404, "Player lesson not found")
-    navigation = [
-        {"slug": path.stem, "title": path.read_text(encoding="utf-8").splitlines()[0].removeprefix("# ")}
-        for path in lessons
-    ]
-    index = lessons.index(lesson)
+    navigation: list[dict[str, str]] = []
+    content = ""
+    previous = None
+    next_lesson = None
+    mission_navigation: list[dict[str, object]] = []
+    current_mission: dict[str, object] | None = None
+    if availability["state"] == "open":
+        lesson = next((path for path in lessons if path.stem == selected), None)
+        if lesson is None:
+            raise HTTPException(404, "Player lesson not found")
+        navigation = [
+            {"slug": path.stem, "title": path.read_text(encoding="utf-8").splitlines()[0].removeprefix("# ")}
+            for path in lessons
+        ]
+        index = lessons.index(lesson)
+        content = render_lesson(lesson.read_text(encoding="utf-8"), variables)
+        previous = navigation[index - 1] if index else None
+        next_lesson = navigation[index + 1] if index + 1 < len(navigation) else None
+        if player_mode == "guided":
+            mission_navigation = guided_mission_navigation(navigation)
+            current_mission = next(
+                mission
+                for mission in mission_navigation
+                if any(item["slug"] == selected for item in mission["lessons"])
+            )
     response = TEMPLATES.TemplateResponse(request, "workshop_instructions.html", {
-        "game": game, "variables": variables, "availability": game_availability(game),
+        "game": game, "variables": variables, "availability": availability,
         "player_mode": player_mode,
         "lessons": navigation, "selected": selected,
-        "previous": navigation[index - 1] if index else None,
-        "next": navigation[index + 1] if index + 1 < len(navigation) else None,
-        "content": render_lesson(lesson.read_text(encoding="utf-8"), variables),
+        "previous": previous,
+        "next": next_lesson,
+        "content": content,
+        "mission_navigation": mission_navigation,
+        "current_mission": current_mission,
     })
     response.headers.update({
         "Cache-Control": "no-store",
@@ -124,10 +202,43 @@ def legacy_instructions_redirect(request: Request) -> RedirectResponse:
     return RedirectResponse(f"/{slug}/player{suffix}", status_code=308)
 
 
+def city_guide_download(request: Request) -> Response:
+    slug = request.path_params["slug"]
+    game = storage.get_game(slug)
+    if game is None:
+        raise HTTPException(404, "Game not found")
+    if game_availability(game)["state"] != "open":
+        raise HTTPException(403, "Player window is closed.")
+    try:
+        version = int(request.path_params["version"])
+        document = storage.load_quests(slug, version)
+    except (KeyError, ResourceNotFoundError, TypeError, ValueError):
+        raise HTTPException(404, "City guide not found") from None
+    quest_id = request.path_params["quest_id"]
+    quest = next(
+        (item for item in document.get("quests", []) if str(item.get("id")) == quest_id),
+        None,
+    )
+    content = str((quest or {}).get("city_guide") or "").strip()
+    if not content:
+        raise HTTPException(404, "City guide not found")
+    filename = re.sub(r"[^a-z0-9]+", "-", str(quest.get("name") or "city-guide").lower()).strip("-")
+    return Response(
+        content + "\n",
+        media_type="text/markdown",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename or "city-guide"}.md"',
+            "Cache-Control": "public, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
 def instruction_routes() -> list[Mount | Route]:
     return [
         Mount("/player-assets", app=StaticFiles(directory=PLAYER_DIR / "assets"), name="player-assets"),
         Mount("/instruction-assets", app=StaticFiles(directory=PLAYER_DIR / "assets"), name="legacy-instruction-assets"),
+        Route("/{slug}/guides/{version:int}/{quest_id}.md", endpoint=city_guide_download),
         Route("/{slug}/player", endpoint=instructions_page),
         Route("/{slug}/player/", endpoint=instructions_page),
         Route("/{slug}/player/{lesson}", endpoint=instructions_page),

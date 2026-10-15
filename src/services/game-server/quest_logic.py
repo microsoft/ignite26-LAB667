@@ -20,10 +20,14 @@ def _as_text(*parts: Any) -> str:
     return "\n\n".join(str(part).strip() for part in parts if str(part or "").strip())
 
 
-def _compute_score(player: dict[str, Any]) -> tuple[int, int]:
+def _elapsed_minutes(player: dict[str, Any]) -> int:
     started = _parse_iso(player["started_at"])
     completed = _parse_iso(player["completed_at"])
-    minutes = max(0, int((completed - started).total_seconds() // 60))
+    return max(0, int((completed - started).total_seconds() // 60))
+
+
+def _compute_score(player: dict[str, Any]) -> tuple[int, int]:
+    minutes = _elapsed_minutes(player)
     attempts = int(player.get("answer_attempts", player.get("code_attempts", 0)))
     successes = len(player.get("mission_results") or [])
     failed = max(0, attempts - successes)

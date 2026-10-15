@@ -244,7 +244,6 @@ class Dashboard:
                     or ""
                 ),
                 "answer_attempts": answer_attempts,
-                "score": player.get("score"),
                 "time_taken_minutes": player.get("time_taken_minutes"),
                 "mission_results": [
                     {
@@ -255,6 +254,7 @@ class Dashboard:
                     for result in (player.get("mission_results") or [])
                     if (result.get("route_ref") or "").strip()
                 ],
+                **({"score": player.get("score")} if game["competitive_mode"] else {}),
             })
 
         counts["attempts"] = attempts

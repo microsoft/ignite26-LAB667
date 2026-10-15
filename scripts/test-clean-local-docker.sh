@@ -21,6 +21,7 @@ docker() {
 {"Repository":"another-project/admin-dev","Tag":"azd-deploy-1","ID":"sha256:other"}
 {"Repository":"another-project/admin-dev","Tag":"azd-deploy-2","ID":"sha256:other-new"}
 {"Repository":"lost-in-san-francisco/admin-dev","Tag":"latest","ID":"sha256:latest"}
+{"Repository":"lost-in-san-francisco-admin","Tag":"latest","ID":"sha256:local-build"}
 JSON
       ;;
     "ps -aq") echo "stopped-container" ;;
@@ -43,9 +44,13 @@ unset DOCKER_HOST
 preview="$(bash scripts/clean-local-docker.sh)"
 [[ ! -s "$log" ]]
 [[ "$preview" == *"Keeping container-referenced image:"* ]]
-[[ "$preview" == *"Would remove old local deployment tag: lost-in-san-francisco/admin-dev:azd-deploy-9"* ]]
+[[ "$preview" == *"Would remove local deployment artifact: lost-in-san-francisco/admin-dev:azd-deploy-9"* ]]
 bash scripts/clean-local-docker.sh --apply
 expected=$'lost-in-san-francisco/admin-dev:azd-deploy-9\nregistry.example/lost-in-san-francisco/admin-dev:azd-deploy-9\ncache'
+[[ "$(cat "$log")" == "$expected" ]]
+>"$log"
+bash scripts/clean-local-docker.sh --all-deployment-images --apply
+expected=$'lost-in-san-francisco/admin-dev:azd-deploy-9\nlost-in-san-francisco/admin-dev:azd-deploy-10\nlost-in-san-francisco/admin-prod:azd-deploy-1\nlost-in-san-francisco/mcp-dev:azd-deploy-2\nregistry.example/lost-in-san-francisco/admin-dev:azd-deploy-9\nregistry.example/lost-in-san-francisco/admin-dev:azd-deploy-10\nlost-in-san-francisco-admin:latest\ncache'
 [[ "$(cat "$log")" == "$expected" ]]
 if CLEANUP_TEST_ENDPOINT=ssh://remote bash scripts/clean-local-docker.sh --apply; then
   echo "Remote Docker endpoint was not rejected." >&2

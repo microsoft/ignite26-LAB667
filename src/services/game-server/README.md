@@ -34,14 +34,19 @@ Three game-state tables are created automatically on first start:
 
 | Table | PartitionKey | RowKey | Payload |
 | --- | --- | --- | --- |
-| `games` | `"games"` | `slug` | `display_name`, `created_at`, UTC `starts_at` / `ends_at`, IANA `timezone`, `schedule_revision` |
+| `games` | `"games"` | `slug` | `display_name`, `created_at`, UTC `starts_at` / `ends_at`, IANA `timezone`, `player_mode`, `competitive_mode`, `schedule_revision` |
 | `quests` | `slug` | `"quests"` | Published `payload`, editable `draft_payload`, version and draft revision |
 | `quests` | `slug` | `"v1"`, `"v2"`, ... | Immutable story snapshots and publication timestamps |
 | `players` | `slug` | `player_id` | JSON player state, including its pinned `game_version` |
 
-If no games exist on first start, one is seeded from `quests.json` using
-`DEFAULT_GAME_SLUG` / `DEFAULT_GAME_NAME` (defaults: `san-francisco`,
-`Lost in San Francisco`).
+On startup, the server adds either built-in game when it is missing:
+
+- **Microsoft Ignite** — **Lost in San Francisco**, from `quests.json`
+- **Open Hack Philadelphia** — **Lost in Philadelphia** in Challenge Mode,
+  from `quests-philadelphia.json`
+
+`DEFAULT_GAME_SLUG`, `DEFAULT_GAME_NAME`, and `DEFAULT_EVENT_NAME` can rename
+the San Francisco seed. Existing games are never overwritten during startup.
 
 After editing `quests.json`, import it into Azure Tables either from the admin
 editor with **Advanced > Import seed quests**, or for the default game by running:
@@ -86,6 +91,7 @@ ZIP/postal code, city, state or region when relevant, and country.
     {
       "id": 1,
       "name": "Example Quest",
+      "city_guide": "# Example Quest City Guide\n\nThe evidence needed to solve this route's question.",
       "begin": {"prompt": "Opening scene"},
       "missions": [
         {
@@ -113,7 +119,11 @@ ZIP/postal code, city, state or region when relevant, and country.
 
 `question` missions validate `answer` against `valid_answers`
 case-insensitively. `move` missions default to `car`, `walking`, and `bike`
-as valid answers and use a private `route_ref` for route animation.
+as valid answers and use a private `route_ref` for route animation. Every quest
+with a question mission must include a Markdown `city_guide`. When the player
+reaches that question, MCP returns a version-pinned download URL in
+`resources`; the player adds that document to Foundry IQ to retrieve the
+grounded answer.
 
 ## Install
 
@@ -154,9 +164,9 @@ python server.py
 | `AZURE_TABLES_CONNECTION_STRING` | — | Required. Storage account or `UseDevelopmentStorage=true`. |
 | `MCP_HOST` | `0.0.0.0` | HTTP bind address |
 | `MCP_PORT` | `8000` | HTTP bind port |
-| `DEFAULT_GAME_SLUG` | `san-francisco` | Slug for the first-run seed game |
-| `DEFAULT_GAME_NAME` | `Lost in San Francisco` | Display name for the seed game |
-| `DEFAULT_EVENT_NAME` | `Open Hack` | Event name shown above the challenge name |
+| `DEFAULT_GAME_SLUG` | `san-francisco` | Slug for the San Francisco seed game |
+| `DEFAULT_GAME_NAME` | `Lost in San Francisco` | Display name for the San Francisco seed game |
+| `DEFAULT_EVENT_NAME` | `Microsoft Ignite` | Event name shown above the San Francisco challenge |
 
 The server checks the games table when MCP requests arrive and lazily creates
 the MCP app for each slug. Games added through the admin UI are routable
@@ -203,10 +213,15 @@ python admin.py
 For local HTTP, set `ADMIN_COOKIE_SECURE=false` (included in `.env.example`).
 Leave it `true`, the default, for HTTPS deployments.
 
-Sign in with **admin / admin** on first start. Before managing any games, you
-must choose a new password of **12-128 characters**, different from your
-current password. After changing it, sign in again. Use **Password** in the
-header to change it later, or **Sign out** to end the current session.
+For local development, set `ADMIN_DEVELOPMENT_MODE=true` (also included in
+`.env.example`) to keep the built-in **admin / admin** credentials without a
+forced password change. Never enable development mode in a deployed
+environment.
+
+In a deployment, sign in with **admin / admin** on first start. Before managing
+any games, you must choose a new password of **12-128 characters**, different
+from your current password. After changing it, sign in again. Use **Password**
+in the header to change it later, or **Sign out** to end the current session.
 
 Credentials and sessions are stored in the same Azure Storage account as game
 state, in `adminusers` and `adminsessions`; `adminloginattempts` holds the shared
@@ -355,12 +370,15 @@ automatically. The old Skillable export is no longer the delivery path.
 The MCP server reloads the schedule on session start/resume, registration,
 quest start, and answer submission. Play is allowed at the start instant and
 blocked at or after the end instant. Rejected calls do not modify player state.
-Status, leaderboard, player content, and abandonment remain available outside
+Outside the window, the Player page returns a closed-window screen without
+lesson navigation or lesson HTML. During the final 24 hours before opening,
+that screen shows a live **Enter the city in** countdown and reloads when it
+reaches zero. Status, leaderboard, and abandonment remain available outside
 the window. Existing games without schedule fields keep unrestricted play.
-Read-only pages show the schedule status as of their last load; reload to refresh it.
 
 `PUT /api/games/<slug>/schedule` accepts `starts_at`, `ends_at`, `timezone`,
-`player_mode` (`guided` or `challenge`), and `revision` (the current game's
+`player_mode` (`guided` or `challenge`), `competitive_mode` (boolean), and
+`revision` (the current game's
 `schedule_revision`). Naive ISO datetimes use
 the selected timezone; datetimes with explicit offsets specify exact instants.
 Send both timestamps as `null` to remove the restriction. Stale revisions
@@ -493,7 +511,14 @@ operators.
 
 ## Scoring
 
+Competitive Mode is disabled by default for every game. When enabled under
+**Schedule & player**, completed runs receive points and appear in rankings and
+leaderboards:
+
 `score = 1000 - 50 * failed_answer_attempts - 10 * minutes_taken` (floored at 0).
+
+When Competitive Mode is disabled, quests still track elapsed time and complete
+normally, but no score is stored or shown and the leaderboard is unavailable.
 
 ## Notes
 

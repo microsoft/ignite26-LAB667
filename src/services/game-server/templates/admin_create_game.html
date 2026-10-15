@@ -16,6 +16,18 @@
     <div class="field"><label for="new-slug">URL slug</label><input id="new-slug" name="slug" placeholder="san-francisco" pattern="[a-z0-9][a-z0-9_-]{0,62}" maxlength="63" aria-describedby="slug-help" required />
       <small id="slug-help">Lowercase letters, numbers, dashes or underscores. Start with a letter or number. “new” is reserved.</small></div>
     {% include "admin_schedule_fields.html" %}
+    <div class="field form-span">
+      <label class="setting-switch" for="new-competitive-mode">
+        <span class="setting-switch-copy">
+          <strong>Competitive mode</strong>
+          <small>Enable points, rankings, and leaderboards. It is off by default.</small>
+        </span>
+        <span class="switch-control">
+          <input id="new-competitive-mode" name="competitive_mode" type="checkbox" role="switch" />
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+        </span>
+      </label>
+    </div>
     <div class="form-footer"><p id="add-status" class="form-error" role="alert" hidden></p></div>
     <div class="form-footer"><button type="submit" class="button button-primary">Create game <span aria-hidden="true">&rarr;</span></button><a href="/" class="button button-quiet">Cancel</a></div>
   </form>
