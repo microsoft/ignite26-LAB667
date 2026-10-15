@@ -84,9 +84,12 @@ Before enabling it:
 2. Create or reuse a Microsoft Entra application/service principal with an
    Azure federated identity credential:
    - Issuer: `https://token.actions.githubusercontent.com`
-   - Subject: `repo:microsoft/ignite26-LAB667:environment:production`
+   - Subject: `repo:microsoft@6154722/ignite26-LAB667@1373522106:environment:production`
    - Audience: `api://AzureADTokenExchange`
-   - For a fork, replace the owner/repository in the subject.
+   - Use the exact **subject claim** shown under **Federated token details** in
+     the Azure Login step. This repository's subject includes organization and
+     repository IDs; the name-only form does not match. Forks or different OIDC
+     configurations can emit a different subject, so do not copy these IDs.
 3. Grant that principal **Contributor** on the target subscription. The current
    template creates a resource group through a subscription-scoped deployment
    and reads resource keys; it does not create role assignments, so Owner is
@@ -112,6 +115,12 @@ Authentication uses OIDC for both Azure CLI and azd; no client secret or
 registry password needs to be stored in GitHub. See
 [GitHub OIDC with Azure](https://learn.microsoft.com/azure/developer/github/connect-from-azure-openid-connect)
 for identity setup details.
+
+If Azure Login reports `AADSTS700213`, compare the credential's issuer, subject,
+and audience with those logged by the failed job. Update the existing federated
+credential to match exactly, allow a few minutes for propagation, and rerun the
+failed job. An interactive `az login` on the runner does not fix an OIDC trust
+mismatch.
 
 Each run initializes a fresh local azd environment and
 [restores deployed image references](../scripts/restore-azd-images.sh) from the
