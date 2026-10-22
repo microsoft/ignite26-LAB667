@@ -195,8 +195,9 @@ logging calls yourself.
 
 ## Replace agent.py
 
-Replace everything in **agent.py** with the code below. It is the agent from the
-MCP lesson with the three changes above.
+Now put the three changes together. Replace everything in **agent.py** with the
+code below. It's the same agent you built to play the game, now with session
+logging switched on.
 
 ```python-notype
 """Game play agent using Microsoft Agent Framework, Azure OpenAI, MCP, and session logging."""
@@ -299,3 +300,5 @@ connection, not in the conversation.
 
 When your agent does something unexpected in the next missions, open the newest
 session log to see exactly what happened.
+
+![Ready for the next mission: a checklist showing new run, new session log; middleware records every step; API key stays out of the log; and inspect the newest log, with a player taking notes beside a pigeon holding a magnifying glass](../assets/illustration-logging-recap.webp)
