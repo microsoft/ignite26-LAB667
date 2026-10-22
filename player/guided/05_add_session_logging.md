@@ -1,9 +1,8 @@
 # Step 5: Add Session Logging
 
 In this exercise, you add local observability for model messages and tool calls.
-This matters because an agent can make several decisions before producing one
-answer, and a session log helps you understand that flow without exposing the
-private Player API key.
+An agent can make several decisions before producing one answer. A session log
+shows you that flow without exposing the private Player API key.
 
 > [!Hint] 🖥️ **In VS Code** — create the logging helper beside **agent.py** in
 > **C:\workshop**.

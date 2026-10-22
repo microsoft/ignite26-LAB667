@@ -88,6 +88,8 @@ class InstructionsTests(unittest.TestCase):
                 self.assertIn('/amsterdam/player/', response.text)
                 self.assertEqual(response.headers["cache-control"], "no-store")
                 self.assertIn("img-src 'self' blob:", response.headers["content-security-policy"])
+                self.assertIn("style-src 'self' 'unsafe-inline'", response.headers["content-security-policy"])
+                self.assertNotIn("script-src", response.headers["content-security-policy"])
             connection = client.get("/amsterdam/player/03_connect_to_the_gaming_mcp_server").text
             self.assertIn("GAME_MCP_URL=https://mcp.example.test/amsterdam/mcp", connection)
             self.assertNotIn("/san-francisco/mcp", connection)
@@ -102,8 +104,8 @@ class InstructionsTests(unittest.TestCase):
             transport = client.get("/amsterdam/player/06_test_agent42_transport_specialist").text
             self.assertIn("AGENT42_URL=https://transport.example.test/", transport)
             foundry = client.get("/amsterdam/player/01_get_azure_openai_details_from_foundry").text
-            self.assertIn('src="/player-assets/sign-in-foundry.png"', foundry)
-            self.assertEqual(client.get("/player-assets/sign-in-foundry.png").status_code, 200)
+            self.assertIn('src="/player-assets/illustration-foundry-sign-in.webp"', foundry)
+            self.assertEqual(client.get("/player-assets/illustration-foundry-sign-in.webp").status_code, 200)
             self.assertEqual(client.get("/static/css/player.css").status_code, 200)
             player_script = client.get("/static/js/player.js")
             self.assertEqual(player_script.status_code, 200)
@@ -403,6 +405,20 @@ class InstructionsTests(unittest.TestCase):
         self.assertIn("{{ secret }}", rendered)
         with self.assertRaisesRegex(ValueError, "Unknown workshop"):
             workshop_instructions.render_lesson("{{ unknown }}", {})
+        self.assertEqual(
+            workshop_instructions.render_lesson("Hi {{ player_name }}", {}),
+            "<p>Hi <span data-player-name>player</span></p>\n",
+        )
+        panels = workshop_instructions.more_info_panels(
+            '<a href="#more-mcp">a</a> <a href="#more-mcp">b</a> <a href="#more-foundry-iq">c</a>',
+            {"game_name": "Lost in Testville", "game_city": "Testville"},
+        )
+        self.assertEqual([panel["slug"] for panel in panels], ["mcp", "foundry-iq"])
+        self.assertEqual(panels[0]["title"], "MCP: Model Context Protocol")
+        self.assertIn("<strong>Lost in Testville</strong>", panels[0]["content"])
+        self.assertIn("Testville city guide", panels[1]["content"])
+        with self.assertRaisesRegex(ValueError, "Unknown player read-more panel"):
+            workshop_instructions.more_info_panels('<a href="#more-missing">x</a>', {})
         with patch.dict("os.environ", {"GAME_SERVER_URL": "https://user:secret@example.test"}):
             with self.assertRaises(ValueError):
                 workshop_instructions.public_url("GAME_SERVER_URL", "")

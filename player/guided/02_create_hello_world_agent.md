@@ -1,11 +1,12 @@
-# Step 2: Create A Hello-World Agent
+# Create A Hello-World Agent
 
 In this exercise, you create the smallest possible Microsoft Agent Framework
-agent so you can prove the model connection works. This matters because a simple
-hello-world run gives you a clean baseline before MCP, memory, A2A, and retrieval
-add more moving parts.
+agent so you can prove the model connection works. A simple hello-world run
+gives you a clean baseline before MCP, A2A, and retrieval add more moving parts.
 
 > [!Hint] 🖥️ **In VS Code** — this whole step happens in the VS Code editor and terminal.
+
+## Create the agent
 
 In the VS Code Explorer, create a file named **agent.py** in **C:\workshop**.
 Paste the full code below into **agent.py** and save the file:
@@ -49,6 +50,8 @@ if __name__ == "__main__":
 > from another folder. **async with client.client:** keeps the model connection
 > open during the run and closes it automatically when the block ends, including
 > when an error occurs. Keep the agent code indented inside that block.
+
+## Run the agent
 
 Run **agent.py** from the VS Code terminal:
 

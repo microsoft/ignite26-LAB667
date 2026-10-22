@@ -39,7 +39,7 @@ The canonical runnable sample is in
 Step 5 also supplies the logging helper, Steps 6–7 supply the specialist helpers,
 and Step 8 supplies the complete **agent.py**. Keep those full copies and their
 smaller integration snippets synchronized with the reference files. Step 0
-includes package compatibility checks and the player-only upgrade command.
+introduces the Skillable environment, credential locations, and VS Code workspace.
 
 ## Per-game variables
 
@@ -48,6 +48,8 @@ Use these placeholders in lesson text or fenced code blocks:
 | Placeholder | Value |
 | --- | --- |
 | `{{ game_name }}` / `{{ game_slug }}` | Game display name / URL slug |
+| `{{ game_event }}` | Event name from the game record, or **this event** when unset |
+| `{{ player_name }}` | Signed-in player's nickname, filled in by the browser |
 | `{{ game_city }}` | Published top-level `city` from the game's quest document |
 | `{{ game_story }}` | Published top-level `story` from the game's quest document |
 | `{{ game_mcp_url }}` | Configured MCP service base URL plus the game's MCP route |
@@ -68,6 +70,14 @@ When a play window is configured, the dashboard does not send lesson
 navigation, lesson HTML, registration controls, or city-guide downloads outside
 that window. The closed page shows **Player window is closed**. During the final
 24 hours before opening it also shows a live **Enter the city in** countdown.
+
+## Read-more overlays
+
+To add a **Read more** overlay, link to `#more-<slug>` from a lesson, for
+example `[Read more about MCP](#more-mcp)`, and add **more/&lt;slug&gt;.md**. Its
+first line is the `# Title`; the rest is Markdown and supports the same
+placeholders as lessons. The page shows the panel in a dialog and fails
+explicitly if the file is missing. Existing panels are in [more/](more/).
 
 Screenshots shared by Guided Mode are in [assets/](assets/). The admin and dashboard container builds
 bundle these source lessons and images; redeploy those services after updating

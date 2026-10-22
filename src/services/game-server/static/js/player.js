@@ -46,6 +46,7 @@
 
   function showRegistration(message = '') {
     clearTimeout(pollTimer);
+    document.body.classList.remove('player-active');
     session.hidden = false;
     registration.hidden = false;
     headerIdentity.hidden = true;
@@ -57,6 +58,7 @@
   }
 
   function renderPlayer(player) {
+    document.body.classList.add('player-active');
     session.hidden = true;
     registration.hidden = true;
     headerIdentity.hidden = false;
@@ -64,6 +66,9 @@
     content.hidden = false;
     document.getElementById('player-progress-status').hidden = true;
     document.getElementById('player-name').textContent = player.name;
+    document.querySelectorAll('[data-player-name]').forEach((element) => {
+      element.textContent = player.name;
+    });
     document.getElementById('player-api-key').textContent = apiKey;
     document.querySelectorAll('[data-player-quest-name]').forEach((element) => {
       element.textContent = player.quest_name
@@ -267,6 +272,97 @@
     apiKey = '';
     form.reset();
     showRegistration();
+  });
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      const area = document.createElement('textarea');
+      area.value = text;
+      area.setAttribute('readonly', '');
+      area.className = 'copy-fallback';
+      document.body.append(area);
+      area.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { copied = false; }
+      area.remove();
+      return copied;
+    }
+  }
+
+  function addCopyButtons() {
+    document.querySelectorAll('.lesson-content pre').forEach((pre) => {
+      if (pre.parentElement.classList.contains('code-block')) return;
+      const code = pre.querySelector('code') || pre;
+      const language = ((code.className || '').match(/language-([\w-]+)/) || [])[1] || 'text';
+      const wrapper = document.createElement('div');
+      wrapper.className = 'code-block';
+      const bar = document.createElement('div');
+      bar.className = 'code-block-bar';
+      const label = document.createElement('span');
+      label.className = 'code-block-language';
+      label.textContent = language.replace(/-notype$/, '');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'code-block-copy';
+      button.textContent = 'Copy';
+      const status = document.createElement('span');
+      status.className = 'sr-only';
+      status.setAttribute('role', 'status');
+      let resetTimer;
+      button.addEventListener('click', async () => {
+        const copied = await copyText(code.textContent.replace(/\n$/, ''));
+        clearTimeout(resetTimer);
+        button.textContent = copied ? 'Copied' : 'Copy failed';
+        button.dataset.state = copied ? 'copied' : 'failed';
+        status.textContent = copied ? 'Code copied to clipboard.' : 'Copy failed. Select the code and copy it manually.';
+        resetTimer = setTimeout(() => {
+          button.textContent = 'Copy';
+          delete button.dataset.state;
+          status.textContent = '';
+        }, 2000);
+      });
+      bar.append(label, button, status);
+      pre.replaceWith(wrapper);
+      wrapper.append(bar, pre);
+    });
+  }
+  addCopyButtons();
+
+  const navToggle = document.getElementById('workshop-nav-toggle');
+  const navCollapsedKey = 'lost-in-the-city:nav-collapsed';
+  function setNavCollapsed(collapsed) {
+    content.classList.toggle('workshop-nav-collapsed', collapsed);
+    navToggle.setAttribute('aria-expanded', String(!collapsed));
+    navToggle.querySelector('.workshop-nav-toggle-label').textContent = collapsed ? 'Show chapters' : 'Hide chapters';
+  }
+  setNavCollapsed(localStorage.getItem(navCollapsedKey) === 'true');
+  navToggle.addEventListener('click', () => {
+    const collapsed = !content.classList.contains('workshop-nav-collapsed');
+    localStorage.setItem(navCollapsedKey, String(collapsed));
+    setNavCollapsed(collapsed);
+  });
+
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('a[href^="#more-"]');
+    const dialog = link && document.getElementById(link.getAttribute('href').slice(1));
+    if (dialog instanceof HTMLDialogElement) {
+      event.preventDefault();
+      dialog.showModal();
+      return;
+    }
+    const close = event.target.closest('[data-close-more]');
+    if (close) close.closest('dialog').close();
+  });
+  document.querySelectorAll('.more-info-dialog').forEach((moreDialog) => {
+    moreDialog.addEventListener('click', (event) => {
+      if (event.target === moreDialog) moreDialog.close();
+    });
+    moreDialog.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') moreDialog.close();
+    });
   });
 
   timelinePrevious.addEventListener('click', () => scrollTimeline(-1));

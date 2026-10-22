@@ -1,9 +1,9 @@
 # Step 4: Use The Player API Key
 
 In this exercise, you connect the identity created on the Player page to every
-game action without putting identity into prompts or tool arguments. This
-matters because the API key is both the player identity and the authorization
-credential for the game MCP server.
+game action without putting identity into prompts or tool arguments. The API
+key is both the player identity and the authorization credential for the game
+MCP server.
 
 > [!Hint] 🖥️ **In the browser and VS Code** — copy the key from this page, then
 > return to the existing **C:\workshop\.env** file in VS Code.

@@ -1,9 +1,9 @@
 # Step 7: Test The City Guide Agent
 
 In this exercise, you add knowledge to the workshop agent by testing a city guide
-specialist in a separate file before wiring it into the main game agent. This
-matters because guide missions should be solved with retrieval from the
-San Francisco content instead of hard-coded answers or model guesses.
+specialist in a separate file before wiring it into the main game agent. Guide
+missions should be solved with retrieval from the San Francisco content instead
+of hard-coded answers or model guesses.
 
 > [!Hint] 🌐 **In the browser — Azure portal** — you start in the Azure portal to set up search, then switch to VS Code to create the specialist agent.
 

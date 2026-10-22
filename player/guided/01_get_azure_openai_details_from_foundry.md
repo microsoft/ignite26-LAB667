@@ -1,11 +1,9 @@
-# Step 1: Get Your Azure OpenAI Details From Microsoft Foundry
+# Get your model endpoint
 
-In this exercise, you collect the Azure OpenAI connection details from Microsoft
-Foundry so the agent can call the deployed chat model. This matters because every
-later step depends on the same endpoint, API key, and deployment name being
-available in the existing **.env** file.
-
-> [!Hint] 🌐 **In the browser — Microsoft Foundry** — you start in the browser to collect values, and switch to VS Code only when a step says to open **.env**.
+In this exercise, you collect the connection details from Microsoft Foundry so
+the agent can call the deployed chat model. Every later step uses the same
+endpoint, API key, and deployment name from the existing **.env** file.
+[What is a .env file?](#more-env-file)
 
 
 ## Log in to Microsoft Foundry
@@ -13,44 +11,51 @@ available in the existing **.env** file.
 1. Open the Edge browser.
 2. Navigate to **https://ai.azure.com** in the browser's address bar, if it's not already open.
 3. Click **Sign in** in the top-right corner.
-![Sign-In Button](../assets/sign-in-foundry.png)
-4. Sign in with the workshop account and credentials supplied privately by your facilitator.
-5. In the top bar, make sure the **New Foundry** switch is toggled **On**.
-6. From the project dropdown, select the only project available and click **Let's go**.
-7. When the **Welcome to the new Microsoft Foundry** box appears, click **X** in the top-right corner.
+![The Microsoft Foundry home page at ai.azure.com with the Sign in buttons highlighted in the top-right corner and below the headline](../assets/illustration-foundry-sign-in.webp)
+4. Sign in with the Microsoft Foundry credentials from the **Resources** tab in Skillable.
+5. After you sign in, you see a list of projects. Click the project name.
+![The Microsoft Foundry All resources list with one project, with the project name link highlighted and labeled click your project](../assets/illustration-foundry-select-project.webp)
+6. When the **Your project is set up. What would you like to do next?** box appears, click **X** in the top-right corner.
+![The Microsoft Foundry project home page with the Your project is set up box open and its X button highlighted, labeled close this box](../assets/illustration-foundry-close-setup-box.webp)
 
-After you close the welcome box, you should see the Microsoft Foundry home page
+## Get your endpoint details
+
+After you close the box, you should see the Microsoft Foundry home page
 with **API key**, **Project endpoint**, and **Azure OpenAI endpoint** boxes near
 the top of the page.
-![](../assets/foundry-landing.png)
+![Foundry to VS Code: copy the API key from Microsoft Foundry after AZURE_OPENAI_API_KEY= and the Azure OpenAI endpoint after AZURE_OPENAI_ENDPOINT= in the .env file](../assets/illustration-foundry-to-env.webp)
 
-1. Copy the value from the **Azure OpenAI endpoint** box. If the copied endpoint
-    ends with **/openai/v1**, remove that part before adding it to
-    **.env**. For example, change
+1. Open the existing **.env** file in **C:\workshop** in VS Code.
+2. Copy the value from the **Azure OpenAI endpoint** box and paste it after
+    **AZURE_OPENAI_ENDPOINT=**. If the value ends with **/openai/v1**, remove
+    that part. For example, change
     **https://foundry-12345.openai.azure.com/openai/v1** to
     **https://foundry-12345.openai.azure.com**.
-2. Copy the value from the **API key** box.
-3. Open the existing **.env** file in VS Code.
-4. Add or update the endpoint and API key in **.env**.
+3. Copy the value from the **API key** box and paste it after
+    **AZURE_OPENAI_API_KEY=**.
+4. Save **.env**.
+![The .env file open in an editor with AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY filled in, while a pigeon holds a checklist saying your .env is ready](../assets/illustration-env-ready.webp)
 
-> [!Hint] 🖥️ **In VS Code** — steps 3 and 4 happen in the **.env** file. After saving, switch back to the browser for the next steps.
+## Get your model deployments
 
-5. In the top navigation, select **Build**.
-6. Open **Deployments**.
-7. Confirm that **gpt-5.5** and **gpt-4.1-mini** are listed and each one has a **Succeeded** status.
-8. Confirm that **AZURE_OPENAI_DEPLOYMENT_NAME** in **.env** matches **gpt-5.5**.
-9. Confirm that **CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME** in **.env** matches **gpt-4.1-mini**.
+The workshop already deployed the models your agent needs in Microsoft Foundry.
+Check that they are ready and that your **.env** file uses the right deployment
+name for the main model.
+![The Microsoft Foundry Build menu and Models page with step 1 on Build and step 2 on Models, three deployments all showing Succeeded, and the gpt-5.6-luna name matched to AZURE_OPENAI_DEPLOYMENT_NAME in the .env file](../assets/illustration-foundry-models.webp)
 
-Your **.env** file should include these values:
-
-```env
-AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
-AZURE_OPENAI_API_KEY=<your-azure-openai-key>
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5.5
-CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
-```
+1. In the top navigation, select **Build**.
+2. Open **Models**.
+3. Confirm that these three models are listed and each one has a **Succeeded**
+    deployment status:
+    - **gpt-5.6-luna**: the main game agent.
+    - **gpt-4.1-mini**: the city guide agent.
+    - **text-embedding-3-small**: turns the city guide into vectors for search.
+4. Confirm that **AZURE_OPENAI_DEPLOYMENT_NAME** in **.env** matches **gpt-5.6-luna**.
+![The .env file open in an editor with AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5.6-luna, while a pigeon holds a checklist saying your .env is ready](../assets/illustration-env-complete.webp)
 
 ## What You Learned
 
-You found the Azure OpenAI endpoint, API key, and deployment name in Microsoft
-Foundry and added them to the agent configuration.
+You signed in to Microsoft Foundry, copied your endpoint and API key into the
+**.env** file so your agent can use them, and found your model deployments.
+
+![Ready for the next mission: a checklist showing signed in to Foundry, endpoint and API key saved in .env, and model deployments checked, with a player taking notes beside a pigeon](../assets/illustration-foundry-recap.webp)

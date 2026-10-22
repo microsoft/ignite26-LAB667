@@ -1,55 +1,68 @@
-# Lost in the City Agent Workshop
+# Welcome
 
-Welcome to **{{ game_name }}**. Your facilitator sets the play window in
-**{{ game_timezone }}**. The Player page, instructions, city guides, and game
-actions are available only while that window is open.
-
-> [!Hint] 🖥️ **In VS Code** — you'll do all of this lab's hands-on work in VS Code, except where a step tells you to switch to the browser.
+Hi {{ player_name }}, welcome to the **{{ game_name }}** workshop at
+{{ game_event }}. We're happy you're here! Today is all about learning by
+doing, and we're here to help, so ask questions anytime and enjoy exploring
+{{ game_city }} with your agent.
 
 ## The Story
+
+![A player with a backpack and conference badge walks past Victorian houses with a pigeon, following cable car tracks past Chinatown's gate and the Golden Gate Bridge toward Moscone Center and its Microsoft Ignite banner](../assets/illustration-welcome-story.webp)
 
 {{ game_story }}
 
 You won't be navigating alone. In this workshop you'll build an AI **player
-agent** that takes on the *Lost in the City* quest on your behalf. It will:
+agent** that takes on the *Lost in {{ game_city }}* quest on your behalf. It will:
 
 - Pick up missions from a game server and report back the answers.
 - Phone a transport expert, **Agent42**, to decide whether to grab a taxi,
    hop on a bike, or hoof it — based on the weather, traffic, and route.
 - Consult a **city guide** knowledge base to dig clues out of {{ game_city }}'s
    neighborhoods, history, food, and hidden corners.
-- Remember who the player is between runs, and write a clear log of every
-   model call, tool call, and decision it made.
 
-If the facilitator enables **Competitive Mode**, completed quests also receive
-points and appear on the leaderboard.
+You can see yourself moving around the map of {{ game_city }} on the in-room
+display as you progress through the game.
 
 ## What You'll Build
 
+![Your agent, a pigeon on a Python laptop, connects to three helpers: an MCP game server, Agent42 over A2A with a map and bike, and a knowledge book with a magnifying glass](../assets/illustration-welcome-what-you-build.webp)
+
 A single Python agent, built with the **Microsoft Agent Framework**, that
-combines four capabilities you'll add one step at a time:
+combines three capabilities you'll add one step at a time:
 
 - **MCP (Model Context Protocol)** — connect to the game server to start
    quests, submit answers, and progress through missions.
+   [Read more about MCP](#more-mcp)
 - **A2A (Agent-to-Agent)** — call Agent42 as a peer agent for
    weather-aware transport recommendations.
-- **Knowledge retrieval** — query an Azure AI Search knowledge base over the
+   [Read more about A2A](#more-a2a)
+- **Knowledge retrieval** — query a **Foundry IQ** knowledge base over the
    {{ game_city }} city guide to answer the trivia-style missions.
-- **Memory & logging** — remember the player ID between runs and capture
-   every prompt, tool call, and response in a session log you can inspect.
+   [Read more about Foundry IQ](#more-foundry-iq)
 
 By the end you'll have a working agent that plays the game end-to-end, and
 you'll have seen how the framework, MCP, A2A, and retrieval fit together in
 a real application instead of a toy demo.
 
 
-## Login into the Machine
-Use the prepared Windows 11 workshop machine provided by your facilitator.
-Sign in with the credentials supplied to you privately. The public game
-instructions do not contain passwords or access tokens.
+## Your Skillable Environment
 
+You are reading this guide, so you have successfully signed in to your
+Skillable environment.
 
-## Step Into Your Workspace
+## Credentials
+
+![The Skillable lab window with the Resources tab open on the right, showing Azure and Microsoft Foundry usernames and passwords, while a pigeon points and says your credentials are here](../assets/illustration-welcome-credentials.webp)
+
+- Find your Azure and Microsoft Foundry credentials on the **Resources** tab
+  in the panel on the right in Skillable.
+- Find your game credentials on this Player page.
+
+## Your Workspace for Today
+
+![A player at a desk with VS Code open to the workshop folder and a PowerShell terminal while a pigeon points at the screen](../assets/illustration-welcome-workspace.webp)
+
+> [!Hint] 🖥️ **In VS Code** — you'll do all of this lab's hands-on work in VS Code, except where a step tells you to switch to the browser.
 
 On the Windows desktop, click the **Visual Studio Code** icon to open VS Code.
 
@@ -62,39 +75,10 @@ not the case:
 Open the integrated terminal with **Terminal > New Terminal** and confirm the
 terminal is PowerShell and the prompt is inside **C:\workshop**.
 
-The workshop environment already has the required Python packages installed. 
-
-Verify the packages from the VS Code terminal:
-
-```powershell
-python -m pip check
-python -c "from importlib.metadata import version; from agent_framework import Agent, MCPStreamableHTTPTool, SessionContext; from agent_framework.a2a import A2AAgent; from agent_framework.azure import AzureAISearchContextProvider; import dotenv; print('agent-framework', version('agent-framework')); print('agent-framework-a2a', version('agent-framework-a2a')); print('workshop packages ready')"
-```
-
-The player requires **agent-framework 1.19.0 or newer** and
-**agent-framework-a2a 1.0.0b260918 or newer**. If the checks fail or report older
-versions, update the workshop packages in this same terminal, then rerun both
-checks:
-
-```powershell
-python -m pip install --upgrade --upgrade-strategy eager "agent-framework>=1.19.0" "agent-framework-a2a>=1.0.0b260918" python-dotenv
-```
-
-These are the same package requirements as the reference player's
-**src/agents/player/requirements.txt**. The explicit A2A prerelease minimum
-allows that integration without enabling prereleases for every package.
-
-> [!Hint] The player and shared game server use separate Python environments.
-> Do not install the game server's MCP 2 packages into the attendee environment:
-> Agent Framework's supported MCP client communicates with the server over HTTP.
-> The updated A2A player also needs the updated Agent42 service; ask your
-> instructor if the transport test in Step 6 reports a protocol error.
-
-The **C:\workshop** folder already has a **.env** file. You do not need to create a new
-one. As you go through the workshop, open that file and add the values needed
-for the current step.
-
 ## What You Learned
 
-You confirmed the workshop workspace, terminal, installed packages, and **.env**
-file are ready before building the agent.
+You learned the story of {{ game_name }} and how your agent will play it with
+MCP, A2A, and Foundry IQ. You also found where your credentials are and opened
+your workspace in VS Code.
+
+![Ready for the next mission: a checklist showing the San Francisco mission, MCP, A2A, and Foundry IQ, credentials located, and VS Code workspace open, with a player taking notes beside a pigeon](../assets/illustration-welcome-recap.webp)

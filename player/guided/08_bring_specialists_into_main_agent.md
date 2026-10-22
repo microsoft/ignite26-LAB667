@@ -1,8 +1,8 @@
 # Step 8: Bring The Specialist Agents Into The Main Agent
 
 In this exercise, you combine the authenticated game MCP connection, Agent42,
-the city guide, and session logging in one conversational agent. This matters
-because the final player must coordinate every specialist while all game and
+the city guide, and session logging in one conversational agent. The final
+player must coordinate every specialist while all game and
 transport activity stays connected to the Player timeline.
 
 > [!Hint] 🖥️ **In VS Code** — replace **C:\workshop\agent.py** with the complete

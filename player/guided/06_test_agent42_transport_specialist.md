@@ -1,8 +1,7 @@
 # Step 6: Test Agent42 Transport Specialist
 
 In this exercise, you test Agent42 in a separate file before wiring it into the
-main game agent. This matters because movement missions in the game ask the
-agent to choose between options like **car**, **walking**, and **bike**. Agent42
+main game agent. Movement missions in the game ask the agent to choose between options like **car**, **walking**, and **bike**. Agent42
 is the transport specialist: it can compare a route, consider live weather and
 traffic, and return a recommendation the game agent can use before submitting a
 mission answer. A standalone smoke test helps confirm A2A communication works

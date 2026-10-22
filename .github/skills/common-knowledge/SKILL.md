@@ -33,6 +33,7 @@ Use these facts when editing documentation, workshop steps, README content, or g
 - Use bold text for plain folder names and paths in prose, for example **C:\workshop** and **C:\workshop\.env**.
 - Avoid inline code for plain folder/path references in prose unless it is actual code, a command fragment, an environment variable name, a literal value, or an error message.
 - Keep workshop step files simple: headings, paragraphs, ordered lists, unordered lists, and fenced code blocks.
+- State the point directly. Don't write "This matters because…" or add "Why it matters" headings; say what matters.
 
 ## Per-Game Player Content
 

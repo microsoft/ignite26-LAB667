@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=player-window-v1" />
+  <link rel="stylesheet" href="/static/css/player.css?v=copy-button-v2" />
 </head>
 <body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
 <a class="skip-link" href="{{ '#player' if availability.state == 'open' else '#player-window-title' }}">Skip to player content</a>
@@ -109,26 +109,35 @@
   </div>
 </dialog>
 <div id="player-content" class="workshop-layout" hidden>
-  <nav class="workshop-nav" aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
-    {% if mission_navigation %}
-    {% for mission in mission_navigation %}
-    <section class="workshop-nav-mission" aria-labelledby="guided-mission-{{ loop.index }}">
-      <div class="workshop-nav-mission-heading" id="guided-mission-{{ loop.index }}">
-        <span>{{ mission.label }}</span>
-        <strong{% if mission.label == 'Mission 3' %} data-player-quest-name{% endif %}>{{ mission.name }}</strong>
-        {% if mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
-      </div>
-      {% for item in mission.lessons %}
+  <aside class="workshop-sidebar">
+    <button type="button" class="workshop-nav-toggle" id="workshop-nav-toggle" aria-controls="workshop-nav" aria-expanded="true">
+      <span class="workshop-nav-toggle-icon" aria-hidden="true"></span>
+      <span class="workshop-nav-toggle-label">Hide chapters</span>
+    </button>
+    <nav class="workshop-nav" id="workshop-nav" aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
+      {% if mission_navigation %}
+      {% for mission in mission_navigation %}
+      {% set is_current = mission.lessons | selectattr('slug', 'equalto', selected) | list | length > 0 %}
+      <details class="workshop-nav-mission"{% if is_current %} open{% endif %}>
+        <summary class="workshop-nav-mission-heading" id="guided-mission-{{ loop.index }}">
+          <span>{{ mission.label }}</span>
+          <strong{% if mission.label == 'Mission 3' %} data-player-quest-name{% endif %}>{{ mission.name }}</strong>
+          {% if mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
+        </summary>
+        <div class="workshop-nav-mission-lessons">
+          {% for item in mission.lessons %}
+          <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
+          {% endfor %}
+        </div>
+      </details>
+      {% endfor %}
+      {% else %}
+      {% for item in lessons %}
       <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
       {% endfor %}
-    </section>
-    {% endfor %}
-    {% else %}
-    {% for item in lessons %}
-    <a href="/{{ game.slug }}/player/{{ item.slug }}" {% if item.slug == selected %}aria-current="page"{% endif %}>{{ item.title }}</a>
-    {% endfor %}
-    {% endif %}
-  </nav>
+      {% endif %}
+    </nav>
+  </aside>
   <main id="player">
     {% if current_mission %}
     <header class="lesson-mission-heading">
@@ -143,8 +152,20 @@
       {% if next %}<a class="button button-primary" href="/{{ game.slug }}/player/{{ next.slug }}">Next lesson &rarr;</a>{% endif %}
     </nav>
   </main>
+  {% for panel in more_info %}
+  <dialog id="more-{{ panel.slug }}" class="player-key-dialog more-info-dialog" aria-labelledby="more-{{ panel.slug }}-title">
+    <div class="player-key-dialog-heading">
+      <div>
+        <span class="eyebrow">READ MORE</span>
+        <h2 id="more-{{ panel.slug }}-title">{{ panel.title }}</h2>
+      </div>
+      <button class="button button-quiet" type="button" data-close-more aria-label="Close {{ panel.title }}">Close</button>
+    </div>
+    <div class="more-info-content">{{ panel.content | safe }}</div>
+  </dialog>
+  {% endfor %}
 </div>
-<script src="/static/js/player.js?v=guided-quest-details-v1"></script>
+<script src="/static/js/player.js?v=copy-button-v1"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>

@@ -1,9 +1,8 @@
 # Step 3: Connect To The Gaming MCP Server
 
 In this exercise, you connect the agent to the Lost in the City game server
-through MCP so it can start sessions and call game actions as tools. This matters
-because MCP turns the game into something the agent can operate instead of just
-talking about.
+through MCP so it can start sessions and call game actions as tools. MCP turns
+the game into something the agent can operate instead of just talking about.
 
 > [!Hint] 🖥️ **In VS Code** — this whole step happens in the VS Code editor and terminal.
 
@@ -31,7 +30,7 @@ Microsoft Agent Framework import so it also imports **MCPStreamableHTTPTool**:
 from agent_framework import Agent, MCPStreamableHTTPTool
 ```
 
-Inside **main()**, keep **async with client.client:** from Step 2. Within that
+Inside **main()**, keep **async with client.client:** from the hello-world agent. Within that
 block, add a second context manager before the **Agent(...)** call:
 
 ```python-notype

@@ -25,9 +25,13 @@ PLAYER_DIR = (
     else BASE_DIR.parents[2] / "player"
 )
 GUIDED_DIR = PLAYER_DIR / "guided"
+MORE_DIR = PLAYER_DIR / "more"
+MORE_LINK = re.compile(r'href="#more-([a-z0-9-]+)"')
 CHALLENGE_DIR = PLAYER_DIR / "challenge"
 TEMPLATES = Jinja2Templates(directory=BASE_DIR / "templates")
 VARIABLE = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
+# Filled in by player.js after sign-in; the server never knows the player's name.
+PLAYER_NAME_MARKUP = '<span data-player-name>player</span>'
 GUIDED_MISSIONS = (
     {
         "label": "Mission 1",
@@ -77,11 +81,29 @@ def render_lesson(source: str, variables: dict[str, str]) -> str:
 
     def substitute(match: re.Match[str]) -> str:
         name = match[1]
+        if name == "player_name":
+            return PLAYER_NAME_MARKUP
         if name not in variables:
             raise ValueError(f"Unknown workshop instruction variable: {name}")
         return escape(variables[name], quote=True)
 
     return VARIABLE.sub(substitute, rendered)
+
+
+def more_info_panels(content: str, variables: dict[str, str]) -> list[dict[str, str]]:
+    """Render the player/more/<slug>.md panels linked from a lesson as #more-<slug>."""
+    panels = []
+    for slug in dict.fromkeys(MORE_LINK.findall(content)):
+        path = MORE_DIR / f"{slug}.md"
+        if not path.is_file():
+            raise ValueError(f"Unknown player read-more panel: {slug}")
+        title, _, body = path.read_text(encoding="utf-8").partition("\n")
+        panels.append({
+            "slug": slug,
+            "title": title.removeprefix("# ").strip(),
+            "content": render_lesson(body, variables),
+        })
+    return panels
 
 
 def instruction_story(document: dict[str, object], city: str) -> str:
@@ -134,6 +156,7 @@ def instructions_page(request: Request) -> HTMLResponse:
     city = instruction_city(document, game["city"])
     variables = {
         "game_name": game["display_name"],
+        "game_event": str(game.get("event_name") or "").strip() or "this event",
         "game_city": city,
         "game_story": instruction_story(document, city),
         "game_slug": game["slug"],
@@ -158,6 +181,7 @@ def instructions_page(request: Request) -> HTMLResponse:
     next_lesson = None
     mission_navigation: list[dict[str, object]] = []
     current_mission: dict[str, object] | None = None
+    more_info: list[dict[str, str]] = []
     if availability["state"] == "open":
         lesson = next((path for path in lessons if path.stem == selected), None)
         if lesson is None:
@@ -168,6 +192,7 @@ def instructions_page(request: Request) -> HTMLResponse:
         ]
         index = lessons.index(lesson)
         content = render_lesson(lesson.read_text(encoding="utf-8"), variables)
+        more_info = more_info_panels(content, variables)
         previous = navigation[index - 1] if index else None
         next_lesson = navigation[index + 1] if index + 1 < len(navigation) else None
         if player_mode == "guided":
@@ -186,11 +211,13 @@ def instructions_page(request: Request) -> HTMLResponse:
         "content": content,
         "mission_navigation": mission_navigation,
         "current_mission": current_mission,
+        "more_info": more_info,
     })
     response.headers.update({
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; style-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+        # Inline styles let browser tooling, such as VS Code's element picker, draw overlays; scripts stay same-origin.
+        "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
     })
     return response
 
