@@ -1,32 +1,52 @@
-# Step 6: Test Agent42 Transport Specialist
+# Agent42 Transport Specialist
 
-In this exercise, you test Agent42 in a separate file before wiring it into the
-main game agent. Movement missions in the game ask the agent to choose between options like **car**, **walking**, and **bike**. Agent42
-is the transport specialist: it can compare a route, consider live weather and
-traffic, and return a recommendation the game agent can use before submitting a
-mission answer. A standalone smoke test helps confirm A2A communication works
-before the full game flow depends on it.
+![A player runs a separate test in VS Code that asks Agent42, the transport specialist, how should I travel over A2A; Agent42 checks route, weather, and traffic, compares car, walking, and bike, and returns a recommendation and route](../assets/illustration-agent42-header.webp)
 
-> [!Hint] 🖥️ **In VS Code** — this step happens in VS Code; you only open the browser at the end to inspect the route map.
+Some missions send you across the city, and you choose how to travel: **car**,
+**walking**, or **bike**. Instead of guessing, your agent can ask **Agent42**,
+a transport specialist that runs as its own agent. Agent42 checks the route, the
+live weather, and the traffic, and recommends the best way to go.
 
-Open the existing **.env** file and confirm the deployed Agent42 A2A
-URL and your Player API key are present:
+Your agent talks to Agent42 over A2A (Agent-to-Agent), so it uses Agent42's
+expertise without rebuilding it. In this exercise, you build that connection in
+a separate file and test it on its own, before you add Agent42 to your game
+agent.
+
+[Read more about A2A](#more-a2a)
+
+## Add endpoint to configuration
+
+Your agent needs the address of Agent42. It uses the same private API key you
+already added for the game server, so Agent42 knows which player is asking and
+can show its advice on your Player page.
+
+Open the existing **.env** file and add this line. It already contains the
+address of the Agent42 service, so you can copy it as it is:
 
 ```env
 AGENT42_URL={{ agent42_url }}
-GAME_API_KEY=<copy-from-this-player-page>
 ```
 
-> [!Hint] A2A stands for Agent-to-Agent. It lets one agent call another agent as
-> a specialist instead of rebuilding that specialist's logic locally. In this
-> step, **agent_agent42.py** connects to the deployed Agent42 service, sends it a
-> transport question, and gets back route advice that the main game agent can use
-> later.
+## Create the Agent42 tool
 
-In the VS Code Explorer, create a file named **agent_agent42.py** in
-**C:\workshop**. Paste the full code below into **agent_agent42.py** and save the
-file. This file keeps the Agent42 A2A setup out of the main game agent, and it
-gives you a small smoke test you can run by itself:
+![agent_agent42.py in three parts: build_agent42_agent connects to Agent42 over A2A with your API key on every request; build_agent42_tool wraps it as the ask_agent42 tool that the game agent uses later; and main asks how should I travel to test the connection](../assets/illustration-agent42-tool.webp)
+
+You create a new file, **agent_agent42.py**, that turns Agent42 into a tool your
+game agent can use. It does three things:
+
+- **build_agent42_agent()** connects to Agent42 over A2A and sends your API key
+  with every request.
+- **build_agent42_tool()** wraps that connection as a tool called
+  **ask_agent42**. Later, your game agent calls this tool for travel missions.
+- **main()** asks Agent42 one test question, so you can check that the
+  connection works before you add it to your game agent.
+
+## Create agent_agent42.py
+
+1. In the VS Code Explorer, select the **C:\workshop** folder.
+2. Select **New File** and name it **agent_agent42.py**.
+3. Copy the code below with the **Copy** button and paste it into
+   **agent_agent42.py**. VS Code saves the file automatically.
 
 ```python-notype
 """Agent42 transport specialist tool for movement missions."""
@@ -89,16 +109,12 @@ if __name__ == "__main__":
 	asyncio.run(main())
 ```
 
-> [!Hint] **async with build_agent42_agent() as agent42:** owns the A2A connection
-> and closes it when the test ends, even if the request fails. The tool builder
-> accepts that existing agent rather than opening another hidden connection.
-> Agent42 validates the same bearer key as the game MCP server, so its route
-> advice also appears on your Player timeline.
+Not sure what the code above does? Click the button below for a step-by-step
+explanation of each part.
 
-> [!Hint] You can experiment by editing the `question = "What is the best way to
-> get from the Ferry Building to Golden Gate Park?"` line. Choose two places in San Francisco that
-> are close enough for **car**, **bike**, and **walking** to all be plausible. Keep
-> them within about **50 km** of each other so Agent42 can show its reasoning.
+[Explain the code](#more-agent42-code)
+
+## Test Agent42
 
 Run **agent_agent42.py** from the VS Code terminal:
 
@@ -106,15 +122,10 @@ Run **agent_agent42.py** from the VS Code terminal:
 python agent_agent42.py
 ```
 
-> **Checkpoint:** Agent42 should compare the route options and recommend one
-> transport choice. The reply should include a map link; Ctrl-click the link to
-> open it and inspect the route on the map. The reply should follow the format
-> below. Values in angle brackets are placeholders; actual weather, travel
-> times, links, and the recommendation depend on the live response.
+Agent42 compares the travel options and recommends one. Its reply looks like
+this; the weather, times, links, and recommendation depend on the live route:
 
-> [!Hint] 🌐 **In the browser** — Ctrl-clicking the map link opens it in your browser. Inspect the route, then come back to VS Code.
-
-```text-notype-nocopy
+```output-read
 Weather: <current San Francisco weather>
 
 Options:
@@ -130,7 +141,20 @@ recommendation: <car, bike, or walking>
 recommendation code: <generated recommendation code>
 ```
 
+You can also see the full result on this page. Look at the **Live progress**
+bar at the top: a new **Agent42 route advice** entry appears. Select **View route
+details** to open the trip details: the weather, the recommended route with its
+distance and travel time, a map of the route, and Agent42's full advice.
+
 ## What You Learned
 
-You connected to another agent through the A2A protocol and tested Agent42 as a
-standalone transport specialist before adding it to the main agent.
+You connected your agent to Agent42, a transport specialist that runs as its own
+agent, over A2A. You turned Agent42 into a tool called **ask_agent42** and tested
+it on its own: Agent42 checked the route, the weather, and the traffic, and
+recommended the best way to travel.
+
+Agent42 uses the same private API key as the game server, so its advice also
+appears in your **Live progress**. In the next mission, your game agent gets the
+**ask_agent42** tool and asks Agent42 for help on its own.
+
+![Ready for the next mission: a checklist showing connected to Agent42 over A2A; ask_agent42 tested on its own; route, weather, and traffic checked; and advice appears in Live progress; next, add ask_agent42 to the game agent](../assets/illustration-agent42-recap.webp)

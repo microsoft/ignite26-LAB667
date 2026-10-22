@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=chat-speaker-v2" />
+  <link rel="stylesheet" href="/static/css/player.css?v=no-flash-v1" />
+  {% if availability.state == 'open' %}<script src="/static/js/player_boot.js?v=1" data-game-slug="{{ game.slug }}"></script>{% endif %}
 </head>
 <body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
 <a class="skip-link" href="{{ '#player' if availability.state == 'open' else '#player-window-title' }}">Skip to player content</a>
@@ -121,7 +122,7 @@
       <details class="workshop-nav-mission"{% if is_current %} open{% endif %}>
         <summary class="workshop-nav-mission-heading" id="guided-mission-{{ loop.index }}">
           <span>{{ mission.label }}</span>
-          <strong{% if mission.label == 'Mission 3' %} data-player-quest-name{% endif %}>{{ mission.name }}</strong>
+          <strong>{{ mission.name }}</strong>
           {% if mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
         </summary>
         <div class="workshop-nav-mission-lessons">
@@ -142,7 +143,7 @@
     {% if current_mission %}
     <header class="lesson-mission-heading">
       <span>{{ current_mission.label }}</span>
-      <strong{% if current_mission.label == 'Mission 3' %} data-player-quest-name{% endif %}>{{ current_mission.name }}</strong>
+      <strong>{{ current_mission.name }}</strong>
       {% if current_mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
     </header>
     {% endif %}
@@ -165,7 +166,7 @@
   </dialog>
   {% endfor %}
 </div>
-<script src="/static/js/player.js?v=player-quest-v1"></script>
+<script src="/static/js/player.js?v=missions-v1"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>

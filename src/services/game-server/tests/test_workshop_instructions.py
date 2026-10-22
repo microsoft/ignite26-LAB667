@@ -372,9 +372,8 @@ class InstructionsTests(unittest.TestCase):
             [(mission["label"], mission["name"], len(mission["lessons"])) for mission in missions],
             [
                 ("Mission 1", "Get Ready and Start the Game", 5),
-                ("Mission 2", "Use Agent42 to Travel", 1),
-                ("Mission 3", "Solve Your City Guide Question with Foundry IQ", 2),
-                ("Arrived", "Complete the Game", 1),
+                ("Mission 2", "Build Your Team", 2),
+                ("Mission 3", "Complete the Game", 2),
             ],
         )
 
@@ -383,11 +382,11 @@ class InstructionsTests(unittest.TestCase):
                 "/amsterdam/player/06_test_agent42_transport_specialist"
             )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.text.count('class="workshop-nav-mission"'), 4)
+        self.assertEqual(response.text.count('class="workshop-nav-mission"'), 3)
         self.assertRegex(
             response.text,
             r'class="lesson-mission-heading">\s*<span>Mission 2</span>\s*'
-            r'<strong>Use Agent42 to Travel</strong>',
+            r'<strong>Build Your Team</strong>',
         )
         self.assertEqual(response.text.count('aria-current="page"'), 1)
 
@@ -540,9 +539,7 @@ class InstructionsTests(unittest.TestCase):
             browser_api_key = page.evaluate(
                 "localStorage.getItem('lost-in-the-city:amsterdam:api-key')"
             )
-            expect(page.locator("[data-player-quest-name]")).to_have_text(
-                "Test route with Foundry IQ"
-            )
+            expect(page.locator(".workshop-nav-mission-heading strong", has_text="Complete the Game")).to_have_count(1)
             expect(page.locator("[data-player-quest-question]")).to_be_hidden()
 
             def unlock_browser_question(player: dict) -> None:

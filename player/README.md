@@ -9,8 +9,8 @@ prepared Windows workshop machine; the facilitator supplies credentials
 privately.
 For local service setup, see the [workshop overview](../docs/workshop-overview.md).
 
-Guided Mode groups its nine detailed lessons into the same four named missions
-as the game:
+Guided Mode groups its nine detailed lessons into three named missions. The
+game's own completion shows in the Player page's live progress:
 
 1. **Mission 1: Get Ready and Start the Game**
    - [Step into your workspace](guided/00_step_into_your_workspace.md)
@@ -18,13 +18,12 @@ as the game:
    - [Create a hello world agent](guided/02_create_hello_world_agent.md)
    - [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
    - [Add session logging](guided/05_add_session_logging.md)
-2. **Mission 2: Use Agent42 to Travel**
-   - [Test Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
-3. **Mission 3: Solve the Quest with Foundry IQ**
-   - [Test the city guide agent](guided/07_test_the_city_guide_agent.md)
-   - [Bring the specialist agents into the main agent](guided/08_bring_specialists_into_main_agent.md)
-4. **Arrived: Complete the Game**
-   - [Complete the final journey and review the lab](guided/09_lab_recap.md)
+2. **Mission 2: Build Your Team**
+   - [Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
+   - [The city guide specialist](guided/07_test_the_city_guide_agent.md)
+3. **Mission 3: Complete the Game**
+   - [Bring the specialists in](guided/08_bring_specialists_into_main_agent.md)
+   - [Play the game](guided/09_lab_recap.md)
 
 Challenge Mode follows the game itself:
 

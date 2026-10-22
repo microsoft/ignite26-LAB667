@@ -1,4 +1,4 @@
-# Step 8: Bring The Specialist Agents Into The Main Agent
+# Bring the Specialists In
 
 In this exercise, you combine the authenticated game MCP connection, Agent42,
 the city guide, and session logging in one conversational agent. The final

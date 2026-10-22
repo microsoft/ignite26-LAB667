@@ -362,7 +362,7 @@
 .workshop-details { display: flex; flex-wrap: wrap; gap: 1rem 3rem; }
 .workshop-details dt { font-weight: 700; }.workshop-details dd { margin: 0; }
 /* Active player: slim header, full-height chapter rail, centered reading column. */
-body.player-active .workshop-header {
+:is(html.player-returning, body.player-active) .workshop-header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -373,21 +373,21 @@ body.player-active .workshop-header {
   background: var(--panel);
   text-align: left;
 }
-body.player-active .player-event-name { grid-column: 1; margin: 0; font-size: .75rem; letter-spacing: .08em; }
-body.player-active .workshop-header h1 {
+:is(html.player-returning, body.player-active) .player-event-name { grid-column: 1; margin: 0; font-size: .75rem; letter-spacing: .08em; }
+:is(html.player-returning, body.player-active) .workshop-header h1 {
   grid-column: 1;
   padding: 0;
   font-size: 1.55rem;
   line-height: 1.15;
   letter-spacing: -.025em;
 }
-body.player-active .player-header-identity {
+:is(html.player-returning, body.player-active) .player-header-identity {
   grid-column: 2;
   grid-row: 1 / span 2;
   margin: 0;
   font-size: .9rem;
 }
-body.player-active .player-progress {
+:is(html.player-returning, body.player-active) .player-progress {
   grid-column: 1 / -1;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -396,21 +396,21 @@ body.player-active .player-progress {
   margin: .6rem 0 0;
   padding: 0;
 }
-body.player-active .player-progress::after { display: none; }
-body.player-active .player-progress > .eyebrow { margin: 0; padding: 0; font-size: .75rem; letter-spacing: .08em; }
-body.player-active .player-progress-status { grid-column: 1 / -1; }
-body.player-active .player-timeline { margin: 0; padding: 3px 0 0; }
-body.player-active .player-timeline-event { flex: 1 0 min(200px, 60vw); gap: .2rem; }
-body.player-active .player-timeline-event > div,
-body.player-active .player-timeline-pending > div { padding: .1rem .5rem .3rem; background: transparent; }
-body.player-active .player-timeline-meta strong { font-size: .875rem; }
-body.player-active .player-timeline-event p,
-body.player-active .player-timeline-detail-summary { margin-top: 0; font-size: .8125rem; line-height: 1.4; }
-body.player-active .player-timeline-detail-summary { -webkit-line-clamp: 2; }
-body.player-active .player-timeline-detail-cta { margin-top: .2rem; font-size: .75rem; }
-body.player-active .player-timeline-control { width: 2rem; height: 2rem; font-size: 1rem; }
-body.player-active .player-timeline-control-previous { left: -1rem; }
-body.player-active .player-timeline-control-next { right: -1rem; }
+:is(html.player-returning, body.player-active) .player-progress::after { display: none; }
+:is(html.player-returning, body.player-active) .player-progress > .eyebrow { margin: 0; padding: 0; font-size: .75rem; letter-spacing: .08em; }
+:is(html.player-returning, body.player-active) .player-progress-status { grid-column: 1 / -1; }
+:is(html.player-returning, body.player-active) .player-timeline { margin: 0; padding: 3px 0 0; }
+:is(html.player-returning, body.player-active) .player-timeline-event { flex: 1 0 min(200px, 60vw); gap: .2rem; }
+:is(html.player-returning, body.player-active) .player-timeline-event > div,
+:is(html.player-returning, body.player-active) .player-timeline-pending > div { padding: .1rem .5rem .3rem; background: transparent; }
+:is(html.player-returning, body.player-active) .player-timeline-meta strong { font-size: .875rem; }
+:is(html.player-returning, body.player-active) .player-timeline-event p,
+:is(html.player-returning, body.player-active) .player-timeline-detail-summary { margin-top: 0; font-size: .8125rem; line-height: 1.4; }
+:is(html.player-returning, body.player-active) .player-timeline-detail-summary { -webkit-line-clamp: 2; }
+:is(html.player-returning, body.player-active) .player-timeline-detail-cta { margin-top: .2rem; font-size: .75rem; }
+:is(html.player-returning, body.player-active) .player-timeline-control { width: 2rem; height: 2rem; font-size: 1rem; }
+:is(html.player-returning, body.player-active) .player-timeline-control-previous { left: -1rem; }
+:is(html.player-returning, body.player-active) .player-timeline-control-next { right: -1rem; }
 
 .workshop-layout {
   display: grid;
@@ -744,11 +744,11 @@ body.player-active .player-timeline-control-next { right: -1rem; }
 @media (max-width: 900px) {
   .workshop-layout, .workshop-layout.workshop-nav-collapsed { grid-template-columns: minmax(0, 1fr); }
   .workshop-sidebar { position: static; height: auto; padding: 1rem 1.25rem; border-right: 0; border-bottom: 1px solid var(--line); }
-  body.player-active .player-progress { grid-template-columns: minmax(0, 1fr); gap: .4rem; }
+  :is(html.player-returning, body.player-active) .player-progress { grid-template-columns: minmax(0, 1fr); gap: .4rem; }
 }
 }
 @media (max-width: 650px) {
-  .workshop-header, body.player-active .workshop-header { padding: 1rem; }
+  .workshop-header, :is(html.player-returning, body.player-active) .workshop-header { padding: 1rem; }
   #player { padding: 1.5rem 1rem 3rem; }
   .workshop-header h1 { padding: 0; }
   .player-session { min-height: auto; margin: 0 1rem 1rem; padding: 1rem 0; }
@@ -761,3 +761,7 @@ body.player-active .player-timeline-control-next { right: -1rem; }
   .player-agent42-layout { grid-template-columns: minmax(0, 1fr); }
   .player-agent42-weather { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Returning player: show the lesson layout while player.js confirms the saved key. */
+html.player-returning #player-session { display: none !important; }
+html.player-returning #player-content[hidden] { display: grid !important; }

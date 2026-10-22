@@ -52,21 +52,19 @@ GUIDED_MISSIONS = (
     },
     {
         "label": "Mission 2",
-        "name": "Use Agent42 to Travel",
-        "lessons": ("06_test_agent42_transport_specialist",),
-    },
-    {
-        "label": "Mission 3",
-        "name": "Solve Your City Guide Question with Foundry IQ",
+        "name": "Build Your Team",
         "lessons": (
+            "06_test_agent42_transport_specialist",
             "07_test_the_city_guide_agent",
-            "08_bring_specialists_into_main_agent",
         ),
     },
     {
-        "label": "Arrived",
+        "label": "Mission 3",
         "name": "Complete the Game",
-        "lessons": ("09_lab_recap",),
+        "lessons": (
+            "08_bring_specialists_into_main_agent",
+            "09_lab_recap",
+        ),
     },
 )
 

@@ -1,4 +1,4 @@
-# Arrived: Complete the Game
+# Play the Game
 
 Your agent has solved the city-guide question. One final journey remains:
 ask Agent42 for help, choose how to travel, and arrive at the event destination.

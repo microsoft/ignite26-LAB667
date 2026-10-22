@@ -1,4 +1,4 @@
-# Step 7: Test The City Guide Agent
+# The City Guide Specialist
 
 In this exercise, you add knowledge to the workshop agent by testing a city guide
 specialist in a separate file before wiring it into the main game agent. Guide
