@@ -47,6 +47,9 @@
   function showRegistration(message = '') {
     clearTimeout(pollTimer);
     document.body.classList.remove('player-active');
+    document.querySelectorAll('[data-player-api-key]').forEach((element) => {
+      element.textContent = '<copy-from-this-player-page>';
+    });
     session.hidden = false;
     registration.hidden = false;
     headerIdentity.hidden = true;
@@ -68,6 +71,12 @@
     document.getElementById('player-name').textContent = player.name;
     document.querySelectorAll('[data-player-name]').forEach((element) => {
       element.textContent = player.name;
+    });
+    document.querySelectorAll('[data-player-api-key]').forEach((element) => {
+      element.textContent = apiKey;
+    });
+    document.querySelectorAll('[data-player-quest]').forEach((element) => {
+      element.textContent = player.quest_name || 'your quest';
     });
     document.getElementById('player-api-key').textContent = apiKey;
     document.querySelectorAll('[data-player-quest-name]').forEach((element) => {
@@ -297,13 +306,27 @@
       if (pre.parentElement.classList.contains('code-block')) return;
       const code = pre.querySelector('code') || pre;
       const language = ((code.className || '').match(/language-([\w-]+)/) || [])[1] || 'text';
+      const readOnly = /-read$/.test(language);
       const wrapper = document.createElement('div');
-      wrapper.className = 'code-block';
+      wrapper.className = readOnly ? 'code-block code-block-read' : 'code-block';
       const bar = document.createElement('div');
       bar.className = 'code-block-bar';
       const label = document.createElement('span');
       label.className = 'code-block-language';
-      label.textContent = language.replace(/-notype$/, '');
+      label.textContent = language.replace(/-(notype|read)$/, '');
+      if (readOnly) {
+        if (/^output/.test(language)) {
+          wrapper.classList.add('code-block-output');
+          code.innerHTML = code.innerHTML.replace(/^(You|Agent):$/gm, '<span class="chat-speaker">$1</span>');
+        }
+        const note = document.createElement('span');
+        note.className = 'code-block-note';
+        note.textContent = 'Just read, no need to copy';
+        bar.append(label, note);
+        pre.replaceWith(wrapper);
+        wrapper.append(bar, pre);
+        return;
+      }
       const button = document.createElement('button');
       button.type = 'button';
       button.className = 'code-block-copy';

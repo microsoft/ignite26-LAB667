@@ -37,51 +37,51 @@ async def main() -> None:
         model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
     )
 
-    async with client.client:
-        log_path = open_session_log()
-        print(f"Session log: {log_path}")
-        agent_mw, chat_mw, function_mw = build_logging_middleware(log_path)
+    log_path = open_session_log()
+    print(f"Session log: {log_path}")
+    agent_mw, chat_mw, function_mw = build_logging_middleware(log_path)
 
-        async with (
-            MCPStreamableHTTPTool(
-                name="Gaming MCP Server",
-                url=os.environ["GAME_MCP_URL"],
-                static_headers={
-                    "Authorization": f"Bearer {os.environ['GAME_API_KEY']}",
-                },
-            ) as game_mcp,
-            build_agent42_agent() as agent42,
-            build_city_guide_agent() as guide_agent,
-        ):
-            game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
-            agent42_tool = build_agent42_tool(agent42)
-            guide_tool = build_city_guide_tool(guide_agent)
+    game_mcp = MCPStreamableHTTPTool(
+        name="Gaming MCP Server",
+        url=os.environ["GAME_MCP_URL"],
+        static_headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"},
+    )
 
-            agent = Agent(
-                client=client,
-                name="Game Play Agent",
-                instructions=game_play_prompt,
-                tools=[game_mcp, agent42_tool, guide_tool],
-                middleware=[agent_mw, chat_mw, function_mw],
-            )
+    async with (
+        client.client,
+        game_mcp,
+        build_agent42_agent() as agent42,
+        build_city_guide_agent() as guide_agent,
+    ):
+        game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
+        agent42_tool = build_agent42_tool(agent42)
+        guide_tool = build_city_guide_tool(guide_agent)
 
-            print("Chat with Game Play Agent (type 'exit' or 'quit' to stop)\n")
-            session = agent.create_session()
-            response = await agent.run("start the game", session=session)
+        agent = Agent(
+            client=client,
+            name="Game Play Agent",
+            instructions=game_play_prompt,
+            tools=[game_mcp, agent42_tool, guide_tool],
+            middleware=[agent_mw, chat_mw, function_mw],
+        )
+
+        print("Chat with Game Play Agent (type 'exit' or 'quit' to stop)\n")
+        session = agent.create_session()
+        response = await agent.run("start the game", session=session)
+        print(f"{PURPLE}Agent:{RESET} {response.text}\n")
+
+        while True:
+            try:
+                user_input = input(f"{GREEN}You:{RESET} ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                break
+            if not user_input:
+                continue
+            if user_input.lower() in {"exit", "quit"}:
+                break
+            response = await agent.run(user_input, session=session)
             print(f"{PURPLE}Agent:{RESET} {response.text}\n")
-
-            while True:
-                try:
-                    user_input = input(f"{GREEN}You:{RESET} ").strip()
-                except (EOFError, KeyboardInterrupt):
-                    print()
-                    break
-                if not user_input:
-                    continue
-                if user_input.lower() in {"exit", "quit"}:
-                    break
-                response = await agent.run(user_input, session=session)
-                print(f"{PURPLE}Agent:{RESET} {response.text}\n")
 
 
 if __name__ == "__main__":

@@ -371,7 +371,7 @@ class InstructionsTests(unittest.TestCase):
         self.assertEqual(
             [(mission["label"], mission["name"], len(mission["lessons"])) for mission in missions],
             [
-                ("Mission 1", "Get Ready and Start the Game", 6),
+                ("Mission 1", "Get Ready and Start the Game", 5),
                 ("Mission 2", "Use Agent42 to Travel", 1),
                 ("Mission 3", "Solve Your City Guide Question with Foundry IQ", 2),
                 ("Arrived", "Complete the Game", 1),
@@ -409,6 +409,14 @@ class InstructionsTests(unittest.TestCase):
             workshop_instructions.render_lesson("Hi {{ player_name }}", {}),
             "<p>Hi <span data-player-name>player</span></p>\n",
         )
+        self.assertEqual(
+            workshop_instructions.render_lesson("{{ player_quest }}", {}),
+            "<p><span data-player-quest>your quest</span></p>\n",
+        )
+        self.assertEqual(
+            workshop_instructions.render_lesson("{{ player_api_key }}", {}),
+            "<p><span data-player-api-key>&lt;copy-from-this-player-page&gt;</span></p>\n",
+        )
         panels = workshop_instructions.more_info_panels(
             '<a href="#more-mcp">a</a> <a href="#more-mcp">b</a> <a href="#more-foundry-iq">c</a>',
             {"game_name": "Lost in Testville", "game_city": "Testville"},
@@ -419,6 +427,16 @@ class InstructionsTests(unittest.TestCase):
         self.assertIn("Testville city guide", panels[1]["content"])
         with self.assertRaisesRegex(ValueError, "Unknown player read-more panel"):
             workshop_instructions.more_info_panels('<a href="#more-missing">x</a>', {})
+
+    def test_game_prompt_panel_quotes_the_prompt_the_server_returns(self) -> None:
+        import server
+
+        panel = workshop_instructions.more_info_panels(
+            '<a href="#more-game-prompt">prompt</a>', {"game_name": "Test City"},
+        )[0]
+        shown = re.search(r"<pre><code[^>]*>(.*?)</code></pre>", panel["content"], re.S).group(1)
+        shown = shown.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"').replace("&amp;", "&")
+        self.assertEqual(shown, server._game_play_prompt_for({"display_name": "Test City"}).rstrip("\n") + "\n")
         with patch.dict("os.environ", {"GAME_SERVER_URL": "https://user:secret@example.test"}):
             with self.assertRaises(ValueError):
                 workshop_instructions.public_url("GAME_SERVER_URL", "")
@@ -596,7 +614,7 @@ class InstructionsTests(unittest.TestCase):
             expect(page.locator("#player-timeline")).not_to_have_js_property("scrollLeft", 0)
             page.get_by_role("link", name="Next lesson").click()
             expect(page).to_have_url(
-                "https://instructions.test/amsterdam/player/04_use_the_player_api_key"
+                "https://instructions.test/amsterdam/player/05_add_session_logging"
             )
             page.get_by_role("link", name="Previous lesson").click()
             expect(page).to_have_url("https://instructions.test/amsterdam/player/03_connect_to_the_gaming_mcp_server")

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=copy-button-v2" />
+  <link rel="stylesheet" href="/static/css/player.css?v=chat-speaker-v2" />
 </head>
 <body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
 <a class="skip-link" href="{{ '#player' if availability.state == 'open' else '#player-window-title' }}">Skip to player content</a>
@@ -165,7 +165,7 @@
   </dialog>
   {% endfor %}
 </div>
-<script src="/static/js/player.js?v=copy-button-v1"></script>
+<script src="/static/js/player.js?v=player-quest-v1"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>

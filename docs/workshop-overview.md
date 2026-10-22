@@ -117,7 +117,7 @@ until a schedule is set. Settings take effect immediately, separately from story
 publication.
 
 Share `http://localhost:8090/<slug>/player` with players (use the dashboard host
-in Azure). Guided Mode renders the ten step-by-step chapters; Challenge Mode
+in Azure). Guided Mode renders the nine step-by-step chapters; Challenge Mode
 renders four outcome-focused game stages: setup and MCP, Agent42 travel, a
 Foundry IQ grounded question, and final arrival. Both use the game's name,
 endpoint, dates, times, and timezone. **Preview player** serves the same content

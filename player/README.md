@@ -9,7 +9,7 @@ prepared Windows workshop machine; the facilitator supplies credentials
 privately.
 For local service setup, see the [workshop overview](../docs/workshop-overview.md).
 
-Guided Mode groups its ten detailed lessons into the same four named missions
+Guided Mode groups its nine detailed lessons into the same four named missions
 as the game:
 
 1. **Mission 1: Get Ready and Start the Game**
@@ -17,7 +17,6 @@ as the game:
    - [Get Azure OpenAI details from Microsoft Foundry](guided/01_get_azure_openai_details_from_foundry.md)
    - [Create a hello world agent](guided/02_create_hello_world_agent.md)
    - [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
-   - [Use the Player API key](guided/04_use_the_player_api_key.md)
    - [Add session logging](guided/05_add_session_logging.md)
 2. **Mission 2: Use Agent42 to Travel**
    - [Test Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
@@ -35,7 +34,7 @@ Challenge Mode follows the game itself:
 4. [Arrived: Complete the game](challenge/03_arrived_complete_the_game.md)
 
 The canonical runnable sample is in
-[src/agents/player/](../src/agents/player/). Steps 2–5 build it incrementally;
+[src/agents/player/](../src/agents/player/). Steps 2, 3, and 5 build it incrementally;
 Step 5 also supplies the logging helper, Steps 6–7 supply the specialist helpers,
 and Step 8 supplies the complete **agent.py**. Keep those full copies and their
 smaller integration snippets synchronized with the reference files. Step 0
@@ -50,6 +49,8 @@ Use these placeholders in lesson text or fenced code blocks:
 | `{{ game_name }}` / `{{ game_slug }}` | Game display name / URL slug |
 | `{{ game_event }}` | Event name from the game record, or **this event** when unset |
 | `{{ player_name }}` | Signed-in player's nickname, filled in by the browser |
+| `{{ player_api_key }}` | Signed-in player's private API key, filled in by the browser. Shows `<copy-from-this-player-page>` until the player starts a game. |
+| `{{ player_quest }}` | Name of the quest assigned to the signed-in player, filled in by the browser. Shows **your quest** until the player starts a game. |
 | `{{ game_city }}` | Published top-level `city` from the game's quest document |
 | `{{ game_story }}` | Published top-level `story` from the game's quest document |
 | `{{ game_mcp_url }}` | Configured MCP service base URL plus the game's MCP route |

@@ -1,5 +1,7 @@
 # Create A Hello-World Agent
 
+![A player at a laptop runs a hello-world agent in VS Code and sees Hello, world! with a green check, connected to a cloud labeled Model, while a pigeon watches](../assets/illustration-hello-world-header.webp)
+
 In this exercise, you create the smallest possible Microsoft Agent Framework
 agent so you can prove the model connection works. A simple hello-world run
 gives you a clean baseline before MCP, A2A, and retrieval add more moving parts.
@@ -10,6 +12,8 @@ gives you a clean baseline before MCP, A2A, and retrieval add more moving parts.
 
 In the VS Code Explorer, create a file named **agent.py** in **C:\workshop**.
 Paste the full code below into **agent.py** and save the file:
+
+![In VS Code, create a New File in the workshop folder in the Explorer, name it agent.py, paste the code sample copied from the workshop instructions, and save with Ctrl+S](../assets/illustration-create-agent-file.webp)
 
 ```python-notype
 """Game play agent using Microsoft Agent Framework with Azure OpenAI."""
@@ -46,12 +50,19 @@ if __name__ == "__main__":
 	asyncio.run(main())
 ```
 
-> [!Hint] The agent reads **.env** beside **agent.py**, even if you launch it
-> from another folder. **async with client.client:** keeps the model connection
-> open during the run and closes it automatically when the block ends, including
-> when an error occurs. Keep the agent code indented inside that block.
+Not sure what the code above does? Click the button below for a step-by-step
+explanation of each part.
+
+[Explain the code](#more-hello-world-code)
 
 ## Run the agent
+
+Now run your agent. The terminal in VS Code starts in **C:\workshop**, the same
+folder as **agent.py**, so you can start the program with one command. Python
+loads your settings from **.env**, connects to your model in Microsoft Foundry,
+sends the message, and prints the reply.
+
+![In the VS Code terminal in the workshop folder, run python agent.py and press Enter; the terminal prints Hello! I am ready to help. as a checkpoint hello from the model](../assets/illustration-run-agent.webp)
 
 Run **agent.py** from the VS Code terminal:
 
@@ -65,3 +76,5 @@ python agent.py
 
 You created a minimal Microsoft Agent Framework agent, connected it to Azure
 OpenAI, and made your first model call from **agent.py**.
+
+![Ready for the next mission: a checklist showing minimal agent created, Azure OpenAI connected, and first model call completed with Hello, world!, with a player taking notes beside a pigeon](../assets/illustration-hello-world-recap.webp)

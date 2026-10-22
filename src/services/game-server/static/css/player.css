@@ -589,7 +589,7 @@ body.player-active .player-timeline-control-next { right: -1rem; }
 .lesson-content strong { font-weight: 600; }
 .lesson-content img { max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 12px; }
 .lesson-content img[src^="/player-assets/illustration-"] { display: block; margin: 1rem auto 1.5rem; border: 0; border-radius: 0; }
-.lesson-content pre { overflow-x: auto; white-space: pre; padding: 1rem 1.15rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: .9rem; line-height: 1.6; }
+.lesson-content pre { overflow-x: auto; white-space: pre; tab-size: 4; padding: 1rem 1.15rem; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: .9rem; line-height: 1.6; }
 .lesson-content code { font-size: .9em; }
 .lesson-content pre code { font-size: inherit; white-space: pre; overflow-wrap: normal; word-break: normal; }
 .lesson-content .code-block { margin: 1.5rem 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
@@ -604,6 +604,11 @@ body.player-active .player-timeline-control-next { right: -1rem; }
   background: var(--soft);
 }
 .code-block-language { color: var(--muted); font-size: .75rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.code-block-note { color: var(--muted); font-size: .8125rem; font-style: italic; padding: .3rem 0; }
+.chat-speaker { color: var(--accent); font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif; font-size: .75rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.lesson-content .code-block-output pre,
+.lesson-content .code-block-output pre code { white-space: pre-wrap; overflow-wrap: break-word; }
+.lesson-content .code-block-read { border-style: dashed; }
 .code-block-copy {
   --copy-icon: url("/static/img/icon-copy.svg");
   display: inline-flex;
@@ -724,6 +729,8 @@ body.player-active .player-timeline-control-next { right: -1rem; }
 .more-info-content ul, .more-info-content ol { margin: .6rem 0; }
 .more-info-content li + li { margin-top: .35rem; }
 .more-info-content strong { color: var(--ink); font-weight: 600; }
+.more-info-content pre { margin: 1rem 0; padding: 1rem 1.15rem; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); font-size: .88rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.more-info-content pre code { display: inline; width: auto; padding: 0; overflow: visible; border-radius: 0; background: transparent; color: inherit; font-size: inherit; white-space: pre-wrap; overflow-wrap: anywhere; }
 .lesson-pagination {
   display: flex;
   flex-wrap: wrap;

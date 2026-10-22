@@ -1,15 +1,29 @@
-# Step 5: Add Session Logging
+# Add Session Logging
 
-In this exercise, you add local observability for model messages and tool calls.
-An agent can make several decisions before producing one answer. A session log
-shows you that flow without exposing the private Player API key.
+![The terminal shows only the final reply, Quest started, while the session log lists every step in order: your message, model request, tool call, tool result, and agent reply; each new run creates a new file](../assets/illustration-logging-header.webp)
+
+In this exercise, you add a session log to your agent. Each time you run the
+agent, it writes a new file that records what happened behind the scenes.
+
+Your agent does more than reply. Before it answers, it can send your message to
+the model, call one or more game tools, and read their results. You only see the
+final answer in the terminal. The session log shows every step in order: your
+message, what the model received, each tool call and its result, and the agent's
+reply. That makes it easy to see why the agent did something, or to find out
+what went wrong.
 
 > [!Hint] 🖥️ **In VS Code** — create the logging helper beside **agent.py** in
 > **C:\workshop**.
 
 ## Create the logging helper
 
-Create **C:\workshop\log.py** and paste the following code:
+The logging code lives in its own file, **log.py**, next to **agent.py**. That
+keeps **agent.py** short: it only needs to import the helper and switch it on.
+
+1. In the VS Code Explorer, select the **C:\workshop** folder.
+2. Select **New File** and name it **log.py**.
+3. Copy the code below with the **Copy** button and paste it into **log.py**.
+   VS Code saves the file automatically.
 
 ```python-notype
 """Per-session conversation and tool I/O logging."""
@@ -120,45 +134,168 @@ def build_logging_middleware(log_path: Path):
     return log_agent, log_chat, log_function
 ```
 
-The bearer key is attached by the MCP HTTP client and is not a tool argument,
-so this middleware does not write it to the log.
+What **log.py** does:
+
+- **open_session_log()** creates a **logs** folder next to **log.py** and starts a
+  new log file with the date and time in its name.
+- **build_logging_middleware()** returns three small functions that the agent
+  calls automatically: one for each message to and from the agent, one for
+  each request to the model, and one for each tool call and its result.
+
+Your API key never ends up in the log, because it isn't part of the
+conversation. It's a bearer token: the connection sends it in the
+**Authorization** header of each request to the game server. The log only
+records messages and tool calls, so the key never appears there.
 
 ## Add logging to the game agent
 
-At the top of **agent.py**, import the helper:
+Your agent needs three changes to write the session log. Read through them
+first; at the end you replace **agent.py** with the complete code.
 
-```python
+![Three changes, automatic logging: import the helpers from log.py, start a new log with open_session_log and build_logging_middleware, and attach the middleware to agent.py so the agent, model, and tools are all recorded in the session log](../assets/illustration-logging-changes.webp)
+
+### 1. Import the helper
+
+```python-read
 from log import build_logging_middleware, open_session_log
 ```
 
-Inside **async with client.client:**, before opening the MCP connection, add:
+This loads the two functions from **log.py**, the file you just created.
 
-```python-notype
+### 2. Start a new log
+
+```python-read
 log_path = open_session_log()
 print(f"Session log: {log_path}")
 agent_mw, chat_mw, function_mw = build_logging_middleware(log_path)
 ```
 
-Then add the middleware to **Agent(...)**:
+**open_session_log()** creates a new log file for this run, and **print** shows
+its location in the terminal so you can open it later.
+**build_logging_middleware()** returns the three logging functions, all writing
+to that file.
 
-```python
-middleware=[agent_mw, chat_mw, function_mw],
+### 3. Add the logging to the agent
+
+```python-read
+agent = Agent(
+    client=client,
+    name="Game Play Agent",
+    instructions=game_play_prompt,
+    tools=[game_mcp],
+    middleware=[agent_mw, chat_mw, function_mw],
+)
 ```
 
-Run the agent:
+**middleware** is code that runs around everything the agent does. The agent
+calls the three logging functions automatically, so you don't need to add any
+logging calls yourself.
+
+[What is middleware?](#more-middleware)
+
+## Replace agent.py
+
+Replace everything in **agent.py** with the code below. It is the agent from the
+MCP lesson with the three changes above.
+
+```python-notype
+"""Game play agent using Microsoft Agent Framework, Azure OpenAI, MCP, and session logging."""
+
+import asyncio
+import os
+from pathlib import Path
+
+from agent_framework import Agent, MCPStreamableHTTPTool
+from agent_framework.openai import OpenAIChatClient
+from dotenv import load_dotenv
+
+from log import build_logging_middleware, open_session_log
+
+async def main() -> None:
+    load_dotenv(Path(__file__).with_name(".env"), override=True)
+
+    client = OpenAIChatClient(
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        api_key=os.environ["AZURE_OPENAI_API_KEY"],
+        model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
+    )
+
+    log_path = open_session_log()
+    print(f"Session log: {log_path}")
+    agent_mw, chat_mw, function_mw = build_logging_middleware(log_path)
+
+    game_mcp = MCPStreamableHTTPTool(
+        name="Gaming MCP Server",
+        url=os.environ["GAME_MCP_URL"],
+        static_headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"},
+    )
+
+    async with client.client, game_mcp:
+        game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
+
+        agent = Agent(
+            client=client,
+            name="Game Play Agent",
+            instructions=game_play_prompt,
+            tools=[game_mcp],
+            middleware=[agent_mw, chat_mw, function_mw],
+        )
+
+        session = agent.create_session()
+
+        response = await agent.run("Hi, can we start the game?", session=session)
+        print(response.text)
+
+        response2 = await agent.run("Yes", session=session)
+        print(response2.text)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+![Run the agent: in the VS Code terminal in the workshop folder, run python agent.py, and the first line shows Session log with the location of the new log file](../assets/illustration-logging-run.webp)
+
+Run the agent from the VS Code terminal:
 
 ```powershell
 python agent.py
 ```
 
-Open the newest file under **C:\workshop\logs**. It should contain the initial
-user message, the model input, calls such as **begin_session** or
-**start_quest**, their results, and the agent response.
+The first line in the terminal shows where the log was saved, for example
+**Session log: C:\workshop\logs\session-20261022-174742-bbe05b.log**. Open that
+file in VS Code. It lists every step of the run in order:
 
-> **Checkpoint:** a new session log exists, tool calls contain no `player_id`,
-> and the file does not contain the value of **GAME_API_KEY**.
+```output-read
+[17:47:43] USER ->
+[17:47:43] MODEL INPUT ->
+[17:47:43] TOOL CALL begin_session
+[17:47:43] TOOL RESULT begin_session
+[17:47:43] MODEL INPUT ->
+[17:47:43] AGENT <-
+[17:47:43] USER ->
+[17:47:43] MODEL INPUT ->
+[17:47:43] TOOL CALL start_quest
+[17:47:43] TOOL RESULT start_quest
+[17:47:43] MODEL INPUT ->
+[17:47:43] AGENT <-
+```
+
+Each heading is followed by the text of that step. The first run shows your
+**Hi, can we start the game?** message, the call to **begin_session**, and the
+welcome. The second shows **Yes**, the call to **start_quest**, and the opening
+scene.
 
 ## What You Learned
 
-You added middleware that records the agent decision flow while keeping
-transport credentials outside prompts, tool arguments, and log files.
+You added a session log to your agent. Each run now writes a new file that shows
+every step the agent takes: your message, what the model received, each tool
+call and its result, and the agent's reply.
+
+You built it with middleware: small functions that the agent runs automatically
+around every step, so your agent code didn't need any logging calls. Your API
+key stays out of the log, because it travels as a bearer token in the
+connection, not in the conversation.
+
+When your agent does something unexpected in the next missions, open the newest
+session log to see exactly what happened.

@@ -30,8 +30,14 @@ MORE_LINK = re.compile(r'href="#more-([a-z0-9-]+)"')
 CHALLENGE_DIR = PLAYER_DIR / "challenge"
 TEMPLATES = Jinja2Templates(directory=BASE_DIR / "templates")
 VARIABLE = re.compile(r"\{\{\s*([a-z][a-z0-9_]*)\s*\}\}")
-# Filled in by player.js after sign-in; the server never knows the player's name.
+# Filled in by player.js after sign-in; the server never knows the player's name or API key.
 PLAYER_NAME_MARKUP = '<span data-player-name>player</span>'
+PLAYER_API_KEY_MARKUP = '<span data-player-api-key>&lt;copy-from-this-player-page&gt;</span>'
+PLAYER_MARKUP = {
+    "player_name": PLAYER_NAME_MARKUP,
+    "player_api_key": PLAYER_API_KEY_MARKUP,
+    "player_quest": '<span data-player-quest>your quest</span>',
+}
 GUIDED_MISSIONS = (
     {
         "label": "Mission 1",
@@ -41,7 +47,6 @@ GUIDED_MISSIONS = (
             "01_get_azure_openai_details_from_foundry",
             "02_create_hello_world_agent",
             "03_connect_to_the_gaming_mcp_server",
-            "04_use_the_player_api_key",
             "05_add_session_logging",
         ),
     },
@@ -81,8 +86,8 @@ def render_lesson(source: str, variables: dict[str, str]) -> str:
 
     def substitute(match: re.Match[str]) -> str:
         name = match[1]
-        if name == "player_name":
-            return PLAYER_NAME_MARKUP
+        if name in PLAYER_MARKUP:
+            return PLAYER_MARKUP[name]
         if name not in variables:
             raise ValueError(f"Unknown workshop instruction variable: {name}")
         return escape(variables[name], quote=True)
