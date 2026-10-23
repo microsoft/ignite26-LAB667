@@ -3,8 +3,8 @@
 The [city-guide/](city-guide/) folder contains 20 San Francisco guide chapters
 used as the retrieval source for the city-guide specialist.
 
-The [city-guide exercise](../player/guided/07_test_the_city_guide_agent.md)
-explains how to connect the uploaded guide content to Azure AI Search.
+The [city-guide exercise](../player/guided/07_create_the_city_guide_knowledge_base.md)
+explains how to turn the uploaded guide content into a Foundry IQ knowledge base.
 The local folder name does not change the `city-guide` blob container name.
 
 Game seed quests remain with the server in

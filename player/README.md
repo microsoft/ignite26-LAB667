@@ -20,7 +20,8 @@ game's own completion shows in the Player page's live progress:
    - [Add session logging](guided/05_add_session_logging.md)
 2. **Mission 2: Build Your Team**
    - [Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
-   - [The city guide specialist](guided/07_test_the_city_guide_agent.md)
+   - [City Guide part 1: create the knowledge base](guided/07_create_the_city_guide_knowledge_base.md)
+   - [City Guide part 2: connect the knowledge base to your agent](guided/07_test_the_city_guide_agent.md)
 3. **Mission 3: Complete the Game**
    - [Bring the specialists in](guided/08_bring_specialists_into_main_agent.md)
    - [Play the game](guided/09_lab_recap.md)

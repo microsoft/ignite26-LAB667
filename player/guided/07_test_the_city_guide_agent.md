@@ -1,132 +1,57 @@
-# The City Guide Specialist
+# City Guide Part 2: Connect the Knowledge Base to Your Agent
 
-In this exercise, you add knowledge to the workshop agent by testing a city guide
-specialist in a separate file before wiring it into the main game agent. Guide
-missions should be solved with retrieval from the San Francisco content instead
-of hard-coded answers or model guesses.
+Your **san-francisco-cityguide** knowledge base is ready. In this part, you
+build the **City Guide** specialist: a small agent that connects to the
+knowledge base over MCP and answers questions from what it finds. You test it
+on its own before you add it to your game agent.
 
-> [!Hint] 🌐 **In the browser — Azure portal** — you start in the Azure portal to set up search, then switch to VS Code to create the specialist agent.
+Every Foundry IQ knowledge base is also an MCP server, so your agent connects
+to it just like it connects to the game server.
 
-The specialist uses an Azure AI Search knowledge base to retrieve relevant city
-guide chapters at the moment it needs them. That lets the model answer from
-workshop material instead of relying only on what it already knows. Keeping this
-retrieval logic in a specialist agent also means the main game agent only spends
-search tokens when a guide question appears.
+## Copy the Search endpoint and key
 
-### In the Azure portal, create the city guide knowledge source
+Your agent connects to the knowledge base with the address and key of the Azure
+AI Search service behind Foundry IQ.
 
-The city guide chapters are already uploaded to Azure Blob Storage for this
-workshop. The source files are in the **data/city-guide** folder in this repository,
-and the uploaded blob container is named **city-guide**.
+1. In the Microsoft Foundry portal, open the connected Azure AI Search resource.
+2. Copy the **endpoint**. It looks like
+   **https://search-xxxx.search.windows.net**.
+3. Copy the **key**.
 
-1. Open the Azure portal by opening a tab and navigating to **https://portal.azure.com**.
-2. Type **AI Search** in the Search bar on top. Click on the first service type.
-![](../assets/ai-search-portal.png) 
-There should only be one AI Search resource available, click on it.
-3. From the left pane, select **Agentic retrieval > Knowledge sources**.
-![](../assets/agent-retrieval.png)
-4. Select **Add knowledge source > Add knowledge source**.
-5. For the source type, select **Azure blob (Indexed)**.
+## Add the knowledge base to configuration
 
-> [!Hint] Do not select **Search index (Indexed)**. That option expects an
-> existing Azure AI Search index with semantic configuration. If you see **No
-> indexes with a default semantic configuration were found**, go back and choose
-> **Azure blob (Indexed)** instead.
-
-6. For **Name**, enter **city-guide**.
-7. For **Description**, enter **A San Francisco city guide with neighborhoods, history, food, culture, transit, and local knowledge**.
-8. For **Storage account**, select the storage account from the dropdown. There
-   should only be one option.
-9. For **Blob Container**, select **city-guide**.
-10. In the **Content extraction** section, set **Mode** to **Minimal**.
-11. Select **Authenticate using managed identity**.
-13. For **Managed identity type**, keep **System-assigned** selected.
-14. Under **Enable text vectorization**, select **Add vectorizer**.
-15. For the vectorizer kind, select **Microsoft Foundry**.
-16. For **Subscription**, keep the workshop subscription selected.
-17. For **Microsoft Foundry project**, select the project for the workshop.
-	There should only be one option.
-18. For **Model deployment**, select **text-embedding-3-small**.
-19. For **Authentication type**, select **API key**.
-20. Click **Save**.
-21. Click **Create** to create the knowledge source.
-
-When the **Create succeeded** dialog appears, it should say the **city-guide**
-knowledge source was created successfully. Click **Create a knowledge base**.
-
-![Create Succeeded Dialog Box](../assets/create-knowledge-base.png)
-
-### Creating the city guide knowledge base
-
-1. For **Name**, enter **city-knowledgebase**.
-2. For **Description**, enter **San Francisco city guide knowledge base for grounded workshop guide answers**.
-3. Under **Knowledge sources**, make sure **city-guide** is added and active.
-4. For **Retrieval reasoning effort**, select **Low**.
-5. Under **Chat completion model**, select **Add model deployment**.
-6. In the **Chat completion model** dialog, keep **Kind** set to **Microsoft Foundry**.
-7. For **Subscription**, keep the workshop subscription selected.
-8. For **Microsoft Foundry project**, select the project for the workshop.
-   There should only be one option.
-9. For **Model deployment**, select **gpt-4.1-mini**.
-10. For **Authentication type**, select **API key**.
-11. Click **Save**.
-12. For **Output mode**, select **Answer synthesis**.
-13. Click **Save** in the top-left corner.
-
-Test the knowledge base in the Azure portal by asking:
-
-```text
-What neighborhood is Dolores Park in?
-```
-
-The answer should mention **The Mission** (the Mission District), as described
-in the neighborhoods chapter of the city guide.
-
->[!Warning] If the answer is not found, you might need to wait for the associated indexer to be completed
-> ![Indexer-InProgress](../assets/indexer-inprogress.png)
-
-After the knowledge base is saved, collect the Azure AI Search values for
-**.env**:
-
-1. Go back to the AI Search resource page in the Azure portal.
-2. Open **Overview** and copy the **Url** value. This is the value for
-	**AZURE_SEARCH_ENDPOINT**.
-	![AI Search Endpoint Location](../assets/search-endpoint.png)
-3. Open **Security + Networking > Keys** and copy one of the **Query keys** at the bottom section.
-    Make sure it is a **Query** and not an **Admin** key. 
-	This is the value for **AZURE_SEARCH_KEY**.
-	![AI Search Keys Location](../assets/search-keys.png)
-4. Keep the knowledge base name **city-knowledgebase**. This is the value for
-	**AZURE_SEARCH_KNOWLEDGE_BASE_NAME**.
-
-> [!Hint] 🖥️ **In VS Code** — the portal work is done; the rest of this step happens in the VS Code editor and terminal.
-
-Open the existing **.env** file. Confirm the city guide model deployment is
-already set to **gpt-4.1-mini**, then add the Azure AI Search values:
+Open the existing **.env** file, add these lines, and replace the two
+placeholders with the endpoint and key you copied:
 
 ```env
 CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4.1-mini
-
-AZURE_SEARCH_ENDPOINT=https://<your-search-service>.search.windows.net
-AZURE_SEARCH_KNOWLEDGE_BASE_NAME=city-knowledgebase
-AZURE_SEARCH_KEY=<your-azure-ai-search-key>
+AZURE_SEARCH_ENDPOINT=<your Search endpoint>
+AZURE_SEARCH_KNOWLEDGE_BASE_NAME=san-francisco-cityguide
+AZURE_SEARCH_KEY=<your Search key>
 ```
 
-The city guide specialist uses a smaller deployment than the main game agent.
-Keep **CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME** set to **gpt-4.1-mini** so this
-agent uses the city guide deployment you validated earlier.
+The City Guide uses **gpt-4.1-mini**, a smaller and faster model than your game
+agent. Short lookups don't need more.
 
-For local reuse outside the prepared lab, an unset or blank
-**CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME** uses the main agent's deployment.
-The optional **CITY_GUIDE_AZURE_OPENAI_ENDPOINT** and
-**CITY_GUIDE_AZURE_OPENAI_API_KEY** each work the same way: leave them blank to
-reuse the main endpoint and key, or set both for a different Azure OpenAI resource.
-The Azure AI Search values above are still required.
+## Create the City Guide tool
 
-In the VS Code Explorer, create a file named **agent_city_guide.py** in
-**C:\workshop**. Paste the full code below into **agent_city_guide.py** and save
-the file. This is the second specialist agent. Its search context provider lives
-here, so the main game agent does not spend RAG tokens on every turn.
+You create a new file, **agent_city_guide.py**, that turns the City Guide into a
+tool your game agent can use. It does three things:
+
+- **build_city_guide_agent()** creates a small agent that connects to your
+  knowledge base over MCP and answers only from what it finds.
+- **build_city_guide_tool()** wraps that agent as a tool called
+  **ask_city_guide**. Later, your game agent calls this tool for city guide
+  questions.
+- **main()** asks the City Guide one test question, so you can check that it
+  works before you add it to your game agent.
+
+## Create agent_city_guide.py
+
+1. In the VS Code Explorer, select the **C:\workshop** folder.
+2. Select **New File** and name it **agent_city_guide.py**.
+3. Copy the code below with the **Copy** button and paste it into
+   **agent_city_guide.py**. VS Code saves the file automatically.
 
 ```python-notype
 """City guide specialist agent for San Francisco knowledge-base questions."""
@@ -137,8 +62,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from agent_framework import Agent, FunctionTool
-from agent_framework.azure import AzureAISearchContextProvider
+from agent_framework import Agent, FunctionTool, MCPStreamableHTTPTool
 from agent_framework.openai import OpenAIChatClient
 from dotenv import load_dotenv
 
@@ -146,37 +70,35 @@ from dotenv import load_dotenv
 @asynccontextmanager
 async def build_city_guide_agent() -> AsyncGenerator[Agent, None]:
 	client = OpenAIChatClient(
-		azure_endpoint=(
-			os.environ.get("CITY_GUIDE_AZURE_OPENAI_ENDPOINT", "").strip()
-			or os.environ["AZURE_OPENAI_ENDPOINT"]
-		),
-		api_key=(
-			os.environ.get("CITY_GUIDE_AZURE_OPENAI_API_KEY", "").strip()
-			or os.environ["AZURE_OPENAI_API_KEY"]
-		),
+		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+		api_key=os.environ["AZURE_OPENAI_API_KEY"],
 		model=(
 			os.environ.get("CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME", "").strip()
 			or os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"]
 		),
 	)
 
-	# Search context belongs here, so the main game agent does not spend RAG tokens on every turn.
-	async with client.client:
-		async with AzureAISearchContextProvider(
-			endpoint=os.environ["AZURE_SEARCH_ENDPOINT"],
-			knowledge_base_name=os.environ["AZURE_SEARCH_KNOWLEDGE_BASE_NAME"],
-			api_key=os.environ["AZURE_SEARCH_KEY"],
-			mode="agentic",
-		) as search_context_provider:
-			yield Agent(
-				client=client,
-				name="San Francisco City Guide Agent",
-				instructions=(
-					"Answer San Francisco city guide questions using the provided search context. "
-					"Keep answers brief and return only the answer needed by the game."
-				),
-				context_providers=[search_context_provider],
-			)
+	# Every Foundry IQ knowledge base is also an MCP server with one tool:
+	# knowledge_base_retrieve.
+	search_endpoint = os.environ["AZURE_SEARCH_ENDPOINT"].rstrip("/")
+	knowledge_base = os.environ["AZURE_SEARCH_KNOWLEDGE_BASE_NAME"]
+	city_guide_kb = MCPStreamableHTTPTool(
+		name="City Guide Knowledge Base",
+		url=f"{search_endpoint}/knowledgebases/{knowledge_base}/mcp?api-version=2026-08-01-preview",
+		static_headers={"api-key": os.environ["AZURE_SEARCH_KEY"]},
+	)
+
+	async with client.client, city_guide_kb:
+		yield Agent(
+			client=client,
+			name="San Francisco City Guide Agent",
+			instructions=(
+				"Answer San Francisco city guide questions. Always search the city guide "
+				"knowledge base first and answer only from what it returns. "
+				"Keep answers brief and return only the answer the game needs."
+			),
+			tools=[city_guide_kb],
+		)
 
 
 def build_city_guide_tool(guide_agent: Agent) -> FunctionTool:
@@ -184,7 +106,7 @@ def build_city_guide_tool(guide_agent: Agent) -> FunctionTool:
 	return guide_agent.as_tool(
 		name="ask_city_guide",
 		description=(
-			"Ask the San Francisco city guide knowledge base a question. Use this only "
+			"Ask the San Francisco city guide a question. Use this only "
 			"for city guide or local knowledge questions from the game."
 		),
 		arg_name="question",
@@ -196,7 +118,6 @@ async def main() -> None:
 	load_dotenv(Path(__file__).with_name(".env"), override=True)
 
 	question = "What neighborhood is Dolores Park in?"
-
 	async with build_city_guide_agent() as guide_agent:
 		response = await guide_agent.run(question)
 		print(response.text)
@@ -206,10 +127,12 @@ if __name__ == "__main__":
 	asyncio.run(main())
 ```
 
-> [!Hint] The city guide builder is an asynchronous context manager. Use
-> **async with build_city_guide_agent() as guide_agent:** while calling it. The
-> builder closes both its model client and search provider automatically, so you
-> do not need to keep a separate search handle or call **close()** yourself.
+Not sure what the code above does? Click the button below for a step-by-step
+explanation of each part.
+
+[Explain the code](#more-city-guide-code)
+
+## Test the City Guide
 
 Run **agent_city_guide.py** from the VS Code terminal:
 
@@ -217,10 +140,18 @@ Run **agent_city_guide.py** from the VS Code terminal:
 python agent_city_guide.py
 ```
 
-> **Checkpoint:** the city guide agent should answer using the AI Search
-> knowledge base. The answer should mention **The Mission** (the Mission District).
+The City Guide searches the knowledge base and answers. The exact wording can
+differ, but it looks like this:
+
+```output-read
+Dolores Park is in the Mission District.
+```
 
 ## What You Learned
 
-You built and tested the city guide specialist that retrieves knowledge from an
-Azure AI Search knowledge base before adding it to the main game agent.
+You connected a small agent to your Foundry IQ knowledge base over MCP,
+turned that agent into a tool called **ask_city_guide**, and tested it on its
+own: it searched the city guide and answered from what it found.
+
+In the next mission, your game agent gets the **ask_city_guide** tool, next to
+**ask_agent42**, and asks the City Guide on its own when a question comes up.

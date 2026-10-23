@@ -31,7 +31,7 @@ ENV = {
     "AZURE_OPENAI_DEPLOYMENT_NAME": "main-model",
     "AZURE_SEARCH_ENDPOINT": "https://search.invalid",
     "AZURE_SEARCH_KEY": "offline-search-key",
-    "AZURE_SEARCH_KNOWLEDGE_BASE_NAME": "city-knowledgebase",
+    "AZURE_SEARCH_KNOWLEDGE_BASE_NAME": "san-francisco-cityguide",
     "GAME_MCP_URL": "http://game.invalid/city/mcp",
     "GAME_API_KEY": "litc.city.offline-player-key",
     "AGENT42_URL": "http://agent42.invalid",
@@ -148,20 +148,16 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
         self.client_factory = self.enterContext(
             patch.object(guide, "OpenAIChatClient", return_value=self.client)
         )
-        self.search = managed_resource()
-        self.search_factory = self.enterContext(
-            patch.object(guide, "AzureAISearchContextProvider", return_value=self.search)
+        self.kb = managed_resource()
+        self.kb_factory = self.enterContext(
+            patch.object(guide, "MCPStreamableHTTPTool", return_value=self.kb)
         )
         self.guide = MagicMock(spec=Agent)
         self.guide.run = AsyncMock(return_value=AgentResponse())
         self.agent_factory = self.enterContext(patch.object(guide, "Agent", return_value=self.guide))
 
-    async def test_city_guide_default_and_blank_overrides_reuse_main_configuration(self) -> None:
-        for overrides in ({}, {
-            "CITY_GUIDE_AZURE_OPENAI_ENDPOINT": "",
-            "CITY_GUIDE_AZURE_OPENAI_API_KEY": " ",
-            "CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME": "",
-        }):
+    async def test_city_guide_uses_knowledge_base_mcp_and_main_model_by_default(self) -> None:
+        for overrides in ({}, {"CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME": " "}):
             with self.subTest(overrides=overrides), patch.dict(os.environ, overrides):
                 async with guide.build_city_guide_agent() as agent:
                     self.assertIs(agent, self.guide)
@@ -171,40 +167,35 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
                     api_key=ENV["AZURE_OPENAI_API_KEY"],
                     model=ENV["AZURE_OPENAI_DEPLOYMENT_NAME"],
                 )
-                self.search_factory.assert_called_with(
-                    endpoint=ENV["AZURE_SEARCH_ENDPOINT"],
-                    knowledge_base_name=ENV["AZURE_SEARCH_KNOWLEDGE_BASE_NAME"],
-                    api_key=ENV["AZURE_SEARCH_KEY"],
-                    mode="agentic",
+                self.kb_factory.assert_called_with(
+                    name="City Guide Knowledge Base",
+                    url=(
+                        "https://search.invalid/knowledgebases/san-francisco-cityguide/mcp"
+                        "?api-version=2026-08-01-preview"
+                    ),
+                    static_headers={"api-key": ENV["AZURE_SEARCH_KEY"]},
                 )
-                self.assertEqual(self.agent_factory.call_args.kwargs["context_providers"],
-                                 [self.search])
+                self.assertEqual(self.agent_factory.call_args.kwargs["tools"], [self.kb])
         self.assertEqual(self.client.client.__aexit__.await_count, 2)
-        self.assertEqual(self.search.__aexit__.await_count, 2)
+        self.assertEqual(self.kb.__aexit__.await_count, 2)
 
-    async def test_city_guide_honors_explicit_resource_and_model(self) -> None:
-        with patch.dict(os.environ, {
-            "CITY_GUIDE_AZURE_OPENAI_ENDPOINT": "https://guide.invalid",
-            "CITY_GUIDE_AZURE_OPENAI_API_KEY": "guide-key",
-            "CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME": "guide-model",
-        }):
+    async def test_city_guide_honors_model_override(self) -> None:
+        with patch.dict(os.environ, {"CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME": "guide-model"}):
             async with guide.build_city_guide_agent():
-                self.client_factory.assert_called_once_with(
-                    azure_endpoint="https://guide.invalid", api_key="guide-key", model="guide-model"
-                )
+                self.assertEqual(self.client_factory.call_args.kwargs["model"], "guide-model")
 
-    async def test_city_guide_closes_model_client_if_search_setup_fails(self) -> None:
-        self.search_factory.side_effect = RuntimeError("bad search setup")
-        with self.assertRaisesRegex(RuntimeError, "bad search setup"):
+    async def test_city_guide_closes_model_client_if_knowledge_base_fails(self) -> None:
+        self.kb.__aenter__.side_effect = RuntimeError("bad knowledge base")
+        with self.assertRaisesRegex(RuntimeError, "bad knowledge base"):
             async with guide.build_city_guide_agent():
-                self.fail("The provider should not start.")
+                self.fail("The agent should not start.")
         self.client.client.__aexit__.assert_awaited_once()
 
-    async def test_city_guide_smoke_failure_closes_search_and_model(self) -> None:
+    async def test_city_guide_smoke_failure_closes_knowledge_base_and_model(self) -> None:
         self.guide.run.side_effect = RuntimeError("search unavailable")
         with self.assertRaisesRegex(RuntimeError, "search unavailable"):
             await guide.main()
-        self.search.__aexit__.assert_awaited_once()
+        self.kb.__aexit__.assert_awaited_once()
         self.client.client.__aexit__.assert_awaited_once()
 
     async def test_agent42_smoke_failure_closes_a2a_client(self) -> None:

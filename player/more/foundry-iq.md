@@ -22,11 +22,14 @@ Search. You set up a knowledge base once, and any agent can use it.
 
 Your agent then answers from those passages instead of guessing.
 
+Every knowledge base is also an MCP server. It offers one tool,
+**knowledge_base_retrieve**, so any agent that speaks MCP can use it, just like
+the game server.
+
 ## In this workshop
 
-Question missions need answers from the {{ game_city }} city guide. In
-Mission 3 you create a knowledge source and a knowledge base over the guide.
-Then you build a city guide specialist agent that uses
-**AzureAISearchContextProvider** in agentic mode. The main game agent calls
-this specialist only when a guide question appears, so it doesn't spend search
-tokens on every turn.
+Question missions need answers from the {{ game_city }} city guide. In the
+Microsoft Foundry portal, you create a knowledge base over the guide. Then you
+build a city guide specialist agent that connects to the knowledge base over
+MCP. Your game agent asks this specialist only when a guide question appears,
+so it doesn't spend search tokens on every turn.

@@ -170,7 +170,7 @@ AZURE_OPENAI_ENDPOINT=https://<your-resource>.openai.azure.com
 AZURE_OPENAI_API_KEY=<your-azure-openai-key>
 AZURE_OPENAI_DEPLOYMENT_NAME=<your-main-agent-deployment>
 AZURE_SEARCH_ENDPOINT=https://<your-search-service>.search.windows.net
-AZURE_SEARCH_KNOWLEDGE_BASE_NAME=city-knowledgebase
+AZURE_SEARCH_KNOWLEDGE_BASE_NAME=san-francisco-cityguide
 AZURE_SEARCH_KEY=<your-azure-ai-search-key>
 GAME_MCP_URL=http://localhost:8000/san-francisco/mcp
 AGENT42_URL=http://localhost:8042/
@@ -182,11 +182,10 @@ To use a different model deployment for the city-guide specialist, also set:
 CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME=<your-city-guide-deployment>
 ```
 
-If that deployment is on a different Azure OpenAI resource, also set
-`CITY_GUIDE_AZURE_OPENAI_ENDPOINT` and `CITY_GUIDE_AZURE_OPENAI_API_KEY`.
-Each city-guide override is optional: an unset, empty, or whitespace-only value
-falls back to its corresponding main-agent setting. Search settings remain
-required.
+The override is optional: an unset, empty, or whitespace-only value falls back
+to `AZURE_OPENAI_DEPLOYMENT_NAME`. The Search settings are required. The city
+guide reaches the Foundry IQ knowledge base through its MCP endpoint, which
+accepts a Search admin key (query keys are rejected).
 
 Then run the agent:
 
@@ -270,9 +269,10 @@ The attendee workshop is split into numbered steps:
 5. [Add memory for the player ID](../player/guided/04_add_memory_for_the_player_id.md)
 6. [Add session logging](../player/guided/05_add_session_logging.md)
 7. [Test Agent42 transport specialist](../player/guided/06_test_agent42_transport_specialist.md)
-8. [Test the city guide agent](../player/guided/07_test_the_city_guide_agent.md)
-9. [Bring the specialist agents into the main agent](../player/guided/08_bring_specialists_into_main_agent.md)
-10. [Lab recap](../player/guided/09_lab_recap.md)
+8. [City Guide part 1: create the knowledge base](../player/guided/07_create_the_city_guide_knowledge_base.md)
+9. [City Guide part 2: connect the knowledge base to your agent](../player/guided/07_test_the_city_guide_agent.md)
+10. [Bring the specialist agents into the main agent](../player/guided/08_bring_specialists_into_main_agent.md)
+11. [Lab recap](../player/guided/09_lab_recap.md)
 
 ## Deployment
 

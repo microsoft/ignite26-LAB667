@@ -55,6 +55,7 @@ GUIDED_MISSIONS = (
         "name": "Build Your Team",
         "lessons": (
             "06_test_agent42_transport_specialist",
+            "07_create_the_city_guide_knowledge_base",
             "07_test_the_city_guide_agent",
         ),
     },

@@ -350,6 +350,18 @@
   }
   addCopyButtons();
 
+  const workshopHeader = document.querySelector('.workshop-header');
+  const syncHeaderHeight = () => {
+    const sticky = getComputedStyle(workshopHeader).position === 'sticky';
+    document.documentElement.style.setProperty(
+      '--player-header-height', sticky ? `${workshopHeader.offsetHeight}px` : '0px',
+    );
+  };
+  if (workshopHeader && 'ResizeObserver' in window) {
+    new ResizeObserver(syncHeaderHeight).observe(workshopHeader);
+    window.addEventListener('resize', syncHeaderHeight);
+  }
+
   const navToggle = document.getElementById('workshop-nav-toggle');
   const navCollapsedKey = 'lost-in-the-city:nav-collapsed';
   function setNavCollapsed(collapsed) {

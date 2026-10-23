@@ -372,7 +372,7 @@ class InstructionsTests(unittest.TestCase):
             [(mission["label"], mission["name"], len(mission["lessons"])) for mission in missions],
             [
                 ("Mission 1", "Get Ready and Start the Game", 5),
-                ("Mission 2", "Build Your Team", 2),
+                ("Mission 2", "Build Your Team", 3),
                 ("Mission 3", "Complete the Game", 2),
             ],
         )

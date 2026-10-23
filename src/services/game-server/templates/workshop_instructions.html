@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=no-flash-v1" />
+  <link rel="stylesheet" href="/static/css/player.css?v=lesson-table-v2" />
   {% if availability.state == 'open' %}<script src="/static/js/player_boot.js?v=1" data-game-slug="{{ game.slug }}"></script>{% endif %}
 </head>
 <body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
@@ -166,7 +166,7 @@
   </dialog>
   {% endfor %}
 </div>
-<script src="/static/js/player.js?v=missions-v1"></script>
+<script src="/static/js/player.js?v=lesson-table-v2"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>
