@@ -36,6 +36,11 @@ players.
        agent can call Agent42 for weather-aware route advice.
     - Question missions ask the player to recover a secret answer from the city
       guide knowledge base.
+    - In the San Francisco game, the final question asks for a secret password
+      written on a note in Klingon. The mission's `image_url` sends the agent a
+      public link to the note, and the agent reads it with a vision model.
+      Question missions with `"uses_city_guide": false` don't offer the city
+      guide.
 4. The server tracks progress, failed answer attempts, and elapsed time. Games
     with Competitive Mode enabled also calculate a final score.
 5. The dashboard and admin UI show player status and, for competitive games,
@@ -269,10 +274,13 @@ The attendee workshop is split into numbered steps:
 5. [Add memory for the player ID](../player/guided/04_add_memory_for_the_player_id.md)
 6. [Add session logging](../player/guided/05_add_session_logging.md)
 7. [Test Agent42 transport specialist](../player/guided/06_test_agent42_transport_specialist.md)
-8. [City Guide part 1: create the knowledge base](../player/guided/07_create_the_city_guide_knowledge_base.md)
-9. [City Guide part 2: connect the knowledge base to your agent](../player/guided/07_test_the_city_guide_agent.md)
-10. [Bring the specialist agents into the main agent](../player/guided/08_bring_specialists_into_main_agent.md)
-11. [Lab recap](../player/guided/09_lab_recap.md)
+8. [Add Agent42 to your agent](../player/guided/06_use_agent42_in_the_game.md)
+9. [City Guide part 1: create the knowledge base](../player/guided/07_create_the_city_guide_knowledge_base.md)
+10. [City Guide part 2: connect the knowledge base to your agent](../player/guided/07_test_the_city_guide_agent.md)
+11. [Add the City Guide to your agent](../player/guided/08_bring_specialists_into_main_agent.md)
+12. [Note Reader specialist](../player/guided/08_read_the_secret_note.md)
+13. [Add the Note Reader to your agent](../player/guided/08_use_the_note_reader_in_the_game.md)
+14. [Lab recap](../player/guided/09_lab_recap.md)
 
 ## Deployment
 

@@ -22,6 +22,7 @@ sys.path.insert(0, str(PLAYER_DIR))
 import agent as player
 import agent_agent42 as transport
 import agent_city_guide as guide
+import agent_note_reader as note_reader
 
 
 ENV = {
@@ -56,6 +57,7 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
         self.mcp.get_prompt = AsyncMock(return_value="Game instructions from MCP")
         self.agent42 = managed_resource()
         self.guide = managed_resource()
+        self.note_reader = managed_resource()
         self.agent = MagicMock(spec=Agent)
         self.agent.create_session.return_value = AgentSession()
         self.agent.run = AsyncMock(
@@ -67,16 +69,21 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
             patch.object(player, "MCPStreamableHTTPTool", return_value=self.mcp)
         )
         self.enterContext(patch.object(player, "build_agent42_agent", return_value=self.agent42))
-        self.enterContext(patch.object(player, "build_city_guide_agent", return_value=self.guide))
         self.agent42_tool = self.enterContext(patch.object(player, "build_agent42_tool"))
-        self.guide_tool = self.enterContext(patch.object(player, "build_city_guide_tool"))
+        self.guide_tool = self.enterContext(
+            patch.object(player, "build_city_guide_tool", return_value=self.guide)
+        )
+        self.enterContext(
+            patch.object(player, "build_note_reader_agent", return_value=self.note_reader)
+        )
+        self.note_tool = self.enterContext(patch.object(player, "build_note_reader_tool"))
         self.enterContext(
             patch.object(player, "open_session_log", return_value=Path(self.temp) / "session.log")
         )
         self.input = self.enterContext(patch("builtins.input", return_value="quit"))
 
     def assert_closed(self) -> None:
-        for resource in (self.client.client, self.mcp, self.agent42, self.guide):
+        for resource in (self.client.client, self.mcp, self.agent42, self.guide, self.note_reader):
             resource.__aexit__.assert_awaited_once()
 
     async def test_main_preserves_prompt_tools_session_and_chat_loop(self) -> None:
@@ -89,11 +96,12 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
         )
         self.mcp.get_prompt.assert_awaited_once_with("game_play_prompt")
         self.agent42_tool.assert_called_once_with(self.agent42)
-        self.guide_tool.assert_called_once_with(self.guide)
+        self.guide_tool.assert_called_once_with()
+        self.note_tool.assert_called_once_with(self.note_reader)
         options = self.constructor.call_args.kwargs
         self.assertEqual(options["instructions"], "Game instructions from MCP")
         self.assertEqual(options["tools"], [
-            self.mcp, self.agent42_tool.return_value, self.guide_tool.return_value,
+            self.mcp, self.agent42_tool.return_value, self.guide, self.note_tool.return_value,
         ])
         self.assertNotIn("context_providers", options)
         self.assertEqual(len(options["middleware"]), 3)
@@ -129,6 +137,7 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
         for resource in (self.client.client, self.mcp, self.agent42):
             resource.__aexit__.assert_awaited_once()
         self.guide.__aexit__.assert_not_awaited()
+        self.note_reader.__aenter__.assert_not_awaited()
 
     async def test_eof_and_keyboard_interrupt_close_connections(self) -> None:
         for exception in (EOFError, KeyboardInterrupt):
@@ -136,37 +145,43 @@ class PlayerMainTests(unittest.IsolatedAsyncioTestCase):
                 self.input.side_effect = exception
                 await player.main()
                 self.assert_closed()
-                for resource in (self.client.client, self.mcp, self.agent42, self.guide):
+                for resource in (self.client.client, self.mcp, self.agent42, self.guide, self.note_reader):
                     resource.__aexit__.reset_mock()
 
 
 class SpecialistTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.enterContext(patch.dict(os.environ, ENV, clear=True))
+        self.kb = managed_resource()
+        retrieval_tool = MagicMock()
+        retrieval_tool.name = "knowledge_base_retrieve"
+        self.kb.functions = [retrieval_tool]
+        self.kb_factory = self.enterContext(
+            patch.object(guide, "MCPStreamableHTTPTool", return_value=self.kb)
+        )
         self.client = MagicMock()
         self.client.client = managed_resource()
         self.client_factory = self.enterContext(
             patch.object(guide, "OpenAIChatClient", return_value=self.client)
         )
-        self.kb = managed_resource()
-        self.kb_factory = self.enterContext(
-            patch.object(guide, "MCPStreamableHTTPTool", return_value=self.kb)
+        self.test_agent = MagicMock(spec=Agent)
+        self.test_agent.run = AsyncMock(
+            return_value=AgentResponse(
+                messages=[Message("assistant", ["Dolores Park is in the Mission District."])]
+            )
         )
-        self.guide = MagicMock(spec=Agent)
-        self.guide.run = AsyncMock(return_value=AgentResponse())
-        self.agent_factory = self.enterContext(patch.object(guide, "Agent", return_value=self.guide))
+        self.agent_factory = self.enterContext(
+            patch.object(guide, "Agent", return_value=self.test_agent)
+        )
 
-    async def test_city_guide_uses_knowledge_base_mcp_and_main_model_by_default(self) -> None:
-        for overrides in ({}, {"CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME": " "}):
-            with self.subTest(overrides=overrides), patch.dict(os.environ, overrides):
-                async with guide.build_city_guide_agent() as agent:
-                    self.assertIs(agent, self.guide)
-                    guide.build_city_guide_tool(agent)
-                self.client_factory.assert_called_with(
-                    azure_endpoint=ENV["AZURE_OPENAI_ENDPOINT"],
-                    api_key=ENV["AZURE_OPENAI_API_KEY"],
-                    model=ENV["AZURE_OPENAI_DEPLOYMENT_NAME"],
-                )
+    def test_city_guide_returns_mcp_tool_without_model_configuration(self) -> None:
+        search_env = {key: value for key, value in ENV.items() if key.startswith("AZURE_SEARCH_")}
+        for endpoint in ("https://search.invalid", "https://search.invalid/"):
+            with (
+                self.subTest(endpoint=endpoint),
+                patch.dict(os.environ, {**search_env, "AZURE_SEARCH_ENDPOINT": endpoint}, clear=True),
+            ):
+                self.assertIs(guide.build_city_guide_tool(), self.kb)
                 self.kb_factory.assert_called_with(
                     name="City Guide Knowledge Base",
                     url=(
@@ -174,26 +189,72 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
                         "?api-version=2026-08-01-preview"
                     ),
                     static_headers={"api-key": ENV["AZURE_SEARCH_KEY"]},
+                    allowed_tools=["knowledge_base_retrieve"],
+                    load_prompts=False,
                 )
-                self.assertEqual(self.agent_factory.call_args.kwargs["tools"], [self.kb])
-        self.assertEqual(self.client.client.__aexit__.await_count, 2)
-        self.assertEqual(self.kb.__aexit__.await_count, 2)
+        self.kb.__aenter__.assert_not_awaited()
+        self.client_factory.assert_not_called()
+        self.agent_factory.assert_not_called()
 
-    async def test_city_guide_honors_model_override(self) -> None:
-        with patch.dict(os.environ, {"CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME": "guide-model"}):
-            async with guide.build_city_guide_agent():
-                self.assertEqual(self.client_factory.call_args.kwargs["model"], "guide-model")
+    def test_city_guide_requires_search_key(self) -> None:
+        del os.environ["AZURE_SEARCH_KEY"]
+        with self.assertRaisesRegex(KeyError, "AZURE_SEARCH_KEY"):
+            guide.build_city_guide_tool()
+        self.kb_factory.assert_not_called()
 
-    async def test_city_guide_closes_model_client_if_knowledge_base_fails(self) -> None:
-        self.kb.__aenter__.side_effect = RuntimeError("bad knowledge base")
-        with self.assertRaisesRegex(RuntimeError, "bad knowledge base"):
-            async with guide.build_city_guide_agent():
-                self.fail("The agent should not start.")
+    async def test_city_guide_standalone_agent_asks_question_and_closes(self) -> None:
+        with patch("builtins.print") as output:
+            await guide.main()
+        self.client_factory.assert_called_once_with(
+            azure_endpoint=ENV["AZURE_OPENAI_ENDPOINT"],
+            api_key=ENV["AZURE_OPENAI_API_KEY"],
+            model=ENV["AZURE_OPENAI_DEPLOYMENT_NAME"],
+        )
+        options = self.agent_factory.call_args.kwargs
+        self.assertIs(options["client"], self.client)
+        self.assertEqual(options["tools"], [self.kb])
+        self.assertIn("Always call knowledge_base_retrieve", options["instructions"])
+        self.assertIn("not from memory", options["instructions"])
+        self.test_agent.run.assert_awaited_once_with("What neighborhood is Dolores Park in?")
+        output.assert_called_once_with("Dolores Park is in the Mission District.")
+        self.kb.__aenter__.assert_awaited_once()
+        self.kb.__aexit__.assert_awaited_once()
         self.client.client.__aexit__.assert_awaited_once()
 
-    async def test_city_guide_smoke_failure_closes_knowledge_base_and_model(self) -> None:
-        self.guide.run.side_effect = RuntimeError("search unavailable")
+    async def test_city_guide_connection_check_rejects_missing_tool_and_closes(self) -> None:
+        self.kb.functions = []
+        with (
+            patch("builtins.print") as output,
+            self.assertRaisesRegex(RuntimeError, "did not expose knowledge_base_retrieve"),
+        ):
+            await guide.main()
+        output.assert_not_called()
+        self.agent_factory.assert_not_called()
+        self.kb.__aexit__.assert_awaited_once()
+        self.client.client.__aexit__.assert_awaited_once()
+
+    async def test_city_guide_connection_failure_propagates(self) -> None:
+        self.kb.__aenter__.side_effect = RuntimeError("search unavailable")
         with self.assertRaisesRegex(RuntimeError, "search unavailable"):
+            await guide.main()
+        self.kb.__aexit__.assert_not_awaited()
+        self.client.client.__aexit__.assert_awaited_once()
+        self.agent_factory.assert_not_called()
+
+    async def test_city_guide_standalone_failure_closes_both_connections(self) -> None:
+        self.test_agent.run.side_effect = RuntimeError("retrieval failed")
+        with (
+            patch("builtins.print") as output,
+            self.assertRaisesRegex(RuntimeError, "retrieval failed"),
+        ):
+            await guide.main()
+        output.assert_not_called()
+        self.kb.__aexit__.assert_awaited_once()
+        self.client.client.__aexit__.assert_awaited_once()
+
+    async def test_city_guide_standalone_cancellation_closes_both_connections(self) -> None:
+        self.test_agent.run.side_effect = asyncio.CancelledError()
+        with self.assertRaises(asyncio.CancelledError):
             await guide.main()
         self.kb.__aexit__.assert_awaited_once()
         self.client.client.__aexit__.assert_awaited_once()
@@ -223,6 +284,85 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             url=ENV["AGENT42_URL"],
             http_client=http_client,
         )
+
+
+class NoteReaderTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.enterContext(patch.dict(os.environ, ENV, clear=True))
+        self.client = MagicMock()
+        self.client.client = managed_resource()
+        self.client_factory = self.enterContext(
+            patch.object(note_reader, "OpenAIChatClient", return_value=self.client)
+        )
+        self.note = note_reader.SecretNote(
+            language="Klingon", translation="Hello, friend! Secret code: Qapla'", password="Qapla'",
+        )
+        self.reader = MagicMock(spec=Agent)
+        self.reader.run = AsyncMock(return_value=MagicMock(value=self.note))
+
+    def test_sample_note_is_a_public_https_image(self) -> None:
+        self.assertTrue(note_reader.SAMPLE_NOTE_URL.startswith("https://"))
+        self.assertTrue(note_reader.SAMPLE_NOTE_URL.endswith(".png"))
+
+    async def test_agent_uses_main_model_and_closes_client(self) -> None:
+        async with note_reader.build_note_reader_agent() as agent:
+            self.assertIsInstance(agent, Agent)
+        self.client_factory.assert_called_once_with(
+            azure_endpoint=ENV["AZURE_OPENAI_ENDPOINT"],
+            api_key=ENV["AZURE_OPENAI_API_KEY"],
+            model=ENV["AZURE_OPENAI_DEPLOYMENT_NAME"],
+        )
+        self.client.client.__aexit__.assert_awaited_once()
+
+    async def test_read_note_sends_image_url_and_requests_structured_output(self) -> None:
+        for url, media_type in (
+            ("https://notes.invalid/door.jpg?sig=abc", "image/jpeg"),
+            ("https://notes.invalid/door", "image/png"),
+        ):
+            with self.subTest(url=url):
+                result = await note_reader.read_note(self.reader, url)
+                self.assertIs(result, self.note)
+                message = self.reader.run.await_args.args[0]
+                self.assertEqual(message.role, "user")
+                image = message.contents[1]
+                self.assertEqual(image.type, "uri")
+                self.assertEqual(image.uri, url)
+                self.assertEqual(image.media_type, media_type)
+        self.assertEqual(
+            self.reader.run.await_args.kwargs["options"],
+            {"response_format": note_reader.SecretNote},
+        )
+
+    async def test_tool_returns_structured_note_as_json(self) -> None:
+        tool = note_reader.build_note_reader_tool(self.reader)
+        self.assertEqual(tool.name, "read_secret_note")
+        self.assertIn("image_url", tool.parameters()["properties"])
+        result = await tool.invoke(arguments={"image_url": "https://notes.invalid/door.png"})
+        self.assertEqual(
+            note_reader.SecretNote.model_validate_json(result[0].text), self.note,
+        )
+        self.assertEqual(
+            self.reader.run.await_args.args[0].contents[1].uri, "https://notes.invalid/door.png",
+        )
+
+    async def test_main_prints_language_translation_and_password(self) -> None:
+        reader = managed_resource()
+        reader.run = self.reader.run
+        with (
+            patch.object(note_reader, "build_note_reader_agent", return_value=reader),
+            patch("builtins.print") as output,
+        ):
+            await note_reader.main()
+        self.assertEqual(
+            reader.run.await_args.args[0].contents[1].uri, note_reader.SAMPLE_NOTE_URL,
+        )
+        printed = [call.args[0] for call in output.call_args_list]
+        self.assertEqual(printed, [
+            "Language: Klingon",
+            "Translation: Hello, friend! Secret code: Qapla'",
+            "Password: Qapla'",
+        ])
+        reader.__aexit__.assert_awaited_once()
 
 
 if __name__ == "__main__":

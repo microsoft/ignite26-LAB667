@@ -16,7 +16,7 @@ Paste the full code below into **agent.py** and save the file:
 ![In VS Code, create a New File in the workshop folder in the Explorer, name it agent.py, paste the code sample copied from the workshop instructions, and save with Ctrl+S](../assets/illustration-create-agent-file.webp)
 
 ```python-notype
-"""Game play agent using Microsoft Agent Framework with Azure OpenAI."""
+"""Game play agent using Microsoft Agent Framework with Microsoft Foundry."""
 
 import asyncio
 import os

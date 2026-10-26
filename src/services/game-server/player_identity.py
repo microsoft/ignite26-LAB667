@@ -144,13 +144,9 @@ def player_state(slug: str, api_key: str, player: dict[str, Any] | None = None) 
         (
             index for index, mission in enumerate(missions)
             if mission.get("type") == "question"
+            and mission.get("uses_city_guide") is not False
         ),
         None,
-    )
-    question_unlocked = (
-        question_index is not None
-        and player.get("status") in {"mission", "complete"}
-        and current_index >= question_index
     )
     timeline = []
     for event_index, stored_event in enumerate(player.get("timeline") or []):
@@ -170,7 +166,7 @@ def player_state(slug: str, api_key: str, player: dict[str, Any] | None = None) 
         "quest_name": quest.get("name"),
         "quest_question": (
             missions[question_index].get("mission")
-            if question_unlocked and question_index is not None
+            if question_index is not None
             else None
         ),
         "game_version": player.get("game_version"),

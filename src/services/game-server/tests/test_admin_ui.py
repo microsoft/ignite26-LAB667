@@ -491,14 +491,14 @@ class AdminUITests(unittest.TestCase):
     def test_story_edit_save_publish_preview_and_mobile(self) -> None:
         self.page.goto(f"{ORIGIN}/games/san-francisco/edit")
         expect(self.page.locator("#draft-title")).to_have_text("Draft / live version 1")
-        expect(self.page.locator(".mission-card")).to_have_count(3)
+        expect(self.page.locator(".mission-card")).to_have_count(4)
         expect(self.page.locator(".travel-card .route-map-preview")).to_have_count(2)
-        expect(self.page.locator(".mission-progress")).to_have_count(3)
-        expect(self.page.locator(".phase-start")).to_have_count(3)
-        expect(self.page.locator(".phase-answer")).to_have_count(3)
-        expect(self.page.locator(".phase-complete")).to_have_count(3)
+        expect(self.page.locator(".mission-progress")).to_have_count(4)
+        expect(self.page.locator(".phase-start")).to_have_count(4)
+        expect(self.page.locator(".phase-answer")).to_have_count(4)
+        expect(self.page.locator(".phase-complete")).to_have_count(4)
         expect(self.page.locator(".completion-scene")).to_have_count(0)
-        expect(self.page.locator(".question-card .answer-panel")).to_contain_text("Ritual Coffee Roasters")
+        expect(self.page.locator(".question-card .answer-panel").first).to_contain_text("Ritual Coffee Roasters")
         expect(self.page.locator(".route-map-state").first).to_contain_text("Maps are not configured")
         expect(self.page.get_by_role("group", name="Editor view")).to_have_count(0)
         expect(self.page.locator("#editor-map-panel")).to_have_count(0)
@@ -539,7 +539,7 @@ class AdminUITests(unittest.TestCase):
         imported["custom_metadata"] = {"preserve": True}
         upload = {"name": "story.json", "mimeType": "application/json", "buffer": json.dumps(imported).encode()}
         self.page.locator("#json-file").set_input_files(upload)
-        expect(self.page.locator("#import-summary")).to_contain_text("3 quests / 9 missions")
+        expect(self.page.locator("#import-summary")).to_contain_text("3 quests / 12 missions")
         self.assertEqual(self.draft["quests"][0]["name"], "Mission to Moscone")
         self.page.locator("#import-dialog").get_by_role("button", name="Cancel").click()
         expect(self.page.locator("#import-json")).to_be_enabled()
@@ -557,7 +557,7 @@ class AdminUITests(unittest.TestCase):
 
     def test_reorder_duplicate_geocode_and_conflict(self) -> None:
         self.page.goto(f"{ORIGIN}/games/san-francisco/edit")
-        expect(self.page.locator(".mission-card")).to_have_count(3)
+        expect(self.page.locator(".mission-card")).to_have_count(4)
         second = self.page.locator(".mission-card").nth(1)
         second.locator(".action-menu summary").click()
         second.get_by_role("button", name="Move up", exact=True).click()
@@ -565,7 +565,7 @@ class AdminUITests(unittest.TestCase):
         first = self.page.locator(".mission-card").first
         first.locator(".action-menu summary").click()
         first.get_by_role("button", name="Duplicate", exact=True).click()
-        expect(self.page.locator(".mission-card")).to_have_count(4)
+        expect(self.page.locator(".mission-card")).to_have_count(5)
         travel = self.page.locator(".travel-card").first
         travel.locator(".action-menu summary").click()
         travel.get_by_role("button", name="Edit", exact=True).click()

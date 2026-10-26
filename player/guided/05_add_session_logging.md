@@ -200,7 +200,7 @@ code below. It's the same agent you built to play the game, now with session
 logging switched on.
 
 ```python-notype
-"""Game play agent using Microsoft Agent Framework, Azure OpenAI, MCP, and session logging."""
+"""Game play agent using Microsoft Agent Framework, Microsoft Foundry, MCP, and session logging."""
 
 import asyncio
 import os

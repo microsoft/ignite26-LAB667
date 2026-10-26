@@ -1,47 +1,44 @@
 # The City Guide code
 
-**agent_city_guide.py** connects a small agent to your Foundry IQ knowledge
-base, turns that agent into a tool for your game agent, and asks one test
-question. The numbers below follow the code from top to bottom.
+**agent_city_guide.py** prepares a direct MCP connection to your Foundry IQ
+knowledge base. It returns the MCP tool itself, not a separate agent wrapped
+as a tool.
 
 ## Step by step
 
 1. **Imports**: **MCPStreamableHTTPTool** is the same MCP connection you used
-   for the game server. **asynccontextmanager** lets the builder open
-   connections and close them again when you're done.
-2. **build_city_guide_agent()**: sets up the City Guide specialist.
-   - **OpenAIChatClient(...)**: the model for the specialist. It uses
-     **CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME** from **.env**, a smaller model
-     than your game agent. If that line is empty, it falls back to your main
-     model.
-   - **MCPStreamableHTTPTool(...)**: the connection to your knowledge base.
-     Every Foundry IQ knowledge base is also an MCP server, and its address is
-     built from your Search endpoint and the knowledge base name. The Search
-     key travels in the **api-key** header.
-   - **Agent(...)**: the specialist itself. Its instructions tell it to search
-     the knowledge base first and answer only from what it finds, briefly.
-3. **build_city_guide_tool()**: **as_tool(...)** wraps the specialist as a tool
-   called **ask_city_guide**. Its description tells the game agent to use it
-   only for city guide questions. The question goes in the **question**
-   argument.
-4. **main()**: the test. It loads **.env**, opens the specialist with
-   **async with**, asks where Dolores Park is, and prints the answer.
-5. **asyncio.run(main())**: starts the test when you run the file directly.
+   for the game server. **Agent** and **OpenAIChatClient** are used only by the
+   standalone test.
+2. **build_city_guide_tool()**: returns the MCP connection.
+   - The URL combines your Search endpoint, knowledge base name, and API
+     version.
+   - The Search API key travels in the **api-key** header. You don't need
+     a Foundry Toolbox or `az login`.
+   - **allowed_tools** exposes only **knowledge_base_retrieve**.
+   - **load_prompts=False** skips prompt discovery; this connection only
+     needs the retrieval tool.
+3. **main()**: loads **.env** and creates a model client using the existing
+   **AZURE_OPENAI_DEPLOYMENT_NAME** value, **gpt-5.6-luna**. It opens the client
+   and MCP connection with **async with**, checks that
+   **knowledge_base_retrieve** is available, and creates a temporary test
+   agent with that tool. The test agent asks where Dolores Park is and prints
+   the answer. Both connections close when the test finishes or fails.
+4. **asyncio.run(main())**: runs this question test when you run the file
+   directly. Importing the file doesn't create an agent or open a connection.
 
-## What happens when the specialist answers
+## What happens when the game agent asks a question
 
-The specialist calls **knowledge_base_retrieve** with your question. Foundry IQ
-plans the search, looks through the city guide, and sends back the passages
-that match. The specialist reads them and writes a short answer.
+The game agent calls **knowledge_base_retrieve** directly. Foundry IQ plans
+the search, looks through the city guide, and synthesizes an answer using the
+settings from part 1. The game agent uses that answer to complete the mission.
 
-## Why the specialist is a separate agent
+The temporary agent is only a test harness. In the game, there is no extra
+City Guide agent or second model call around retrieval. The game agent decides
+when to search, so it doesn't search on every turn.
 
-Searching the city guide costs tokens. Because the knowledge base sits behind
-its own agent, your game agent only pays for a search when it asks
-**ask_city_guide**, not on every turn.
+## Test a question
 
-## Try your own question
-
-Change the **question** line in **main()** to ask something else from the
-{{ game_city }} city guide, such as a neighborhood, a park, or a local food
-favorite.
+Run **agent_city_guide.py** and check that the answer places Dolores Park in
+**The Mission** or **Mission District**, matching the portal test in part 1.
+Change the question in **main()** to test another city guide question.
+In the next lesson, add the same MCP tool directly to your game agent.

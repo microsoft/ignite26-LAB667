@@ -9,7 +9,7 @@ prepared Windows workshop machine; the facilitator supplies credentials
 privately.
 For local service setup, see the [workshop overview](../docs/workshop-overview.md).
 
-Guided Mode groups its nine detailed lessons into three named missions. The
+Guided Mode groups its twelve detailed lessons into five named missions. The
 game's own completion shows in the Player page's live progress:
 
 1. **Mission 1: Get Ready and Start the Game**
@@ -18,13 +18,18 @@ game's own completion shows in the Player page's live progress:
    - [Create a hello world agent](guided/02_create_hello_world_agent.md)
    - [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
    - [Add session logging](guided/05_add_session_logging.md)
-2. **Mission 2: Build Your Team**
+2. **Mission 2: Travel with Agent42**
    - [Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
+   - [Add Agent42 to your agent](guided/06_use_agent42_in_the_game.md)
+3. **Mission 3: Build the City Guide**
    - [City Guide part 1: create the knowledge base](guided/07_create_the_city_guide_knowledge_base.md)
    - [City Guide part 2: connect the knowledge base to your agent](guided/07_test_the_city_guide_agent.md)
-3. **Mission 3: Complete the Game**
-   - [Bring the specialists in](guided/08_bring_specialists_into_main_agent.md)
-   - [Play the game](guided/09_lab_recap.md)
+   - [Add the City Guide to your agent](guided/08_bring_specialists_into_main_agent.md)
+4. **Mission 4: Read the Secret Note**
+   - [Note Reader specialist](guided/08_read_the_secret_note.md)
+   - [Add the Note Reader to your agent](guided/08_use_the_note_reader_in_the_game.md)
+5. **Mission 5: Lab Recap**
+   - [Lab recap](guided/09_lab_recap.md)
 
 Challenge Mode follows the game itself:
 
@@ -51,6 +56,7 @@ Use these placeholders in lesson text or fenced code blocks:
 | `{{ player_name }}` | Signed-in player's nickname, filled in by the browser |
 | `{{ player_api_key }}` | Signed-in player's private API key, filled in by the browser. Shows `<copy-from-this-player-page>` until the player starts a game. |
 | `{{ player_quest }}` | Name of the quest assigned to the signed-in player, filled in by the browser. Shows **your quest** until the player starts a game. |
+| `{{ player_quest_question }}` | City guide question from the signed-in player's quest, filled in by the browser once the player reaches it in the game. Shows **the question from your quest** until then. |
 | `{{ game_city }}` | Published top-level `city` from the game's quest document |
 | `{{ game_story }}` | Published top-level `story` from the game's quest document |
 | `{{ game_mcp_url }}` | Configured MCP service base URL plus the game's MCP route |

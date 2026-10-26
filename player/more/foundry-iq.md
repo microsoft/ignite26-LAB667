@@ -30,6 +30,7 @@ the game server.
 
 Question missions need answers from the {{ game_city }} city guide. In the
 Microsoft Foundry portal, you create a knowledge base over the guide. Then you
-build a city guide specialist agent that connects to the knowledge base over
-MCP. Your game agent asks this specialist only when a guide question appears,
-so it doesn't spend search tokens on every turn.
+connect your game agent directly to the knowledge base over MCP. It calls
+**knowledge_base_retrieve** only when a guide question appears, so it doesn't
+spend search tokens on every turn. With **Answer synthesis** enabled, the
+knowledge base writes the answer without an extra specialist agent.

@@ -187,7 +187,7 @@ class InstructionsTests(unittest.TestCase):
             self.assertTrue(api_key.startswith("litc.amsterdam."))
             self.assertEqual(payload["player"]["name"], "City Fox")
             self.assertEqual(payload["player"]["quest_name"], "Test route")
-            self.assertIsNone(payload["player"]["quest_question"])
+            self.assertEqual(payload["player"]["quest_question"], "What is the answer?")
             self.assertNotEqual(payload["player"]["player_id"], api_key)
             self.assertEqual(payload["player"]["timeline"][0]["type"], "registered")
             self.assertEqual(client.get("/api/games/amsterdam/player").status_code, 401)
@@ -200,20 +200,7 @@ class InstructionsTests(unittest.TestCase):
             self.assertNotIn("valid_answers", state.text)
             self.assertEqual(state.json()["player"]["mission_count"], 1)
 
-            def unlock_question(player: dict) -> None:
-                player["status"] = "mission"
-
-            storage.update_player("amsterdam", api_key, unlock_question)
-            unlocked = client.get(
-                "/api/games/amsterdam/player",
-                headers={"Authorization": f"Bearer {api_key}"},
-            )
-            self.assertEqual(unlocked.status_code, 200)
-            self.assertEqual(
-                unlocked.json()["player"]["quest_question"],
-                "What is the answer?",
-            )
-            self.assertNotIn("valid_answers", unlocked.text)
+            self.assertEqual(state.json()["player"]["quest_question"], "What is the answer?")
             self.assertEqual(
                 client.get(
                     "/api/games/london/player",
@@ -372,8 +359,10 @@ class InstructionsTests(unittest.TestCase):
             [(mission["label"], mission["name"], len(mission["lessons"])) for mission in missions],
             [
                 ("Mission 1", "Get Ready and Start the Game", 5),
-                ("Mission 2", "Build Your Team", 3),
-                ("Mission 3", "Complete the Game", 2),
+                ("Mission 2", "Travel with Agent42", 2),
+                ("Mission 3", "Build the City Guide", 3),
+                ("Mission 4", "Read the Secret Note", 2),
+                ("Mission 5", "Lab Recap", 1),
             ],
         )
 
@@ -382,11 +371,11 @@ class InstructionsTests(unittest.TestCase):
                 "/amsterdam/player/06_test_agent42_transport_specialist"
             )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.text.count('class="workshop-nav-mission"'), 3)
+        self.assertEqual(response.text.count('class="workshop-nav-mission"'), 5)
         self.assertRegex(
             response.text,
             r'class="lesson-mission-heading">\s*<span>Mission 2</span>\s*'
-            r'<strong>Build Your Team</strong>',
+            r'<strong>Travel with Agent42</strong>',
         )
         self.assertEqual(response.text.count('aria-current="page"'), 1)
 
@@ -411,6 +400,10 @@ class InstructionsTests(unittest.TestCase):
         self.assertEqual(
             workshop_instructions.render_lesson("{{ player_quest }}", {}),
             "<p><span data-player-quest>your quest</span></p>\n",
+        )
+        self.assertEqual(
+            workshop_instructions.render_lesson("{{ player_quest_question }}", {}),
+            "<p><span data-player-question>the question from your quest</span></p>\n",
         )
         self.assertEqual(
             workshop_instructions.render_lesson("{{ player_api_key }}", {}),
@@ -539,19 +532,8 @@ class InstructionsTests(unittest.TestCase):
             browser_api_key = page.evaluate(
                 "localStorage.getItem('lost-in-the-city:amsterdam:api-key')"
             )
-            expect(page.locator(".workshop-nav-mission-heading strong", has_text="Complete the Game")).to_have_count(1)
-            expect(page.locator("[data-player-quest-question]")).to_be_hidden()
-
-            def unlock_browser_question(player: dict) -> None:
-                player["status"] = "mission"
-
-            storage.update_player(
-                "amsterdam", browser_api_key, unlock_browser_question
-            )
-            expect(page.locator("[data-player-quest-question]")).to_have_text(
-                "What is the answer?", timeout=6_000
-            )
-            expect(page.locator("[data-player-quest-question]")).to_be_visible()
+            expect(page.locator(".workshop-nav-mission-heading strong", has_text="Lab Recap")).to_have_count(1)
+            expect(page.locator("[data-player-quest-question]")).to_have_count(0)
 
             def add_browser_advice(player: dict) -> None:
                 player_identity.append_timeline_event(

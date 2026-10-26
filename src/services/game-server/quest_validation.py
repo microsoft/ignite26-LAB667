@@ -66,6 +66,7 @@ def validate_document(document: Any, *, publish: bool = False) -> dict[str, list
             errors.append(f"{prefix} needs at least one mission before publishing.")
         has_question = any(
             isinstance(mission, dict) and mission.get("type") == "question"
+            and mission.get("uses_city_guide") is not False
             for mission in missions
         )
         text(
@@ -87,6 +88,12 @@ def validate_document(document: Any, *, publish: bool = False) -> dict[str, list
             kind = mission.get("type")
             if kind not in ("move", "question"):
                 errors.append(f"{label} type must be move or question.")
+            if "uses_city_guide" in mission and not isinstance(mission["uses_city_guide"], bool):
+                errors.append(f"{label} uses_city_guide must be true or false.")
+            if "image_url" in mission:
+                image_url = mission["image_url"]
+                if not isinstance(image_url, str) or not image_url.startswith("https://"):
+                    errors.append(f"{label} image URL must start with https://.")
             for field in ("arrival_prompt", "complete_prompt", "mission"):
                 text(mission.get(field, ""), f"{label} {field}", publish and field == "mission" and kind == "question")
             answers = mission.get("valid_answers", [])

@@ -16,11 +16,12 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import contextvars
+import mimetypes
 import os
 import re
 from pathlib import Path
 from typing import Annotated, Any, AsyncGenerator
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import anyio
 from anyio.abc import TaskGroup, TaskStatus
@@ -216,7 +217,23 @@ def _mission_payload(
     # the server.
     if mission_type == "move":
         payload["transport_options"] = ["car", "walking", "bike"]
-    elif slug and str(quest.get("city_guide") or "").strip():
+    elif image_url := str(mission.get("image_url") or "").strip():
+        payload["resources"] = [{
+            "name": "Note image",
+            "description": "A picture of the note the player carries. A note-reading tool can read it.",
+            "url": image_url,
+            "media_type": mimetypes.guess_type(urlsplit(image_url).path)[0] or "image/png",
+        }]
+        payload["ask_user"] = (
+            "Read the full scene and question to the user. Tell them they can ask for "
+            "HELP to read the note. Do not guess the answer yourself."
+        )
+        payload["next_action"] = (
+            "When the human asks for help, call a note-reading tool with the note image "
+            "URL from resources and show its result. Then ask the human for their answer "
+            "and call submit_mission_answer(answer)."
+        )
+    elif slug and mission.get("uses_city_guide") is not False and str(quest.get("city_guide") or "").strip():
         quest_id = quote(str(quest.get("id", "")), safe="")
         version = int(player.get("game_version", 1))
         payload["resources"] = [{

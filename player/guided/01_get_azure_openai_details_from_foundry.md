@@ -47,8 +47,8 @@ name for the main model.
 2. Open **Models**.
 3. Confirm that these three models are listed and each one has a **Succeeded**
     deployment status:
-    - **gpt-5.6-luna**: the main game agent.
-    - **gpt-4.1-mini**: the city guide agent.
+    - **gpt-5.6-luna**: the main game agent and knowledge base retrieval.
+    - **gpt-4.1-mini**: content extraction for the city guide knowledge source.
     - **text-embedding-3-small**: turns the city guide into vectors for search.
 4. Confirm that **AZURE_OPENAI_DEPLOYMENT_NAME** in **.env** matches **gpt-5.6-luna**.
 ![The .env file open in an editor with AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, and AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5.6-luna, while a pigeon holds a checklist saying your .env is ready](../assets/illustration-env-complete.webp)

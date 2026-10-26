@@ -1,4 +1,4 @@
-"""Game play agent using Microsoft Agent Framework with Azure OpenAI."""
+"""Game play agent using Microsoft Agent Framework with Microsoft Foundry."""
 
 import asyncio
 import os
@@ -12,7 +12,8 @@ from agent_framework.openai import OpenAIChatClient
 from dotenv import load_dotenv
 
 from agent_agent42 import build_agent42_agent, build_agent42_tool
-from agent_city_guide import build_city_guide_agent, build_city_guide_tool
+from agent_city_guide import build_city_guide_tool
+from agent_note_reader import build_note_reader_agent, build_note_reader_tool
 from log import build_logging_middleware, open_session_log
 
 # ANSI color codes for terminal output.
@@ -46,17 +47,18 @@ async def main() -> None:
         client.client,
         game_mcp,
         build_agent42_agent() as agent42,
-       # build_city_guide_agent() as guide_agent,
+        build_city_guide_tool() as guide_tool,
+        build_note_reader_agent() as note_reader,
     ):
         game_play_prompt = await game_mcp.get_prompt("game_play_prompt")
         agent42_tool = build_agent42_tool(agent42)
-      #  guide_tool = build_city_guide_tool(guide_agent)
+        note_tool = build_note_reader_tool(note_reader)
 
         agent = Agent(
             client=client,
             name="Game Play Agent",
             instructions=game_play_prompt,
-            tools=[game_mcp, agent42_tool],
+            tools=[game_mcp, agent42_tool, guide_tool, note_tool],
             middleware=[agent_mw, chat_mw, function_mw],
         )
 

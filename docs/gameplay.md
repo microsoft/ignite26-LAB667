@@ -20,7 +20,7 @@
      | game actions         | movement advice      | city knowledge
      v                      v                      v
 +----+----------------+  +--+----------------+  +--+----------------+
-| GAME MCP SERVER     |  | AGENT42           |  | CITY GUIDE AGENT  |
+| GAME MCP SERVER     |  | AGENT42           |  | CITY GUIDE MCP    |
 |                     |  |                  |  |                   |
 | begin_session       |  | car, walking,     |  | neighborhood,     |
 | register_player     |  | or bike advice    |  | history, food,    |
@@ -72,7 +72,8 @@
 | Game Play Agent | Orchestrates the quest and decides which tool or specialist to call. |
 | Game MCP Server | Owns the game state, missions, prompts, scoring, and leaderboard. |
 | Agent42 | Recommends transport for movement missions. |
-| City Guide Agent | Answers San Francisco guide questions using retrieval. |
+| City Guide MCP | Exposes the knowledge base's retrieval and answer synthesis directly to the game agent. |
+| Note Reader | Reads the secret note image, detects its language, and returns the password as structured output. |
 | Memory | Stores the `player_id` so later runs can resume. |
 | Session Logs | Show what the model saw, which tools it called, and what came back. |
 
@@ -86,6 +87,7 @@
 |                                                             |
 |  If it asks how to travel: ask Agent42.                      |
 |  If it asks local knowledge: ask the City Guide.             |
+|  If it asks for the password: read the secret note.         |
 |  If it asks for final action: submit through the MCP server. |
 +-------------------------------------------------------------+
 ```

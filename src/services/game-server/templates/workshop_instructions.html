@@ -123,7 +123,6 @@
         <summary class="workshop-nav-mission-heading" id="guided-mission-{{ loop.index }}">
           <span>{{ mission.label }}</span>
           <strong>{{ mission.name }}</strong>
-          {% if mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
         </summary>
         <div class="workshop-nav-mission-lessons">
           {% for item in mission.lessons %}
@@ -144,7 +143,6 @@
     <header class="lesson-mission-heading">
       <span>{{ current_mission.label }}</span>
       <strong>{{ current_mission.name }}</strong>
-      {% if current_mission.label == 'Mission 3' %}<small data-player-quest-question hidden></small>{% endif %}
     </header>
     {% endif %}
     <article class="lesson-content">{{ content | safe }}</article>
@@ -166,7 +164,7 @@
   </dialog>
   {% endfor %}
 </div>
-<script src="/static/js/player.js?v=lesson-table-v2"></script>
+<script src="/static/js/player.js?v=quest-question-v2"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>

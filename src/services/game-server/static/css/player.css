@@ -515,12 +515,6 @@
   font-size: .9375rem;
   line-height: 1.35;
 }
-.workshop-nav-mission-heading small {
-  color: var(--muted);
-  font-size: .8125rem;
-  font-weight: 500;
-  line-height: 1.4;
-}
 
 #player {
   min-width: 0;
@@ -537,7 +531,6 @@
   margin-bottom: .5rem;
 }
 .lesson-mission-heading strong { color: var(--muted); font-size: .9rem; font-weight: 600; }
-.lesson-mission-heading small { flex-basis: 100%; color: var(--muted); font-size: .9rem; line-height: 1.45; }
 .lesson-content { overflow-wrap: anywhere; font-size: 1.02rem; line-height: 1.75; }
 .lesson-content p, .lesson-content li { color: #3b3d34; }
 .lesson-content h1 { max-width: 28ch; margin: 0 0 1.25rem; font-size: clamp(2rem, 3.2vw, 2.6rem); line-height: 1.15; letter-spacing: -.035em; font-weight: 650; }

@@ -112,7 +112,7 @@ asks to start the game, and **Yes** starts the quest. Both messages use the same
 **session**, so the agent remembers the first answer when it reads the second.
 
 ```python-notype
-"""Game play agent using Microsoft Agent Framework, Azure OpenAI, and MCP."""
+"""Game play agent using Microsoft Agent Framework, Microsoft Foundry, and MCP."""
 
 import asyncio
 import os
@@ -196,7 +196,7 @@ The Mission is already fully awake: cafe lines, bus brakes, and shop gates rolli
 You need to get from 515 Valencia St, San Francisco, CA 94110 to 544 Hayes St, San Francisco, CA 94102. What transport will you take: car, walking, or bike? There are agents that can help lost travellers. Just ask for HELP.
 ```
 
-The program ends after these two messages. In the next missions, you add Agent42
+The program ends after these two messages. In the next mission, you add Agent42
 to help with travel choices and a chat loop to keep playing.
 
 > [!Hint] Look at the **Live progress** bar at the top of this page. After you

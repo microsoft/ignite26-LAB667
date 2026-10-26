@@ -1,13 +1,14 @@
 # City Guide Part 1: Create the Knowledge Base
 
-Some missions ask a question about the city: where a park is, what a
-neighborhood is known for, or where locals go for coffee. Instead of guessing,
-your agent can ask a **City Guide** specialist that looks up the answer in the
-{{ game_city }} city guide.
+In the previous mission, you stopped at a question from your quest:
+**{{ player_quest_question }}**
+
+Instead of guessing, your agent can look up the answer in the {{ game_city }}
+city guide.
 
 The city guide lives in a **Foundry IQ** knowledge base. In this part, you
 create that knowledge base in the Microsoft Foundry portal and test it there.
-In part 2, you connect it to a small agent of your own.
+In part 2, you prepare its MCP connection for your game agent.
 
 [Read more about Foundry IQ](#more-foundry-iq)
 
@@ -86,22 +87,40 @@ Foundry IQ now reads the city guide and indexes it. This takes a minute or two.
 
 Try the knowledge base with a quick test agent in the portal.
 
+![Test the knowledge base in three steps: 1 Use in agent, 2 name it test-agent, 3 ask a question; the test-agent playground shows san-francisco-cityguide under Knowledge and answers that Dolores Park is in The Mission](../assets/illustration-foundry-iq-test-agent.webp)
+
 1. On the **san-francisco-cityguide** knowledge base page, click
    **Use in an agent**.
-2. Give the agent a name, for example **city-guide-test**, and create it.
+2. Name the agent **test-agent** and create it.
 3. In the agent's chat, ask:
 
 ```text
 What neighborhood is Dolores Park in?
 ```
 
-The answer mentions **the Mission**. If it says it can't find the answer, wait a
-minute while indexing finishes and ask again.
+The answer mentions **The Mission**. Under **Knowledge**, you see
+**san-francisco-cityguide**, so the answer came from your knowledge base. If it
+says it can't find the answer, wait a minute while indexing finishes and ask
+again.
 
 ## What You Learned
 
-You connected Foundry IQ to your lab's Azure AI Search service and created the
-**san-francisco-cityguide** knowledge base over the city guide chapters. You
-tested it in the portal, and it answered from the city guide.
+![Ready for the next mission: Foundry IQ and Azure AI Search connected, city guide chapters indexed, san-francisco-cityguide configured with gpt-5.6-luna and Answer synthesis, and tested with test-agent. Next, connect your Python City Guide over MCP.](../assets/illustration-foundry-iq-recap.png)
 
-Next, you connect this knowledge base to the City Guide agent.
+You built the knowledge your City Guide needs, without writing any code:
+
+- **Foundry IQ** is the knowledge layer of Microsoft Foundry. It stores its
+  knowledge bases in Azure AI Search, which you connected to your project once.
+- A **knowledge source** is the content to search. You added the city guide
+  chapters from Blob Storage, and Foundry IQ split them into small passages and
+  indexed them with the **text-embedding-3-small** model.
+- A **knowledge base** combines one or more sources with the settings for
+  searching them. Yours, **san-francisco-cityguide**, plans each search with
+  **gpt-5.6-luna**, uses your retrieval instructions to focus on the city
+  guide, and writes a short answer with **Answer synthesis**.
+- You tested it with **test-agent** in the portal. The answer, **The Mission**,
+  came from the city guide, not from what the model already knew.
+
+Every Foundry IQ knowledge base is also an MCP server, so any agent can use it.
+In part 2, you prepare a direct MCP connection to **san-francisco-cityguide**
+in Python, ready for your game agent.

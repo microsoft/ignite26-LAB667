@@ -37,6 +37,7 @@ PLAYER_MARKUP = {
     "player_name": PLAYER_NAME_MARKUP,
     "player_api_key": PLAYER_API_KEY_MARKUP,
     "player_quest": '<span data-player-quest>your quest</span>',
+    "player_quest_question": '<span data-player-question>the question from your quest</span>',
 }
 GUIDED_MISSIONS = (
     {
@@ -52,18 +53,33 @@ GUIDED_MISSIONS = (
     },
     {
         "label": "Mission 2",
-        "name": "Build Your Team",
+        "name": "Travel with Agent42",
         "lessons": (
             "06_test_agent42_transport_specialist",
-            "07_create_the_city_guide_knowledge_base",
-            "07_test_the_city_guide_agent",
+            "06_use_agent42_in_the_game",
         ),
     },
     {
         "label": "Mission 3",
-        "name": "Complete the Game",
+        "name": "Build the City Guide",
         "lessons": (
+            "07_create_the_city_guide_knowledge_base",
+            "07_test_the_city_guide_agent",
             "08_bring_specialists_into_main_agent",
+        ),
+    },
+    {
+        "label": "Mission 4",
+        "name": "Read the Secret Note",
+        "lessons": (
+            "08_read_the_secret_note",
+            "08_use_the_note_reader_in_the_game",
+        ),
+    },
+    {
+        "label": "Mission 5",
+        "name": "Lab Recap",
+        "lessons": (
             "09_lab_recap",
         ),
     },

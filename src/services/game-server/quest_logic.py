@@ -142,8 +142,8 @@ def _quest_begin_location(begin: dict[str, Any], missions: list[dict[str, Any]])
 
 
 def _quest_end_location(end: dict[str, Any], missions: list[dict[str, Any]]) -> str:
-    if missions:
-        last_end = missions[-1].get("end_address", "")
+    for mission in reversed(missions):
+        last_end = mission.get("end_address", "")
         if last_end:
             return last_end
     return end.get("location") or end.get("neighborhood", "")

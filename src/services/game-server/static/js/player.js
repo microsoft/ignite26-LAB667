@@ -79,11 +79,10 @@
     document.querySelectorAll('[data-player-quest]').forEach((element) => {
       element.textContent = player.quest_name || 'your quest';
     });
-    document.getElementById('player-api-key').textContent = apiKey;
-    document.querySelectorAll('[data-player-quest-question]').forEach((element) => {
-      element.textContent = player.quest_question || '';
-      element.hidden = !player.quest_question;
+    document.querySelectorAll('[data-player-question]').forEach((element) => {
+      element.textContent = player.quest_question || 'the question from your quest';
     });
+    document.getElementById('player-api-key').textContent = apiKey;
     const events = player.timeline || [];
     const completedMissions = new Set(events
       .filter((event) => event.type === 'mission_complete')

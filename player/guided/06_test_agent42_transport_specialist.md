@@ -154,7 +154,7 @@ it on its own: Agent42 checked the route, the weather, and the traffic, and
 recommended the best way to travel.
 
 Agent42 uses the same private API key as the game server, so its advice also
-appears in your **Live progress**. In the next mission, your game agent gets the
+appears in your **Live progress**. In the next lesson, your game agent gets the
 **ask_agent42** tool and asks Agent42 for help on its own.
 
 ![Ready for the next mission: a checklist showing connected to Agent42 over A2A; ask_agent42 tested on its own; route, weather, and traffic checked; and advice appears in Live progress; next, add ask_agent42 to the game agent](../assets/illustration-agent42-recap.webp)

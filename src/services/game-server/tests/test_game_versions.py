@@ -84,6 +84,46 @@ class GameVersionTests(unittest.TestCase):
         }])
         self.assertNotIn("valid_answers", result)
 
+    def test_question_mission_can_opt_out_of_city_guide(self) -> None:
+        document = story()
+        document["quests"][0]["missions"][0]["uses_city_guide"] = False
+        self.publish_new(document)
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        api_key, _ = player_identity.register_player("test-city", "Note reader")
+        result = self.call(mcp, "start_quest", {}, api_key)
+
+        self.assertEqual(result["mission_type"], "question")
+        self.assertNotIn("resources", result)
+        self.assertNotIn("city guide", result["ask_user"])
+        self.assertIsNone(player_identity.player_state("test-city", api_key)["quest_question"])
+        del document["quests"][0]["city_guide"]
+        self.assertEqual(validate_document(document, publish=True)["errors"], [])
+        document["quests"][0]["missions"][0]["uses_city_guide"] = "no"
+        self.assertTrue(validate_document(document)["errors"])
+
+    def test_image_question_offers_note_image_not_answer(self) -> None:
+        document = story("SECRET")
+        mission = document["quests"][0]["missions"][0]
+        mission.update(uses_city_guide=False, image_url="https://notes.example.test/door.jpg")
+        self.publish_new(document)
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        api_key, _ = player_identity.register_player("test-city", "Door guest")
+        result = self.call(mcp, "start_quest", {}, api_key)
+
+        self.assertEqual(result["resources"], [{
+            "name": "Note image",
+            "description": "A picture of the note the player carries. A note-reading tool can read it.",
+            "url": "https://notes.example.test/door.jpg",
+            "media_type": "image/jpeg",
+        }])
+        self.assertIn("HELP", result["ask_user"])
+        self.assertIn("note-reading tool", result["next_action"])
+        self.assertNotIn("SECRET", str(result))
+        for invalid in ("http://notes.example.test/door.jpg", 42):
+            mission["image_url"] = invalid
+            with self.subTest(image_url=invalid):
+                self.assertTrue(validate_document(document)["errors"])
+
     def test_browser_registration_pins_story_and_all_mcp_actions(self) -> None:
         mcp = server.build_mcp_for_game(storage.get_game("test-city"))
         old_id, _ = player_identity.register_player("test-city", "Alice")

@@ -16,7 +16,8 @@ sys.path.insert(0, str(PLAYER_DIR))
 
 PYTHON_BLOCK = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
 CANONICAL_COPIES = {
-    "08_bring_specialists_into_main_agent.md": "agent.py",
+    "08_use_the_note_reader_in_the_game.md": "agent.py",
+    "08_read_the_secret_note.md": "agent_note_reader.py",
     "05_add_session_logging.md": "log.py",
     "06_test_agent42_transport_specialist.md": "agent_agent42.py",
     "07_test_the_city_guide_agent.md": "agent_city_guide.py",
