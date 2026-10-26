@@ -159,15 +159,19 @@ Run the agent from the VS Code terminal:
 python agent.py
 ```
 
-The agent picks up your quest at the door. The game gives the agent a link to a
-picture of your note. Type **HELP**, and the agent calls **read_secret_note** with
-that link. Here is what the conversation looks like. The agent's own words can
-change a little from run to run:
+The agent picks up your quest at the door. The game shows a link to a picture of
+your note in the conversation. Open it if you're curious. Type **HELP**, and the
+agent calls **read_secret_note** with that link. Here is what the conversation
+looks like. The agent's own words can change a little from run to run:
 
 ```output-read
 Chat with Game Play Agent (type 'exit' or 'quit' to stop)
 
-Agent: Welcome back, {{ player_name }}. You remember the folded piece of paper from the start of your journey. You unfold it and see words in a strange language you have never seen before. Oh... you need some help with this one. What is the secret password?
+Agent: Welcome back, {{ player_name }}. You remember the folded piece of paper from the start of your journey. You unfold it and see words in a strange language you have never seen before. Oh... you need some help with this one.
+
+Your note: <link to the picture of your note>
+
+What is the secret password?
 
 You: HELP
 
@@ -177,6 +181,9 @@ You: Yes
 
 Agent: <the host lets you in>. Welcome in! <final scene of your quest>
 ```
+
+> [!Hint] The agent reads any image link in the conversation. To try it, paste
+> the sample note link from the previous lesson and ask the agent to read it.
 
 > **Checkpoint:** the agent confirms that your quest is complete, and the
 > **Live progress** bar at the top of this page shows every mission as

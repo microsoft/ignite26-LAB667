@@ -224,14 +224,18 @@ def _mission_payload(
             "url": image_url,
             "media_type": mimetypes.guess_type(urlsplit(image_url).path)[0] or "image/png",
         }]
+        note_line = f"Your note: {image_url}"
+        payload["scene"] = _as_text(mission.get("arrival_prompt", ""), note_line, mission.get("mission", ""))
+        payload["narration"] = payload["scene"]
         payload["ask_user"] = (
-            "Read the full scene and question to the user. Tell them they can ask for "
-            "HELP to read the note. Do not guess the answer yourself."
+            "Read the full scene to the user, including the link to their note, then ask "
+            "the question. Tell them they can ask for HELP to read the note. Do not guess "
+            "the answer yourself."
         )
         payload["next_action"] = (
-            "When the human asks for help, call a note-reading tool with the note image "
-            "URL from resources and show its result. Then ask the human for their answer "
-            "and call submit_mission_answer(answer)."
+            "When the human asks for help or shares a note image link, call a note-reading "
+            "tool with that image URL and show its result. Then ask the human for their "
+            "answer and call submit_mission_answer(answer)."
         )
     elif slug and mission.get("uses_city_guide") is not False and str(quest.get("city_guide") or "").strip():
         quest_id = quote(str(quest.get("id", "")), safe="")

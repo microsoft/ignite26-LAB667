@@ -118,6 +118,8 @@ class GameVersionTests(unittest.TestCase):
         }])
         self.assertIn("HELP", result["ask_user"])
         self.assertIn("note-reading tool", result["next_action"])
+        self.assertIn("Your note: https://notes.example.test/door.jpg", result["narration"])
+        self.assertTrue(result["narration"].endswith("What is the code?"))
         self.assertNotIn("SECRET", str(result))
         for invalid in ("http://notes.example.test/door.jpg", 42):
             mission["image_url"] = invalid
