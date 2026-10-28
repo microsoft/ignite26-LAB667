@@ -15,7 +15,7 @@ or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any addi
 
 ## Working on Lost in San Francisco
 
-This lab teaches Microsoft Agent Framework, MCP, A2A, retrieval, memory, and
+This lab teaches Microsoft Agent Framework, MCP, A2A, retrieval, vision, and
 logging through a San Francisco quest game. Keep examples and city-guide
 questions consistent with that setting.
 
@@ -25,7 +25,7 @@ questions consistent with that setting.
 | --- | --- |
 | [Game server](src/services/game-server/) | Shared MCP endpoint, quest state, scoring, dashboard, and admin UI; state lives in Azure Tables |
 | [Agent42](src/services/agent42/) | Shared A2A transport specialist using weather, Azure Maps, and route blobs |
-| [Player agent](src/agents/player/) | Reference attendee implementation: orchestrates the game, calls specialists, and maintains local memory and logs |
+| [Player agent](src/agents/player/) | Reference attendee implementation: authenticates with a player API key, orchestrates the game, calls specialists, and writes session logs |
 | [Player](player/README.md) | Guided and challenge chapters plus shared screenshots |
 | [City guide](data/city-guide/) | San Francisco source material for retrieval |
 | [Infrastructure](infra/README.md) | Lab provisioning and inactive legacy deployment workflows |
@@ -69,7 +69,7 @@ process from its own application directory:
 All three game-server processes use the same Azure Tables connection. For
 local storage, the server supports Azurite with Table Storage enabled.
 Keep credentials in local environment files or deployment secrets, never in
-source control. Do not commit generated player memory or session logs.
+source control. Do not commit player API keys or generated session logs.
 
 ### Keep code and lessons aligned
 
@@ -80,9 +80,10 @@ source control. Do not commit generated player memory or session logs.
 - Use sentence case for headings and preserve intentional Skillable syntax.
   See the [authoring conventions](docs/authoring/common-knowledge.md) and
   [Skillable reference](skillable/docs/skillable.md).
-- After changing step filenames, titles, or the export generator, run
-  `python scripts/sync-to-skillable.py` from the repository root. This regenerates
-  the two attendee indexes locally; it does not publish them.
+- Per-game content is served from the Guided and Challenge sources. Redeploy
+  the admin and dashboard after lesson or screenshot changes. Regenerate the
+  legacy exports with `python scripts/sync-to-skillable.py` only when maintaining
+  that legacy delivery path, not for ordinary per-game content changes.
 - Check affected relative links and exercise the changed behavior in a
   development environment. Use the [load-test utility](scripts/README.md) only
   against an instance intended for load testing, not a live attendee session.
@@ -102,10 +103,12 @@ old workshop. Review those settings before enabling them. The
 [Skillable template](skillable/infra/skillable.bicep) provisions lab resources,
 not the shared game-server Container Apps. The admin UI uses table-backed
 username/password authentication and requires changing the initial `admin` /
-`admin` password before game management. Other service endpoints remain
-unauthenticated. Restrict admin access to workshop operators before broader use.
+`admin` password before game management. MCP requests require a player bearer
+API key; the public Player page issues keys on registration. The dashboard and
+Agent42 remain publicly accessible. Restrict admin access to workshop operators
+before broader use.
 
-Before publishing, complete the session description, exactly three learning
+Before publishing, verify the session description, exactly three learning
 outcomes, technologies, content owners, and guided/self-paced setup in the
 [README](README.md). Confirm delivery links and hosting destinations with the
 session owners, check relative links and required assets, and validate the

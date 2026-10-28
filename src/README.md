@@ -4,7 +4,7 @@
 | --- | --- |
 | [services/game-server/](services/game-server/) | Shared MCP game server, dashboard, and admin UI, with Azure Tables storage |
 | [services/agent42/](services/agent42/) | Shared A2A transport specialist using weather, Azure Maps, and route blobs |
-| [agents/player/](agents/player/) | Reference attendee agent with MCP, specialist calls, memory, and session logging |
+| [agents/player/](agents/player/) | Reference attendee agent with authenticated MCP, specialist calls, and session logging |
 
 The game server's three processes stay together because they share storage,
 quest logic, and web assets. Each service keeps its own Dockerfiles and
@@ -14,8 +14,9 @@ The runnable player and specialist smoke tests use their own
 [requirements](agents/player/requirements.txt) and
 [environment example](agents/player/.env.example). Keep that Python environment
 separate from the game server's MCP 2 environment. The player reads **.env**
-and saves **memory.json** beside **agent.py**, writes **logs/** beside **log.py**,
-and closes its network clients through asynchronous context managers.
+beside **agent.py**, writes **logs/** beside **log.py**, and closes its network
+clients through asynchronous context managers. **GAME_API_KEY** identifies the
+player; game progress is stored on the server, not in a local memory file.
 
 For offline player tests and checks that the lesson samples match the runnable
 code, use the [player validation command](../docs/workshop-overview.md#validate-the-player-offline).

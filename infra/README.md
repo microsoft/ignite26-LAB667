@@ -20,7 +20,9 @@ San Francisco automatically; the model configuration applies only to Agent42.
 > but the admin UI and its APIs require a login. The initial credentials are
 > `admin` / `admin`; change the password immediately before opening access to
 > others. The first person using these known defaults can claim the account.
-> Other service endpoints remain unauthenticated. Agent42 requests can incur
+> MCP requests require a player bearer API key obtained through public Player
+> registration; this is not an attendee admission control. The dashboard and
+> Agent42 remain publicly accessible. Agent42 requests can incur
 > model and Maps charges. Route PNG/JSON blobs are readable by URL (not publicly
 > listable), and the dashboard's Maps key is sent to the browser. Do not use
 > sensitive data; add access controls before broader use.

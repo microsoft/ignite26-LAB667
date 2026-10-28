@@ -13,7 +13,7 @@
 +-------------------------------------------------------------------+
 |                         GAME PLAY AGENT                           |
 |                                                                   |
-|  Reads the story, chooses tools, remembers the player, and keeps   |
+|  Reads the story, chooses tools, resumes the game, and keeps      |
 |  the quest moving through the foggy streets of San Francisco.      |
 +----+----------------------+----------------------+----------------+
      |                      |                      |
@@ -23,7 +23,7 @@
 | GAME MCP SERVER     |  | AGENT42           |  | CITY GUIDE MCP    |
 |                     |  |                  |  |                   |
 | begin_session       |  | car, walking,     |  | neighborhood,     |
-| register_player     |  | or bike advice    |  | history, food,    |
+| resume_player       |  | or bike advice    |  | history, food,    |
 | start_quest         |  | with route hints   |  | parks, culture    |
 | submit answers      |  |                  |  | via search         |
 +----+----------------+  +-------------------+  +--+----------------+
@@ -36,6 +36,11 @@
 |  model input | tool calls | tool results | final responses        |
 +-------------------------------------------------------------------+
 ```
+
+The attendee first registers on the game's Player page and copies the private
+API key into **GAME_API_KEY**. The agent sends it as a bearer token to the game
+MCP server. The diagram shows the transport and retrieval paths; the player also
+uses a vision-based Note Reader for secret-note missions.
 
 ## Gameplay Loop
 
@@ -74,7 +79,7 @@
 | Agent42 | Recommends transport for movement missions. |
 | City Guide MCP | Exposes the knowledge base's retrieval and answer synthesis directly to the game agent. |
 | Note Reader | Reads the secret note image, detects its language, and returns the password as structured output. |
-| Memory | Stores the `player_id` so later runs can resume. |
+| Player identity and progress | **GAME_API_KEY** identifies the player; Azure Tables stores progress so later runs can resume without a local memory file. |
 | Session Logs | Show what the model saw, which tools it called, and what came back. |
 
 ## Tiny Quest Card

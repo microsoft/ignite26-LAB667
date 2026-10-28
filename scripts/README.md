@@ -30,9 +30,9 @@ is shared across projects; subsequent builds may need to download/rebuild layers
 Active and image-shared layers can keep actual usage above that target.
 Do not run cleanup concurrently with builds/deployments.
 
-In Codespaces, the root `predeploy` and `postdeploy` hooks in
+In Codespaces, the root `prepackage` and `postdeploy` hooks in
 [azure.yaml](../azure.yaml) run this automatically around deployment, including
-the deploy phase of `azd up`. The pre-deploy pass removes existing unused
+`azd up`. The pre-package pass removes existing unused
 workshop deployment images to create maximum build headroom; the post-deploy
 pass retains the newest deployment image per service and trims the newly
 generated cache. Cleanup errors are reported without failing an otherwise

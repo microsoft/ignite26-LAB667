@@ -1,7 +1,7 @@
 # Lost in the City workshop
 
 A hands-on workshop for building AI agents with the Microsoft Agent Framework,
-Model Context Protocol (MCP), Agent-to-Agent (A2A), memory, logging, and
+Model Context Protocol (MCP), Agent-to-Agent (A2A), vision, logging, and
 retrieval. Participants build an agent that plays **Lost in the City**, a
 narrative quest game where the player has to cross a city, solve guidebook
 clues, and reach the final destination before time runs out.
@@ -17,7 +17,7 @@ players.
 | --- | --- |
 | [src/services/game-server/](../src/services/game-server/) | Multi-game MCP server, read-only room dashboard, and FastAPI admin UI. State is stored in Azure Tables. |
 | [src/services/agent42/](../src/services/agent42/) | Standalone A2A transport expert. It compares car, walking, and bike routes using weather, traffic, Azure Maps, and rendered route maps. |
-| [src/agents/player/](../src/agents/player/) | Complete reference agent that connects to the game MCP server, asks Agent42 over A2A, queries the city guide, remembers `player_id`, and writes session logs. |
+| [src/agents/player/](../src/agents/player/) | Complete reference agent that authenticates to the game MCP server, asks Agent42 over A2A, queries the city guide, reads note images, and writes session logs. |
 | [data/city-guide/](../data/city-guide/) | San Francisco guide chapters used as source material for the retrieval challenge. |
 | [player/](../player/README.md) | Guided and Challenge Mode chapters used by the public Player experience. |
 | [docs/](README.md) | Supporting gameplay, setup, and authoring documentation. |
@@ -27,10 +27,12 @@ players.
 
 ## How the game works
 
-1. The player agent connects to the MCP endpoint for a game, such as
-    `http://localhost:8000/san-francisco/mcp`.
-2. The agent starts or resumes a session, registers the player if needed, and
-    receives a random quest.
+1. The attendee registers with a nickname on the game's Player page, receives
+    a random quest, and copies the private player API key into **GAME_API_KEY**
+    in the agent's environment file.
+2. The player agent connects to the game's MCP endpoint, such as
+    `http://localhost:8000/san-francisco/mcp`, using the key as a bearer token.
+    It calls `begin_session()` to start or resume that player's game.
 3. Quests are made of missions:
     - Move missions ask the player to choose `car`, `walking`, or `bike`. The
        agent can call Agent42 for weather-aware route advice.
@@ -49,7 +51,8 @@ players.
 ## Prerequisites
 
 - Python 3.11+
-- Azure OpenAI or Microsoft Foundry model access for the agents
+- Azure OpenAI or Microsoft Foundry model access for the agents, with image
+  input and structured output support for the Note Reader
 - Azure AI Search knowledge base for the city-guide challenge
 - Azure Maps key for Agent42 and the dashboard map
 - Azure Storage account for Azure Tables game state
@@ -122,12 +125,14 @@ until a schedule is set. Settings take effect immediately, separately from story
 publication.
 
 Share `http://localhost:8090/<slug>/player` with players (use the dashboard host
-in Azure). Guided Mode renders the nine step-by-step chapters; Challenge Mode
+in Azure). Guided Mode groups thirteen lessons into five missions; Challenge Mode
 renders four outcome-focused game stages: setup and MCP, Agent42 travel, a
 Foundry IQ grounded question, and final arrival. Both use the game's name,
 endpoint, dates, times, and timezone. **Preview player** serves the same content
-through the admin host for local development. No player login is required and no
-credentials are published.
+through the admin host for local development. Viewing the page requires no
+operator login. Players register with a nickname to receive their private API
+key; model and Search credentials are supplied separately, not embedded in
+the public lesson sources.
 
 The MCP server enforces `start <= current UTC time < end`: starting/resuming
 sessions, registration, quest starts, and answer submissions are blocked outside
@@ -178,19 +183,20 @@ AZURE_SEARCH_ENDPOINT=https://<your-search-service>.search.windows.net
 AZURE_SEARCH_KNOWLEDGE_BASE_NAME=san-francisco-cityguide
 AZURE_SEARCH_KEY=<your-azure-ai-search-key>
 GAME_MCP_URL=http://localhost:8000/san-francisco/mcp
+GAME_API_KEY=<copy-from-the-player-page>
 AGENT42_URL=http://localhost:8042/
 ```
 
-To use a different model deployment for the city-guide specialist, also set:
+Open **http://localhost:8090/san-francisco/player** and register with a nickname
+to obtain **GAME_API_KEY**. Keep that key private and reuse it to resume the
+same player's server-side progress.
 
-```env
-CITY_GUIDE_AZURE_OPENAI_DEPLOYMENT_NAME=<your-city-guide-deployment>
-```
-
-The override is optional: an unset, empty, or whitespace-only value falls back
-to `AZURE_OPENAI_DEPLOYMENT_NAME`. The Search settings are required. The city
-guide reaches the Foundry IQ knowledge base through its MCP endpoint, which
-accepts a Search admin key (query keys are rejected).
+The Search settings are required. The city guide connects directly to the
+Foundry IQ knowledge base through its MCP endpoint, which accepts a Search
+admin key (query keys are rejected). There is no separate city-guide model
+client in the player: retrieval and answer synthesis come from the knowledge
+base. The standalone city-guide smoke test uses
+**AZURE_OPENAI_DEPLOYMENT_NAME** for its test agent.
 
 Then run the agent:
 
@@ -217,17 +223,19 @@ The player now uses the A2A 1.x integration. Upgrade the deployed Agent42 servic
 before running the updated player against it; see the
 [Agent42 upgrade notes](../src/services/agent42/README.md#install-local).
 
-The agent will start or resume a game, save the assigned `player_id` in
-`src/agents/player/memory.json` (created at runtime), call Agent42 through the
-`ask_agent42` tool, call the city-guide specialist for retrieval, and write a
-per-session log under `src/agents/player/logs/`.
-The `.env` and memory paths are relative to the Python files, not the terminal's
-working directory. Logs and memory use UTF-8. Invalid memory JSON or an invalid
-saved player ID produces an explicit error; correct the file before retrying
-rather than accidentally starting a different player.
+The agent starts or resumes the player identified by **GAME_API_KEY**, calls
+Agent42 through `ask_agent42`, queries `knowledge_base_retrieve`, reads note
+images through `read_secret_note`, and writes a per-session log under
+**src/agents/player/logs/**. Game progress lives in Azure Tables; the player
+does not create a local memory file. Each process run starts a new chat session
+and retrieves the current game state from the server.
+
+The **.env** path is relative to **agent.py**, not the terminal's working
+directory. Logs are written beside **log.py** using UTF-8. A missing or invalid
+player key must be corrected before the agent can connect to the game.
 
 Type `exit` or `quit` to leave the chat loop. The main model client, MCP
-connection, A2A agent, and city-guide model/search resources are managed with
+connection, A2A agent, city-guide MCP tool, and Note Reader client are managed with
 `async with` so they also close on errors and cancellation. Tool builders accept
 the existing specialist agents and do not create hidden connections.
 
@@ -236,6 +244,7 @@ To test a specialist separately with the same environment, run one of:
 ```bash
 python agent_agent42.py
 python agent_city_guide.py
+python agent_note_reader.py
 ```
 
 These smoke tests make live service/model requests. The complete copied samples
@@ -265,22 +274,23 @@ against their canonical source using Python's abstract syntax tree.
 
 ## Workshop flow
 
-The attendee workshop is split into numbered steps:
+Guided Mode groups these thirteen lessons into five missions: getting ready,
+Agent42 travel, the City Guide, the Note Reader, and a recap. See the
+[player guide](../player/README.md) for the grouping and Challenge Mode path.
 
 1. [Step into your workspace](../player/guided/00_step_into_your_workspace.md)
 2. [Get Azure OpenAI details from Microsoft Foundry](../player/guided/01_get_azure_openai_details_from_foundry.md)
 3. [Create a hello world agent](../player/guided/02_create_hello_world_agent.md)
 4. [Connect to the gaming MCP server](../player/guided/03_connect_to_the_gaming_mcp_server.md)
-5. [Add memory for the player ID](../player/guided/04_add_memory_for_the_player_id.md)
-6. [Add session logging](../player/guided/05_add_session_logging.md)
-7. [Test Agent42 transport specialist](../player/guided/06_test_agent42_transport_specialist.md)
-8. [Add Agent42 to your agent](../player/guided/06_use_agent42_in_the_game.md)
-9. [City Guide part 1: create the knowledge base](../player/guided/07_create_the_city_guide_knowledge_base.md)
-10. [City Guide part 2: connect the knowledge base to your agent](../player/guided/07_test_the_city_guide_agent.md)
-11. [Add the City Guide to your agent](../player/guided/08_bring_specialists_into_main_agent.md)
-12. [Note Reader specialist](../player/guided/08_read_the_secret_note.md)
-13. [Add the Note Reader to your agent](../player/guided/08_use_the_note_reader_in_the_game.md)
-14. [Lab recap](../player/guided/09_lab_recap.md)
+5. [Add session logging](../player/guided/05_add_session_logging.md)
+6. [Test Agent42 transport specialist](../player/guided/06_test_agent42_transport_specialist.md)
+7. [Add Agent42 to your agent](../player/guided/06_use_agent42_in_the_game.md)
+8. [City Guide part 1: create the knowledge base](../player/guided/07_create_the_city_guide_knowledge_base.md)
+9. [City Guide part 2: connect the knowledge base to your agent](../player/guided/07_test_the_city_guide_agent.md)
+10. [Add the City Guide to your agent](../player/guided/08_bring_specialists_into_main_agent.md)
+11. [Note Reader specialist](../player/guided/08_read_the_secret_note.md)
+12. [Add the Note Reader to your agent](../player/guided/08_use_the_note_reader_in_the_game.md)
+13. [Lab recap](../player/guided/09_lab_recap.md)
 
 ## Deployment
 
@@ -288,8 +298,9 @@ Use [Azure Developer CLI](../infra/README.md) from the repository root to
 provision and deploy the four shared services with `azd up`. This includes
 Agent42's dedicated model, storage, Maps, and service configuration, but not
 attendee model/search resources. The admin endpoint requires a login and a
-mandatory change of its initial `admin` / `admin` password; other service
-endpoints remain unauthenticated. Review the access limitations before deployment.
+mandatory change of its initial `admin` / `admin` password. MCP requests require
+a player bearer API key issued through public registration; the dashboard and
+Agent42 remain publicly accessible. Review the access limitations before deployment.
 
 The repository preserves inactive legacy GitHub Actions workflows for Agent42
 and the game-server container apps:

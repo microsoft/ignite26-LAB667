@@ -12,7 +12,8 @@ watching leaderboards, and resetting state.
 
 ```
 game-server/
-├── server.py          # MCP server. Mounts /<slug>/mcp and /<slug>/dashboard per game.
+├── server.py          # MCP server. Mounts /<slug>/mcp per game (port 8000).
+├── dashboard.py       # Public dashboard and Player pages (port 8090).
 ├── admin.py           # FastAPI admin UI (port 8080)
 ├── admin_auth.py      # Table-backed credentials, sessions, and login protection
 ├── templates/         # Jinja2 HTML templates for admin and dashboard pages
@@ -119,8 +120,10 @@ ZIP/postal code, city, state or region when relevant, and country.
 
 `question` missions validate `answer` against `valid_answers`
 case-insensitively. `move` missions default to `car`, `walking`, and `bike`
-as valid answers and use a private `route_ref` for route animation. Every quest
-with a question mission must include a Markdown `city_guide`. When the player
+as valid answers and use a private `route_ref` for route animation. Quests with
+city-guide question missions must include a Markdown `city_guide`; a question
+with `"uses_city_guide": false`, such as the secret note, does not require it.
+When the player
 reaches that question, MCP returns a version-pinned download URL in
 `resources`; the player adds that document to Foundry IQ to retrieve the
 grounded answer.
@@ -148,13 +151,7 @@ azurite --silent --location /tmp/azurite
 
 ## Run the MCP server
 
- "begin": {
-   "prompt": "Opening scene shown after START.",
-   "flavor": "Optional extra atmosphere."
- },
- "end": {
-   "prompt": "Final completion message."
- }
+```bash
 python server.py
 # -> http://localhost:8000/<slug>/mcp
 ```
@@ -178,8 +175,8 @@ The server uses the **official MCP Python SDK 2.x** (`mcp>=2.2.0,<3`),
 validated with 2.2.0. It imports `MCPServer` from `mcp.server.mcpserver`;
 the separate `fastmcp` package is not required.
 
-The migration preserves all eight game tools, `game_play_prompt`, per-game
-`/<slug>/mcp` URLs, and stateless Streamable HTTP with SSE responses for legacy
+The server exposes seven game tools and `game_play_prompt` at per-game
+`/<slug>/mcp` URLs, using stateless Streamable HTTP with SSE responses for legacy
 clients. Initialization-based clients remain supported, alongside SDK 2's
 modern discovery/per-request protocol. Tool response JSON remains camelCase
 on the wire; SDK 2 Python result objects use attributes such as
@@ -199,7 +196,8 @@ Agent Framework 1.19's MCP integration requires `mcp<2`; do not force SDK 2
 into that environment. The player agent can continue using SDK 1 as an HTTP
 client of this SDK 2 server.
 
-Each game also has a live room dashboard at `/<slug>/dashboard`. It shows up
+Run `python dashboard.py` separately to serve the live room dashboard at
+`http://localhost:8090/<slug>/dashboard`. It shows up
 to 50 player slots on the left side of the screen and refreshes player status,
 quest progress, and leaderboard data every few seconds.
 
@@ -232,8 +230,8 @@ CSRF token and same-origin requests. Sign-in and password checks share a limit
 of ten attempts per five minutes across all accounts, including successful
 attempts and attempts with unknown usernames.
 Admin pages and game
-management APIs both require authentication; the dashboard and MCP service
-remain unchanged.
+management APIs both require operator authentication. The public dashboard
+does not require an operator login; MCP requests require a player bearer API key.
 
 The initial account is created only when missing; restarting or redeploying
 does not reset its password. **Keep access restricted during first-run setup:**
@@ -367,8 +365,8 @@ Set `GAME_SERVER_URL` and `AGENT42_URL` on both dashboard and admin so code
 examples use the deployed service URLs. The shared-service Bicep wires these
 automatically. The old Skillable export is no longer the delivery path.
 
-The MCP server reloads the schedule on session start/resume, registration,
-quest start, and answer submission. Play is allowed at the start instant and
+Player registration checks the current schedule, as do MCP session
+start/resume, quest start, and answer submission. Play is allowed at the start instant and
 blocked at or after the end instant. Rejected calls do not modify player state.
 Outside the window, the Player page returns a closed-window screen without
 lesson navigation or lesson HTML. During the final 24 hours before opening,
@@ -414,8 +412,9 @@ to deploy the MCP server, dashboard, admin UI, and Agent42 together. It
 provisions shared storage and Maps, wires the service URLs, and supplies keys
 through Container Apps secrets. The admin requires authentication, with
 HTTPS-only session cookies enabled by the template. Complete the initial
-password change before sharing access; other service endpoints are still
-public without authentication. Do not treat this as a production deployment.
+password change before sharing access. MCP requests require a player bearer
+API key issued through public registration; the dashboard and Agent42 remain
+publicly accessible. Do not treat this as a production deployment.
 
 ## Legacy deployment reference
 
@@ -486,11 +485,18 @@ operators.
 
 ## Connect an agent (MCP client config)
 
+Register with a nickname at **http://localhost:8090/san-francisco/player** and
+copy your private API key. Configure your MCP client's authorization header
+with that key; never commit a populated configuration or share it publicly.
+
 ```json
 {
   "mcpServers": {
     "lost-in-san-francisco": {
-      "url": "http://localhost:8000/san-francisco/mcp"
+      "url": "http://localhost:8000/san-francisco/mcp",
+      "headers": {
+        "Authorization": "Bearer <copy-from-the-player-page>"
+      }
     }
   }
 }
@@ -500,14 +506,16 @@ operators.
 
 | Tool | Purpose |
 | --- | --- |
-| `begin_session(player_id?)` | Entry point. Resolves new vs returning player. |
-| `register_player(name)` | Register a new player and assign a random quest. |
-| `resume_player(player_id)` | Resume an existing in-progress player. |
-| `start_quest(player_id)` | Begin the quest. |
-| `submit_mission_answer(player_id, answer, route_ref?)` | Submit the current mission answer and advance. |
-| `abandon_quest(player_id, reason?)` | Give up. |
+| `begin_session()` | Entry point. Return the authenticated player's current session and next action. |
+| `resume_player()` | Resume the authenticated player's session. |
+| `start_quest()` | Begin the authenticated player's quest. |
+| `submit_mission_answer(answer, route_ref?)` | Submit the current mission answer and advance. |
+| `abandon_quest(reason?)` | Give up. |
 | `get_leaderboard()` | Top 10 for this game. |
-| `get_player_status(player_id)` | Inspect a player's state. |
+| `get_player_status()` | Inspect the authenticated player's state. |
+
+Registration happens on the Player page, not through an MCP tool. Player
+identity comes from the bearer key, so tools do not take a `player_id` argument.
 
 ## Scoring
 

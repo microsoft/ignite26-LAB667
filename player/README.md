@@ -9,7 +9,7 @@ prepared Windows workshop machine; the facilitator supplies credentials
 privately.
 For local service setup, see the [workshop overview](../docs/workshop-overview.md).
 
-Guided Mode groups its twelve detailed lessons into five named missions. The
+Guided Mode groups its thirteen lessons, including the recap, into five named missions. The
 game's own completion shows in the Player page's live progress:
 
 1. **Mission 1: Get Ready and Start the Game**
@@ -41,7 +41,7 @@ Challenge Mode follows the game itself:
 The canonical runnable sample is in
 [src/agents/player/](../src/agents/player/). Steps 2, 3, and 5 build it incrementally;
 Step 5 also supplies the logging helper, Steps 6–7 supply the specialist helpers,
-and Step 8 supplies the complete **agent.py**. Keep those full copies and their
+and the final Note Reader integration supplies the complete **agent.py**. Keep those full copies and their
 smaller integration snippets synchronized with the reference files. Step 0
 introduces the Skillable environment, credential locations, and VS Code workspace.
 

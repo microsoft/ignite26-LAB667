@@ -8,12 +8,16 @@
 
 ## 🔥LAB667: Building multi-agent systems. Lost in San Francisco
 
-> This session repository is still being prepared. Session details and setup
-> steps below remain to be completed before publication.
+Build an AI agent that plays **Lost in San Francisco**, a city adventure in
+the **Lost in the City** workshop family.
 
 ### Session description
 
-Add your session description here. Keep it concise — 2-3 sentences about what attendees will learn and why it matters.
+Build a multi-agent application with Microsoft Agent Framework by navigating
+San Francisco, solving city-guide clues, and reading a secret note. Connect
+your player agent to a game server through MCP, consult the Agent42 transport
+expert over A2A, and retrieve grounded answers with Microsoft Foundry and
+Foundry IQ.
 
 ### 🚀 Getting started
 
@@ -21,19 +25,38 @@ Add your session description here. Keep it concise — 2-3 sentences about what 
 
 If you're following along during a live session:
 
-1. Step 1
-2. Step 2
-3. Open [`player/`](player/README.md) when this session includes
-   attendee step-by-step guidance
+1. Open the game-specific Player URL supplied by your facilitator. Register
+   with a nickname to get your player API key.
+2. On the prepared Windows 11 lab VM, click the **Visual Studio Code** desktop
+   icon. The **C:\workshop** folder should already be open; open a PowerShell
+   terminal there.
+3. Follow the Player page's Guided or Challenge missions. Add the supplied
+   model/search settings, **GAME_MCP_URL**, and **GAME_API_KEY** to the existing
+   **C:\workshop\.env** file. Keep credentials private.
+
+The [player guide](player/README.md) lists the lessons. A configured game
+schedule can restrict when the Player page and gameplay are available.
 
 #### On your own
 
 If you're learning at your own pace:
 
-1. Clone this repository
-2. Set up your environment
-3. Follow the session guidance in [`player/`](player/README.md), or
-   use the linked docs-site entry point when this repository uses that pattern
+1. Clone this repository and open it in Codespaces or a local development
+   container as described below.
+2. Follow the [workshop overview](docs/workshop-overview.md) to configure and
+   run the game services, Agent42, and reference player. Use separate Python
+   environments for the game server and agents because their MCP SDK
+   requirements differ.
+3. Supply attendee model access and an Azure AI Search knowledge base. The
+   shared-service deployment below does not provision these attendee resources.
+4. Open **http://localhost:8090/san-francisco/player** when running locally,
+   register with a nickname, and copy your player API key into the reference
+   agent's environment file. Use the [Guided lessons](player/README.md) to
+   build incrementally, or run the complete [reference agent](src/agents/player/).
+
+The attendee lessons assume a prepared Windows lab VM. For Linux or Codespaces,
+use the development commands in the workshop overview rather than the
+Windows-specific setup steps.
 
 ### Repository layout
 
@@ -97,15 +120,20 @@ For automated deployments on pushes to `main` or manual runs, configure the
 
 By the end of this session, you will be able to:
 
-- Outcome 1
-- Outcome 2
-- Outcome 3
+- Build a player agent that uses MCP tools and prompts to start, resume, and
+  complete a stateful game.
+- Coordinate specialist capabilities through A2A, Foundry IQ retrieval, and
+  vision-based structured output.
+- Inspect model interactions and tool calls with session logging while testing
+  an end-to-end multi-agent workflow.
 
 ### 💻 Technologies used
 
-- Technology 1
-- Technology 2
-- Technology 3
+- Python and Microsoft Agent Framework
+- Model Context Protocol (MCP) and Agent-to-Agent (A2A)
+- Microsoft Foundry, Azure OpenAI, Foundry IQ, and Azure AI Search
+- FastAPI, Azure Tables, Azure Blob Storage, and Azure Maps
+- Azure Container Apps, Azure Developer CLI, Bicep, and GitHub Actions
 
 ### 📚 Continue your learning
 
@@ -119,8 +147,6 @@ Pick your next step based on your learning style:
 | **[Microsoft Foundry Community](https://aka.ms/MicrosoftFoundryDiscord-Ignite26)** | Connect with other learners and experts in our Discord community |
 
 ### 🌟 Microsoft Learn MCP Server
-
-<!-- Remove this section if the Microsoft Learn MCP Server is not relevant to the session. -->
 
 The Microsoft Learn MCP Server gives your AI agent direct access to Microsoft's official documentation — grounded, up-to-date answers about the topics in this session.
 
@@ -137,17 +163,12 @@ For more information, visit the [Learn MCP Server repo](https://aka.ms/learnmcp)
 
 ### 👥 Content owners
 
-<!-- TODO: Add yourself as a content owner
-1. Change the src in the image tag to {your github url}.png
-2. Change INSERT NAME HERE to your name
-3. Change the github url in the final href to your url. -->
-
 <table>
 <tr>
-    <td align="center"><a href="http://github.com/yourGitHubHandle">
-        <img src="https://github.com/yourGitHubHandle.png" width="100px;" alt="INSERT NAME HERE"/><br />
-        <sub><b>INSERT NAME HERE</b></sub></a><br />
-            <a href="https://github.com/yourGitHubHandle" title="talk">📢</a>
+    <td align="center"><a href="https://github.com/hnky">
+        <img src="https://github.com/hnky.png" width="100px;" alt="Henk Boelman"/><br />
+        <sub><b>Henk Boelman</b></sub></a><br />
+            <a href="https://github.com/hnky" title="talk">📢</a>
     </td>
 </tr></table>
 
