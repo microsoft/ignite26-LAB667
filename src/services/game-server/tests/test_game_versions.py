@@ -174,6 +174,37 @@ class GameVersionTests(unittest.TestCase):
         self.assertIn("Never reveal internal game-server answer keys", instructions)
         self.assertNotIn("The player must supply the answer", instructions)
 
+    def test_question_narration_does_not_append_a_second_question(self) -> None:
+        document = story()
+        mission = document["quests"][0]["missions"][0]
+        mission["arrival_prompt"] = "The volunteer asks, 'Which code did you find?'"
+        document["quests"][0]["missions"].append(copy.deepcopy(mission))
+        document["quests"][0]["missions"][1]["id"] = "question-two"
+        self.publish_new(document)
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        api_key, _ = player_identity.register_player("test-city", "Question reader")
+        started = self.call(mcp, "start_quest", {}, api_key)
+        resumed = self.call(mcp, "resume_player", {}, api_key)
+        advanced = self.call(mcp, "submit_mission_answer", {"answer": "OLD"}, api_key)
+        for result in (started, resumed, advanced["next_mission"]):
+            self.assertIn(mission["arrival_prompt"], result["narration"])
+            self.assertNotIn(mission["mission"], result["narration"])
+            self.assertEqual(result["mission"], mission["mission"])
+            self.assertIn("only if", result["ask_user"])
+            self.assertIn("once, then wait", result["ask_user"])
+        game = storage.get_game("test-city")
+        for prompt in (server._instructions_for(game), server._game_play_prompt_for(game)):
+            self.assertIn("alternative representations", prompt)
+            self.assertIn("do not ask it again", prompt)
+            self.assertIn("Offer specialist help at most", prompt)
+
+    def test_question_without_arrival_text_keeps_question_in_narration(self) -> None:
+        quest = story()["quests"][0]
+        quest["missions"][0]["arrival_prompt"] = ""
+        result = server._mission_payload({"current_mission_index": 0}, quest, "test-city")
+        self.assertEqual(result["narration"], "What is the code?")
+        self.assertEqual(result["scene"], result["narration"])
+
     def test_question_mission_can_opt_out_of_city_guide(self) -> None:
         document = story()
         document["quests"][0]["missions"][0]["uses_city_guide"] = False

@@ -95,6 +95,11 @@ PLAYER-FACING STYLE
     for the next player action. Do not skip or summarize arrival_prompt or
     complete_prompt story beats.
 - Do not say "the server says" or describe implementation details.
+- Treat narration and scene as alternative representations, not separate passages.
+    Show narration once, or scene if narration is absent. If the story already
+    asks the mission question, even in different words, do not ask it again.
+    Otherwise ask the mission question once after the story.
+    Offer specialist help at most once, then wait for the player.
 
 SESSION FLOW
 Always call begin_session first.
@@ -104,7 +109,7 @@ Always call begin_session first.
 Never invent a name, answer, or transport choice.
 
 MISSION FLOW
-- For a question mission: read the scene and ask the mission question.
+- For a question mission: read the scene and ensure the question is asked once.
     Follow the mission's specialist guidance when the player asks for help.
     For city-guide questions, a request for the City Guide or Foundry IQ means
     you should call knowledge_base_retrieve if available, not ask the player
@@ -133,6 +138,12 @@ You are an agent that plays the game by using the available tools.
 Show story text returned by game tools in full. Keep your own extra commentary short and plain.
 Do not use markdown, bullet lists, tables, or code blocks. When a specialist tool returns advice
 or an answer, show it plainly before continuing.
+Treat narration and scene as alternative representations, not separate passages.
+Show narration once, or scene if narration is absent. If the story already asks
+the mission question, even in different words, do not ask it again. Otherwise
+ask the mission question once after the story. Offer specialist help at most
+once, then wait for the player. Follow ask_user and next_action as instructions,
+not additional text to recite.
 For a city-guide question, requests naming "City Guide Knowledge Base", Foundry IQ,
 or asking you to look up the answer are requests to call knowledge_base_retrieve.
 If that tool is available, call it with the current question; do not delegate the
@@ -186,7 +197,10 @@ def _mission_payload(
     mission_type = _mission_type(mission)
     ask_user = "Read the full scene to the user, then ask them to complete the current mission."
     if mission.get("mission"):
-        ask_user = "Read the full scene to the user, then ask the mission question."
+        ask_user = (
+            "Read the full scene to the user. Ask the mission question only if "
+            "the scene has not already asked it, even in different words. Then wait."
+        )
     next_action = "Ask the human for their answer (do NOT guess or hint), then call submit_mission_answer(answer)."
     if mission_type == "move":
         start_addr = mission.get("start_address", "")
@@ -221,8 +235,8 @@ def _mission_payload(
         "movement_required": bool(mission.get("movement_required")),
         "mission": mission.get("mission", ""),
         "arrival_prompt": mission.get("arrival_prompt", ""),
-        "scene": _as_text(mission.get("arrival_prompt", ""), mission.get("mission", "")),
-        "narration": _as_text(mission.get("arrival_prompt", ""), mission.get("mission", "")),
+        "scene": _as_text(mission.get("arrival_prompt", "")) or _as_text(mission.get("mission", "")),
+        "narration": _as_text(mission.get("arrival_prompt", "")) or _as_text(mission.get("mission", "")),
         "ask_user": ask_user,
         "next_action": next_action,
     }
@@ -242,8 +256,9 @@ def _mission_payload(
         payload["scene"] = _as_text(mission.get("arrival_prompt", ""), note_line, mission.get("mission", ""))
         payload["narration"] = payload["scene"]
         payload["ask_user"] = (
-            "Read the full scene to the user, including the link to their note, then ask "
-            "the question. Tell them they can ask for HELP to read the note. Do not guess "
+            "Read the full scene to the user, including the link to their note and "
+            "the question. Do not repeat the question. Offer HELP to read the note "
+            "once, then wait. Do not guess "
             "the answer yourself."
         )
         payload["next_action"] = (
@@ -253,8 +268,10 @@ def _mission_payload(
         )
     elif slug and mission.get("uses_city_guide") is not False and str(quest.get("city_guide") or "").strip():
         payload["ask_user"] = (
-            "Read the full scene and question to the user. Offer to use Foundry IQ "
-            "and the provided data to look up the answer when they ask for help. "
+            "Read the full scene to the user. Ask the mission question only if "
+            "the scene has not already asked it, even in different words. "
+            "Offer to use Foundry IQ and the provided data to look up the answer "
+            "in one short sentence, once, then wait for their answer or help request. "
             "The city guide data is already in the lab's Blob Storage. "
             "Do not ask them to download or upload a city guide. "
             "When the retrieval tool is available, perform the requested lookup "
