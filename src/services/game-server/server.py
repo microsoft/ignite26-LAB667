@@ -77,8 +77,9 @@ You are the narrator for the workshop game '{name}'. You talk directly to
 the human player, like a friendly game host. Keep the experience moving.
 
 NON-NEGOTIABLE PRIVACY RULES
-- Never reveal, hint at, print, or summarize any hidden answer for a question
-    mission. The player must supply the answer.
+- Never reveal internal game-server answer keys or validation data. Never
+    guess an answer from memory. Evidence-based answers returned by an
+    available specialist tool may be shown to the player and submitted.
 - Never mention private route metadata to the player. Do not say code,
     token, identifier, hidden value, or anything similar. If the route helper's
     response contains private route metadata, silently use it only for the
@@ -103,9 +104,15 @@ Always call begin_session first.
 Never invent a name, answer, or transport choice.
 
 MISSION FLOW
-- For a question mission: read the scene, ask the mission question, wait for
-    the player's answer, then call submit_mission_answer(answer).
-    If rejected, simply ask them to try again. Never hint at the correct answer.
+- For a question mission: read the scene and ask the mission question.
+    Follow the mission's specialist guidance when the player asks for help.
+    For city-guide questions, a request for the City Guide or Foundry IQ means
+    you should call knowledge_base_retrieve if available, not ask the player
+    to perform the lookup. Show the evidence-based answer, then submit it.
+    If the tool is unavailable, retrieval fails, or the evidence is insufficient,
+    explain the problem and wait; do not guess or submit an unsupported answer.
+    The player may also supply their own answer for submit_mission_answer.
+    If rejected, allow another answer or another requested specialist lookup.
 - For a move mission: read the scene and route, then ask:
     "What transport will you take: car, walking, or bike? There are agents that can help lost travellers. Just ask for HELP."
     Do not choose for the player. When the player shares route advice,
@@ -126,6 +133,14 @@ You are an agent that plays the game by using the available tools.
 Show story text returned by game tools in full. Keep your own extra commentary short and plain.
 Do not use markdown, bullet lists, tables, or code blocks. When a specialist tool returns advice
 or an answer, show it plainly before continuing.
+For a city-guide question, requests naming "City Guide Knowledge Base", Foundry IQ,
+or asking you to look up the answer are requests to call knowledge_base_retrieve.
+If that tool is available, call it with the current question; do not delegate the
+lookup back to the human or send them to the portal. Use only the retrieved evidence.
+Show the grounded answer, then call submit_mission_answer with that answer.
+If the tool is missing, explain that the City Guide tool must be added to the agent.
+If retrieval fails or provides insufficient evidence, explain that and do not guess
+or submit an unsupported answer. Never disclose internal game-server answer keys.
 """
 
 
@@ -238,11 +253,22 @@ def _mission_payload(
         )
     elif slug and mission.get("uses_city_guide") is not False and str(quest.get("city_guide") or "").strip():
         payload["ask_user"] = (
-            "Read the full scene and question to the user. Tell them: "
-            "'Use Foundry IQ and the provided data to answer the question.' "
+            "Read the full scene and question to the user. Offer to use Foundry IQ "
+            "and the provided data to look up the answer when they ask for help. "
             "The city guide data is already in the lab's Blob Storage. "
             "Do not ask them to download or upload a city guide. "
-            "Do not answer the question yourself."
+            "When the retrieval tool is available, perform the requested lookup "
+            "yourself rather than asking the human to do it."
+        )
+        payload["next_action"] = (
+            "When the human requests the City Guide, Foundry IQ, or a lookup of the "
+            "current question, call knowledge_base_retrieve using its input schema. "
+            "Show the answer supported by the retrieved evidence, then call "
+            "submit_mission_answer(answer). Never answer from memory. "
+            "If knowledge_base_retrieve is unavailable, explain that the City Guide "
+            "tool must be added to the agent. If retrieval fails or lacks sufficient "
+            "evidence, explain the problem and do not submit an unsupported answer. "
+            "If the human supplies their own answer, submit that answer."
         )
     return payload
 
@@ -496,13 +522,18 @@ def build_mcp_for_game(game: dict[str, Any]) -> MCPServer:
                 "message": code_error or "That answer does not complete the mission.",
                 "narration": "Not quite. Try again.",
                 "mission_type": mission_type,
-                "ask_user": "Ask the user to try the current mission again. Do not reveal or hint at hidden answers or internal values.",
+                "ask_user": (
+                    "Ask the user to try the current mission again or request specialist help. "
+                    "Do not reveal internal answer keys or guess an answer."
+                ),
                 "next_action": "Call submit_mission_answer again with the user's corrected answer. For move missions, silently use the private metadata from the route advice.",
             }
             # Only expose transport categories for move missions; never echo back a
             # question mission's secret answers.
             if mission_type == "move":
                 rejected["transport_options"] = ["car", "walking", "bike"]
+            elif mission_type == "question":
+                rejected["next_action"] = _mission_payload(player, quest, slug)["next_action"]
             return rejected
 
         def record_success(p: dict[str, Any]):

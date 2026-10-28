@@ -140,6 +140,9 @@ class GameVersionTests(unittest.TestCase):
         api_key, _ = player_identity.register_player("test-city", "Guide reader")
         started = self.call(mcp, "start_quest", {}, api_key)
         resumed = self.call(mcp, "resume_player", {}, api_key)
+        rejected = self.call(mcp, "submit_mission_answer", {"answer": "WRONG"}, api_key)
+        self.assertEqual(rejected["status"], "mission_answer_rejected")
+        self.assertEqual(rejected["next_action"], started["next_action"])
         advanced = self.call(mcp, "submit_mission_answer", {"answer": "OLD"}, api_key)
         for result in (started, resumed, advanced["next_mission"]):
             with self.subTest(status=result.get("status", "next_mission")):
@@ -147,11 +150,29 @@ class GameVersionTests(unittest.TestCase):
                 self.assertNotIn("resources", result)
                 self.assertNotIn("/guides/", str(result))
                 self.assertIn(
-                    "Use Foundry IQ and the provided data to answer the question.",
+                    "Offer to use Foundry IQ",
                     result["ask_user"],
                 )
                 self.assertIn("already in the lab's Blob Storage", result["ask_user"])
+                self.assertIn("call knowledge_base_retrieve using its input schema", result["next_action"])
+                self.assertIn("submit_mission_answer(answer)", result["next_action"])
+                self.assertIn("do not submit an unsupported answer", result["next_action"])
+                self.assertIn("If knowledge_base_retrieve is unavailable", result["next_action"])
+                self.assertNotIn("Do not answer the question yourself", result["ask_user"])
                 self.assertNotIn("valid_answers", result)
+
+    def test_game_prompts_allow_grounded_specialist_answers(self) -> None:
+        game = storage.get_game("test-city")
+        prompt = server._game_play_prompt_for(game)
+        self.assertIn('"City Guide Knowledge Base"', prompt)
+        self.assertIn("call knowledge_base_retrieve", prompt)
+        self.assertIn("do not delegate the", prompt)
+        self.assertIn("do not guess", prompt)
+        instructions = server._instructions_for(game)
+        self.assertIn("Evidence-based answers returned by an", instructions)
+        self.assertIn("call knowledge_base_retrieve if available", instructions)
+        self.assertIn("Never reveal internal game-server answer keys", instructions)
+        self.assertNotIn("The player must supply the answer", instructions)
 
     def test_question_mission_can_opt_out_of_city_guide(self) -> None:
         document = story()
@@ -165,6 +186,7 @@ class GameVersionTests(unittest.TestCase):
         self.assertNotIn("resources", result)
         self.assertNotIn("city guide", result["ask_user"])
         self.assertNotIn("Foundry IQ", result["ask_user"])
+        self.assertNotIn("knowledge_base_retrieve", result["next_action"])
         self.assertIsNone(player_identity.player_state("test-city", api_key)["quest_question"])
         del document["quests"][0]["city_guide"]
         self.assertEqual(validate_document(document, publish=True)["errors"], [])
@@ -188,6 +210,7 @@ class GameVersionTests(unittest.TestCase):
         }])
         self.assertIn("HELP", result["ask_user"])
         self.assertIn("note-reading tool", result["next_action"])
+        self.assertNotIn("knowledge_base_retrieve", result["next_action"])
         self.assertIn("Your note: https://notes.example.test/door.jpg", result["narration"])
         self.assertTrue(result["narration"].endswith("What is the code?"))
         self.assertNotIn("SECRET", str(result))

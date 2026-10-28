@@ -39,6 +39,10 @@ players.
     - Question missions ask the player to use Foundry IQ and the provided city
       guide data to answer the question. The chapters are already in the lab's
       Blob Storage; players do not need a guide download URL or a document upload.
+      When the player asks for a City Guide or Foundry IQ lookup, the agent
+      calls `knowledge_base_retrieve`, shows the evidence-based answer, and
+      submits it. Missing tools, failed retrieval, and insufficient evidence
+      must be explained rather than replaced with guesses.
     - In the San Francisco game, the final question asks for a secret password
       written on a note in Klingon. The mission's `image_url` sends the agent a
       public link to the note, and the agent reads it with a vision model.

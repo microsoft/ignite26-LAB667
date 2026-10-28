@@ -53,6 +53,12 @@ The City Guide connection is already a tool, so it goes straight into the list
 and gives the agent **knowledge_base_retrieve**, next to **ask_agent42**. The
 model picks the right tool for each mission.
 
+The standalone City Guide test does not add the tool to **agent.py**. Keep
+**guide_tool** in the list above. The game prompt tells the agent to perform a
+requested lookup itself, using **knowledge_base_retrieve**, instead of asking
+you to search in the portal. If the tool is missing or retrieval fails, it
+should explain the problem rather than guess.
+
 ## Replace agent.py
 
 Now put the three changes together. Replace everything in **agent.py** with the
