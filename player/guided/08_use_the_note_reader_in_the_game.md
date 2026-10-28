@@ -186,8 +186,9 @@ Agent: <the host lets you in>. Welcome in! <final scene of your quest>
 > the sample note link from the previous lesson and ask the agent to read it.
 
 > **Checkpoint:** the agent confirms that your quest is complete, and the
-> **Live progress** bar at the top of this page shows every mission as
-> completed.
+> **Your Quest** sidebar on the right shows every quest step as completed
+> and the **End** marker filled in. Click **Quest started** to read the full
+> **Story so far**, including the ending.
 
 ## What You Learned
 

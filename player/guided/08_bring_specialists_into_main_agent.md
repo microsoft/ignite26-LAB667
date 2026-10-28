@@ -161,8 +161,8 @@ You: Can you look this up in the city guide?
 Agent: According to the city guide, <answer>. I submitted it, and it is correct. <next scene of your quest>
 ```
 
-> [!Hint] Look at the **Live progress** bar at the top of this page. The
-> completed question mission appears there. Open the newest session log to see
+> [!Hint] Look at the **Your Quest** sidebar on the right. The
+> completed question step appears there. Open the newest session log to see
 > the call to **knowledge_base_retrieve** and what came back.
 
 ## Travel to the event

@@ -199,8 +199,9 @@ You need to get from 515 Valencia St, San Francisco, CA 94110 to 544 Hayes St, S
 The program ends after these two messages. In the next mission, you add Agent42
 to help with travel choices and a chat loop to keep playing.
 
-> [!Hint] Look at the **Live progress** bar at the top of this page. After you
-> say **Yes**, it shows **Quest started** and "You set off on {{ player_quest }}."
+> [!Hint] Look at the **Your Quest** sidebar on the right. After you say **Yes**, click
+> **Quest started** to read the opening of **{{ player_quest }}** and your
+> **Story so far**. More scenes appear as you play; future steps stay hidden.
 
 ## What You Learned
 

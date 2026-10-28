@@ -8,7 +8,7 @@ import secrets
 from typing import Any, Mapping
 
 import storage
-from quest_logic import _current_mission_index, _normalize_quest, _quest_missions
+from quest_logic import _current_mission_index, _normalize_quest, _quest_missions, _story_so_far
 
 API_KEY_RE = re.compile(
     r"^litc\.([a-z0-9][a-z0-9-_]{0,62})\.([A-Za-z0-9_-]{40,})$"
@@ -158,12 +158,19 @@ def player_state(slug: str, api_key: str, player: dict[str, Any] | None = None) 
             event["event_index"] = event_index
             event["has_details"] = True
             event["detail"] = public_agent42_advice(str(event.get("detail") or ""))
+        elif event.get("type") == "mission_complete":
+            mission_index = event.get("mission_index")
+            if type(mission_index) is int and 0 <= mission_index < len(missions):
+                mission = missions[mission_index]
+                event["scene"] = mission.get("arrival_prompt", "")
+                event["question"] = mission.get("mission", "")
         timeline.append(event)
     return {
         "player_id": player.get("player_ref") or public_player_ref(api_key),
         "name": player.get("name"),
         "status": player.get("status"),
         "quest_name": quest.get("name"),
+        "story_so_far": _story_so_far(player, quest) if quest else [],
         "quest_question": (
             missions[question_index].get("mission")
             if question_index is not None

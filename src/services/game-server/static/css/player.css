@@ -132,6 +132,10 @@
 .player-agent42-dialog { width: min(1040px, calc(100vw - 2rem)); }
 .player-milestone-dialog { width: min(480px, calc(100vw - 2rem)); }
 #player-milestone-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+.player-quest-story-dialog { width: min(680px, calc(100vw - 2rem)); }
+.player-story-section { border-top: 1px solid var(--line); padding: 1rem 0; }
+.player-story-section h4 { margin: 0 0 .5rem; }
+.player-story-section p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.65; }
 .player-key-dialog::backdrop, .player-agent42-dialog::backdrop { background: #20221b99; backdrop-filter: blur(4px); }
 .player-key-dialog-heading, .player-key-actions {
   display: flex;

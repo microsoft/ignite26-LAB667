@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=quest-hint-v10" />
+  <link rel="stylesheet" href="/static/css/player.css?v=quest-story-v13" />
   {% if availability.state == 'open' %}<script src="/static/js/player_boot.js?v=1" data-game-slug="{{ game.slug }}"></script>{% endif %}
 </head>
 <body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
@@ -76,6 +76,11 @@
     <button id="close-player-milestone" class="button button-quiet" type="button" aria-label="Close milestone details">Close</button>
   </div>
   <p id="player-milestone-detail"></p>
+  <section id="player-quest-story" aria-labelledby="player-quest-story-title" hidden>
+    <h3 id="player-quest-story-title">Story so far</h3>
+    <p class="muted">Your story grows as you play. Future steps stay hidden.</p>
+    <div id="player-quest-story-sections"></div>
+  </section>
 </dialog>
 <dialog id="player-agent42-dialog" class="player-agent42-dialog" aria-labelledby="player-agent42-title">
   <div class="player-key-dialog-heading">
@@ -173,7 +178,7 @@
   </dialog>
   {% endfor %}
 </div>
-<script src="/static/js/player.js?v=collapsed-lessons-v12"></script>
+<script src="/static/js/player.js?v=quest-questions-v14"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>

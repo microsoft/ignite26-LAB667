@@ -123,6 +123,10 @@ case-insensitively. `move` missions default to `car`, `walking`, and `bike`
 as valid answers and use a private `route_ref` for route animation. Quests with
 city-guide question missions must include a Markdown `city_guide`; a question
 with `"uses_city_guide": false`, such as the secret note, does not require it.
+City-guide mission prompts tell players to use Foundry IQ and the provided data
+already in the lab's Blob Storage. They do not return a guide download URL or
+ask players to upload a document. Note-image missions still return their image
+resource for the Note Reader.
 When the player
 reaches that question, MCP returns a version-pinned download URL in
 `resources`; the player adds that document to Foundry IQ to retrieve the

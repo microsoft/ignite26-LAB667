@@ -58,6 +58,66 @@ class GameVersionTests(unittest.TestCase):
         saved = storage.save_draft("test-city", document, draft["revision"])
         storage.publish_draft("test-city", saved["revision"])
 
+    def test_player_story_reveals_only_reached_scenes_from_assigned_version(self) -> None:
+        document = story()
+        quest = document["quests"][0]
+        quest["begin"]["flavor"] = "Fog rolls in."
+        quest["missions"].append({
+            "id": "question-two", "type": "question",
+            "arrival_prompt": "You reach the next street.",
+            "mission": "What is on the sign?", "complete_prompt": "The door opens.",
+            "valid_answers": ["PRIVATE-SECOND-ANSWER"],
+        })
+        self.publish_new(document)
+        api_key, _ = player_identity.register_player("test-city", "Story reader")
+        abandoned_key, _ = player_identity.register_player("test-city", "Early exit")
+
+        def sections() -> list[dict[str, str]]:
+            return player_identity.player_state("test-city", api_key)["story_so_far"]
+
+        self.assertEqual(sections(), [])
+        replacement = copy.deepcopy(document)
+        replacement["quests"][0]["begin"]["prompt"] = "A replacement opening."
+        replacement["quests"][0]["missions"][0]["mission"] = "A replacement question?"
+        replacement["quests"][0]["missions"][0]["arrival_prompt"] = "A replacement scene."
+        self.publish_new(replacement)
+        mcp = server.build_mcp_for_game(storage.get_game("test-city"))
+        self.call(mcp, "start_quest", {}, api_key)
+        expected = [
+            {"title": "Opening", "text": "The beginning\n\nFog rolls in."},
+            {"title": "Quest step 1", "text": "Read the guide.\n\nWhat is the code?"},
+        ]
+        self.assertEqual(sections(), expected)
+        self.call(mcp, "submit_mission_answer", {"answer": "WRONG"}, api_key)
+        self.assertEqual(sections(), expected)
+        self.call(mcp, "submit_mission_answer", {"answer": "OLD"}, api_key)
+        expected += [
+            {"title": "Quest step 1 complete", "text": "Well done."},
+            {"title": "Quest step 2", "text": "You reach the next street.\n\nWhat is on the sign?"},
+        ]
+        self.assertEqual(sections(), expected)
+        completion = player_identity.player_state("test-city", api_key)["timeline"][-1]
+        self.assertEqual(completion["question"], "What is the code?")
+        self.assertEqual(completion["scene"], "Read the guide.")
+        self.assertEqual(completion["detail"], "Well done.")
+        self.assertNotIn("valid_answers", completion)
+        self.assertNotIn("question", storage.get_player("test-city", api_key)["timeline"][-1])
+        storage.update_player("test-city", api_key, lambda player: player.update(timeline=[]))
+        self.assertEqual(sections(), expected)
+        self.call(mcp, "submit_mission_answer", {"answer": "PRIVATE-SECOND-ANSWER"}, api_key)
+        expected += [
+            {"title": "Quest step 2 complete", "text": "The door opens."},
+            {"title": "Ending", "text": "The ending"},
+        ]
+        self.assertEqual(sections(), expected)
+        self.assertNotIn("PRIVATE-SECOND-ANSWER", str(sections()))
+        self.assertNotIn("city_guide", str(sections()))
+
+        self.call(mcp, "start_quest", {}, abandoned_key)
+        before = player_identity.player_state("test-city", abandoned_key)["story_so_far"]
+        self.call(mcp, "abandon_quest", {}, abandoned_key)
+        self.assertEqual(player_identity.player_state("test-city", abandoned_key)["story_so_far"], before)
+
     def test_draft_does_not_affect_live_story(self) -> None:
         before = storage.load_draft("test-city")
         result = storage.save_draft("test-city", story("NEW", "New story"), before["revision"])
@@ -70,19 +130,28 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(storage.get_quest("test-city", 1)["name"], "New story")
         self.assertEqual(storage.get_quest("test-city", 1, 1)["name"], "Original story")
 
-    def test_question_mission_exposes_versioned_city_guide_resource(self) -> None:
+    def test_question_mission_uses_provided_data_without_a_download_url(self) -> None:
+        document = story()
+        second = copy.deepcopy(document["quests"][0]["missions"][0])
+        second["id"] = "question-two"
+        document["quests"][0]["missions"].append(second)
+        self.publish_new(document)
         mcp = server.build_mcp_for_game(storage.get_game("test-city"))
         api_key, _ = player_identity.register_player("test-city", "Guide reader")
-        result = self.call(mcp, "start_quest", {}, api_key)
-
-        self.assertEqual(result["mission_type"], "question")
-        self.assertEqual(result["resources"], [{
-            "name": "Original story city guide",
-            "description": "Download this guide and add it to Foundry IQ to answer the mission question.",
-            "url": "http://localhost:8090/test-city/guides/1/1.md",
-            "media_type": "text/markdown",
-        }])
-        self.assertNotIn("valid_answers", result)
+        started = self.call(mcp, "start_quest", {}, api_key)
+        resumed = self.call(mcp, "resume_player", {}, api_key)
+        advanced = self.call(mcp, "submit_mission_answer", {"answer": "OLD"}, api_key)
+        for result in (started, resumed, advanced["next_mission"]):
+            with self.subTest(status=result.get("status", "next_mission")):
+                self.assertEqual(result["mission_type"], "question")
+                self.assertNotIn("resources", result)
+                self.assertNotIn("/guides/", str(result))
+                self.assertIn(
+                    "Use Foundry IQ and the provided data to answer the question.",
+                    result["ask_user"],
+                )
+                self.assertIn("already in the lab's Blob Storage", result["ask_user"])
+                self.assertNotIn("valid_answers", result)
 
     def test_question_mission_can_opt_out_of_city_guide(self) -> None:
         document = story()
@@ -95,6 +164,7 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(result["mission_type"], "question")
         self.assertNotIn("resources", result)
         self.assertNotIn("city guide", result["ask_user"])
+        self.assertNotIn("Foundry IQ", result["ask_user"])
         self.assertIsNone(player_identity.player_state("test-city", api_key)["quest_question"])
         del document["quests"][0]["city_guide"]
         self.assertEqual(validate_document(document, publish=True)["errors"], [])

@@ -190,6 +190,7 @@ class InstructionsTests(unittest.TestCase):
             self.assertEqual(payload["player"]["quest_question"], "What is the answer?")
             self.assertNotEqual(payload["player"]["player_id"], api_key)
             self.assertEqual(payload["player"]["timeline"][0]["type"], "registered")
+            self.assertEqual(payload["player"]["story_so_far"], [])
             self.assertEqual(client.get("/api/games/amsterdam/player").status_code, 401)
             state = client.get(
                 "/api/games/amsterdam/player",
@@ -432,6 +433,94 @@ class InstructionsTests(unittest.TestCase):
         with patch.dict("os.environ", {"GAME_SERVER_URL": "https://user:secret@example.test"}):
             with self.assertRaises(ValueError):
                 workshop_instructions.public_url("GAME_SERVER_URL", "")
+
+    def test_quest_started_shows_safe_live_story_on_desktop_and_mobile(self) -> None:
+        document = quest_document("The city awaits.")
+        document["quests"][0]["begin"] = {
+            "prompt": "You unfold <b>the map</b> & set out.",
+            "flavor": "The canal is quiet.\nA bell rings.",
+        }
+        document["quests"][0]["missions"][0]["mission"] = "What does <b>the sign</b> say?"
+        draft = storage.load_draft("amsterdam")
+        saved = storage.save_draft("amsterdam", document, draft["revision"])
+        storage.publish_draft("amsterdam", saved["revision"])
+        api_key, _ = player_identity.register_player("amsterdam", "Story Fox")
+
+        def start(player: dict) -> None:
+            player["started_at"] = storage.utcnow_iso()
+            player["status"] = "mission"
+            player_identity.append_timeline_event(
+                player, "quest_started", "Quest started", detail="You set off on Test route.",
+            )
+
+        storage.update_player("amsterdam", api_key, start)
+        with TestClient(dashboard.build_app()) as client, sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page()
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+
+            def serve(route):
+                url = route.request.url.removeprefix("https://instructions.test")
+                response = client.get(url, headers=dict(route.request.headers))
+                route.fulfill(status=response.status_code, body=response.content,
+                              content_type=response.headers.get("content-type", "text/plain"))
+
+            page.route("**/*", serve)
+            page.add_init_script(
+                "localStorage.setItem('lost-in-the-city:amsterdam:api-key', "
+                + repr(api_key) + ");"
+            )
+            page.goto("https://instructions.test/amsterdam/player/03_connect_to_the_gaming_mcp_server")
+            trigger = page.locator(".player-timeline-quest_started button")
+            trigger.click()
+            dialog = page.locator("#player-milestone-dialog")
+            story_panel = page.locator("#player-quest-story")
+            expect(dialog).to_be_visible()
+            expect(dialog.get_by_role("heading", name="Story so far", exact=True)).to_be_visible()
+            expect(dialog).to_contain_text("You set off on Test route.")
+            expect(story_panel.locator("h4")).to_have_text(["Opening", "Quest step 1"])
+            expect(story_panel).to_contain_text("You unfold <b>the map</b> & set out.")
+            expect(story_panel.locator("b")).to_have_count(0)
+            expect(story_panel).not_to_contain_text("Done.")
+            expect(story_panel).not_to_contain_text("ANSWER")
+            for width in (1280, 320):
+                page.set_viewport_size({"width": width, "height": 720})
+                self.assertLessEqual(dialog.bounding_box()["width"], width)
+                self.assertFalse(dialog.evaluate("(element) => element.scrollWidth > element.clientWidth"))
+            page.keyboard.press("Escape")
+            expect(trigger).to_be_focused()
+            page.keyboard.press("Enter")
+            expect(story_panel).to_be_visible()
+
+            def complete(player: dict) -> None:
+                player["status"] = "complete"
+                player["mission_results"] = [{"mission_index": 0, "answer": "ANSWER"}]
+                player_identity.append_timeline_event(
+                    player, "mission_complete", "Mission 1 complete", mission_index=0, detail="Done.",
+                )
+
+            storage.update_player("amsterdam", api_key, complete)
+            expect(story_panel.locator("h4")).to_have_text(
+                ["Opening", "Quest step 1", "Quest step 1 complete", "Ending"], timeout=10000,
+            )
+            expect(story_panel).to_contain_text("Done.")
+            expect(story_panel).not_to_contain_text("ANSWER")
+            page.get_by_role("button", name="Close milestone details").click()
+            page.locator(".player-timeline-mission_complete button").click()
+            expect(dialog.get_by_role("heading", name="Quest step 1 complete", exact=True)).to_be_visible()
+            expect(page.locator("#player-milestone-detail")).to_have_text(
+                "Find it.\n\nQuestion: What does <b>the sign</b> say?\n\nDone."
+            )
+            expect(dialog.locator("b")).to_have_count(0)
+            expect(story_panel).to_be_hidden()
+            self.assertLessEqual(dialog.bounding_box()["width"], 320)
+            page.get_by_role("button", name="Close milestone details").click()
+            page.locator(".player-timeline-start button").click()
+            expect(dialog).to_be_visible()
+            expect(story_panel).to_be_hidden()
+            self.assertEqual(errors, [])
+            browser.close()
 
     def test_public_lessons_are_responsive_and_navigation_preserves_game(self) -> None:
         with patch.object(

@@ -1,15 +1,16 @@
 # Chapter 3: Solve the Quest with Foundry IQ
 
-At the checkpoint, the game gives you a question and access to trusted
-{{ game_city }} resources. Add **Foundry IQ** to the player so the answer is
-grounded in those documents rather than guessed from model memory.
+At the checkpoint, the game gives you a question. Use **Foundry IQ** and the
+provided {{ game_city }} data to answer it. The city guide chapters are already
+in your lab's Blob Storage, in the **city-guide** container; no download or
+upload is needed. Add Foundry IQ to the player so the answer is grounded in
+those documents rather than guessed from model memory.
 
 ## Objectives
 
-1. Inspect the question and resource context returned by the game MCP server.
-2. Download the route-specific city guide returned in the current mission's
-   `resources`.
-3. Add that city guide to a Foundry IQ knowledge base.
+1. Inspect the question returned by the game MCP server.
+2. Locate the provided **city-guide** container in your lab's storage account.
+3. Create a Foundry IQ knowledge base using that Azure Blob Storage source.
 4. Add the Foundry IQ knowledge base as a focused tool for the player agent.
 5. Retrieve evidence that directly supports the current question.
 6. Make the agent refuse to fabricate an answer when the document does not

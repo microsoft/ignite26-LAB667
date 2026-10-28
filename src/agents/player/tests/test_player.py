@@ -159,6 +159,13 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
         self.kb_factory = self.enterContext(
             patch.object(guide, "MCPStreamableHTTPTool", return_value=self.kb)
         )
+        self.http = managed_resource()
+        self.http_factory = self.enterContext(patch.object(guide, "AsyncClient", return_value=self.http))
+        self.mcp_client = managed_resource()
+        self.mcp_client_factory = self.enterContext(
+            patch.object(guide, "CityGuideClient", return_value=self.mcp_client)
+        )
+        self.transport_factory = self.enterContext(patch.object(guide, "streamable_http_client"))
         self.client = MagicMock()
         self.client.client = managed_resource()
         self.client_factory = self.enterContext(
@@ -174,25 +181,30 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
             patch.object(guide, "Agent", return_value=self.test_agent)
         )
 
-    def test_city_guide_returns_mcp_tool_without_model_configuration(self) -> None:
+    async def test_city_guide_returns_mcp_tool_without_model_configuration(self) -> None:
         search_env = {key: value for key, value in ENV.items() if key.startswith("AZURE_SEARCH_")}
         for endpoint in ("https://search.invalid", "https://search.invalid/"):
             with (
                 self.subTest(endpoint=endpoint),
                 patch.dict(os.environ, {**search_env, "AZURE_SEARCH_ENDPOINT": endpoint}, clear=True),
             ):
-                self.assertIs(guide.build_city_guide_tool(), self.kb)
+                async with guide.build_city_guide_tool() as kb:
+                    self.assertIs(kb, self.kb)
                 self.kb_factory.assert_called_with(
                     name="City Guide Knowledge Base",
-                    url=(
-                        "https://search.invalid/knowledgebases/san-francisco-cityguide/mcp"
-                        "?api-version=2026-08-01-preview"
-                    ),
-                    static_headers={"api-key": ENV["AZURE_SEARCH_KEY"]},
+                    mcp_client=self.mcp_client,
                     allowed_tools=["knowledge_base_retrieve"],
                     load_prompts=False,
                 )
-        self.kb.__aenter__.assert_not_awaited()
+                self.transport_factory.assert_called_with(
+                    "https://search.invalid/knowledgebases/san-francisco-cityguide/mcp"
+                    "?api-version=2026-08-01-preview",
+                    http_client=self.http,
+                )
+                self.assertEqual(self.http_factory.call_args.kwargs["headers"], {"api-key": ENV["AZURE_SEARCH_KEY"]})
+                self.assertFalse(self.http_factory.call_args.kwargs["follow_redirects"])
+        self.assertEqual(self.http.__aexit__.await_count, 2)
+        self.assertEqual(self.mcp_client.__aexit__.await_count, 2)
         self.client_factory.assert_not_called()
         self.agent_factory.assert_not_called()
 
@@ -219,6 +231,8 @@ class SpecialistTests(unittest.IsolatedAsyncioTestCase):
         output.assert_called_once_with("Dolores Park is in the Mission District.")
         self.kb.__aenter__.assert_awaited_once()
         self.kb.__aexit__.assert_awaited_once()
+        self.http.__aexit__.assert_awaited_once()
+        self.mcp_client.__aexit__.assert_awaited_once()
         self.client.client.__aexit__.assert_awaited_once()
 
     async def test_city_guide_connection_check_rejects_missing_tool_and_closes(self) -> None:

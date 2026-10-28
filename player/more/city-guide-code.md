@@ -1,15 +1,16 @@
 # The City Guide code
 
 **agent_city_guide.py** prepares a direct MCP connection to your Foundry IQ
-knowledge base. It returns the MCP tool itself, not a separate agent wrapped
-as a tool.
+knowledge base. Its async context manager yields the MCP tool itself, not a
+separate agent wrapped as a tool.
 
 ## Step by step
 
 1. **Imports**: **MCPStreamableHTTPTool** is the same MCP connection you used
    for the game server. **Agent** and **OpenAIChatClient** are used only by the
    standalone test.
-2. **build_city_guide_tool()**: returns the MCP connection.
+2. **build_city_guide_tool()**: opens the HTTP client, MCP client, and tool when
+   entered with **async with**, and closes all three on exit.
    - The URL combines your Search endpoint, knowledge base name, and API
      version.
    - The Search API key travels in the **api-key** header. You don't need
@@ -17,6 +18,18 @@ as a tool.
    - **allowed_tools** exposes only **knowledge_base_retrieve**.
    - **load_prompts=False** skips prompt discovery; this connection only
      needs the retrieval tool.
+   - **CityGuideClient** works around Agent Framework 1.23 skipping tools with
+     optional Tasks support. It adapts only **knowledge_base_retrieve** discovery
+     metadata so normal synchronous calls remain available. It does not change
+     the cached server metadata, tool schema, or tools that require Tasks.
+   - The connection uses the legacy MCP handshake supported by Search; the
+     game server's MCP connection is unchanged. HTTP redirects are not followed,
+     so the Search key is not forwarded to a different endpoint.
+   - The framework's **message_handler** receives legacy tool-list notifications
+     so discovery refreshes when the server changes its tools.
+   - Health checks use the supported session ping. Only the framework's
+     redundant catalog-setup notice is filtered during this connection's setup;
+     other warnings and errors are not hidden.
 3. **main()**: loads **.env** and creates a model client using the existing
    **AZURE_OPENAI_DEPLOYMENT_NAME** value, **gpt-5.6-luna**. It opens the client
    and MCP connection with **async with**, checks that

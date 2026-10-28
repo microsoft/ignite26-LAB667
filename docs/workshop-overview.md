@@ -36,13 +36,14 @@ players.
 3. Quests are made of missions:
     - Move missions ask the player to choose `car`, `walking`, or `bike`. The
        agent can call Agent42 for weather-aware route advice.
-    - Question missions ask the player to recover a secret answer from the city
-      guide knowledge base.
+    - Question missions ask the player to use Foundry IQ and the provided city
+      guide data to answer the question. The chapters are already in the lab's
+      Blob Storage; players do not need a guide download URL or a document upload.
     - In the San Francisco game, the final question asks for a secret password
       written on a note in Klingon. The mission's `image_url` sends the agent a
       public link to the note, and the agent reads it with a vision model.
-      Question missions with `"uses_city_guide": false` don't offer the city
-      guide.
+      Question missions with `"uses_city_guide": false` don't direct the player
+      to Foundry IQ.
 4. The server tracks progress, failed answer attempts, and elapsed time. Games
     with Competitive Mode enabled also calculate a final score.
 5. The dashboard and admin UI show player status and, for competitive games,
@@ -220,6 +221,18 @@ integration 1.0.0b261022, A2A SDK 1.3.0, and MCP 2.3.0 on both client and
 server. Upgrade these together through the requirements file. The explicit
 A2A prerelease minimum is intentional; do not add a blanket `--pre` or bypass
 dependency constraints with `--no-deps`. Run `python -m pip check` afterward.
+
+Azure AI Search can advertise `knowledge_base_retrieve` with optional Tasks
+support. Agent Framework 1.23 skips both optional and required Tasks tools.
+The [City Guide helper](../src/agents/player/agent_city_guide.py) adapts only
+that tool's optional discovery metadata, using the SDK's public client API,
+so normal retrieval remains available. Required Tasks stay blocked, and the
+game MCP connection is unchanged. Regression tests exercise Search-style
+discovery and retrieval over a mocked HTTP transport; the live lab knowledge
+base still needs its standalone smoke test. The helper wires legacy catalog
+notifications and uses a supported session ping for health checks. Only the
+framework's redundant catalog-setup notice is filtered during City Guide setup;
+other warnings and errors remain visible.
 
 The player now uses the A2A 1.x integration. Upgrade the deployed Agent42 service
 before running the updated player against it; see the

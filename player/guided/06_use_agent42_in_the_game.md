@@ -194,8 +194,9 @@ You: Yes
 Agent: <arrival at your next stop>
 ```
 
-> [!Hint] Look at the **Live progress** bar at the top of this page. Agent42's
-> route advice and your completed mission appear there.
+> [!Hint] Look at the **Your Quest** sidebar on the right. Agent42's route
+> advice and your completed quest step appear there. Click a dot or its label
+> for more details.
 
 ## A question about the city
 

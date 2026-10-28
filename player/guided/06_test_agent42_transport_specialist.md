@@ -141,9 +141,9 @@ recommendation: <car, bike, or walking>
 recommendation code: <generated recommendation code>
 ```
 
-You can also see the full result on this page. Look at the **Live progress**
-bar at the top: a new **Agent42 route advice** entry appears. Select **View route
-details** to open the trip details: the weather, the recommended route with its
+You can also see the full result on this page. Look at the **Your Quest**
+sidebar on the right: a new **Agent42 route advice** entry appears. Click its
+dot or label to open the trip details: the weather, the recommended route with its
 distance and travel time, a map of the route, and Agent42's full advice.
 
 ## What You Learned
@@ -154,7 +154,7 @@ it on its own: Agent42 checked the route, the weather, and the traffic, and
 recommended the best way to travel.
 
 Agent42 uses the same private API key as the game server, so its advice also
-appears in your **Live progress**. In the next lesson, your game agent gets the
+appears in **Your Quest** on the right. In the next lesson, your game agent gets the
 **ask_agent42** tool and asks Agent42 for help on its own.
 
-![Ready for the next mission: a checklist showing connected to Agent42 over A2A; ask_agent42 tested on its own; route, weather, and traffic checked; and advice appears in Live progress; next, add ask_agent42 to the game agent](../assets/illustration-agent42-recap.webp)
+![Ready for the next mission: a checklist showing connected to Agent42 over A2A; ask_agent42 tested on its own; route, weather, and traffic checked; and advice recorded in player progress; next, add ask_agent42 to the game agent](../assets/illustration-agent42-recap.webp)

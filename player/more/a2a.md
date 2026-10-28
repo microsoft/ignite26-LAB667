@@ -24,7 +24,8 @@ reasons and uses its own tools.
 a mission asks you to travel across {{ game_city }}, your agent asks Agent42 how
 to get there. Agent42 checks the weather, traffic, and routes with Azure Maps,
 compares car, walking, and bike, and replies with a recommendation and a route
-map. The advice also appears in your live progress.
+map. The advice also appears in the **Your Quest** sidebar on the right.
+Click its dot or label to open the trip details.
 
 In code, your agent uses **A2AAgent** from the Microsoft Agent Framework and
 wraps it as a tool that the main agent can call.

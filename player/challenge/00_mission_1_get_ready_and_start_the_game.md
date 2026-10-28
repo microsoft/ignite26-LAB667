@@ -41,5 +41,6 @@ The situation is:
 ## Completion check
 
 The agent loads its instructions from MCP, starts the authenticated game, and
-returns the first mission for the nickname registered on this page. The Player
-timeline shows that the game has started.
+returns the first mission for the nickname registered on this page. The
+**Your Quest** sidebar on the right shows **Quest started**. Click its dot or
+label to read **Story so far**.

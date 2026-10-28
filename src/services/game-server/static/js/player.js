@@ -11,6 +11,8 @@
   const content = document.getElementById('player-content');
   const timeline = document.getElementById('player-timeline');
   const milestoneDialog = document.getElementById('player-milestone-dialog');
+  const questStory = document.getElementById('player-quest-story');
+  const questStorySections = document.getElementById('player-quest-story-sections');
   const agent42Dialog = document.getElementById('player-agent42-dialog');
   const agent42Content = document.getElementById('player-agent42-content');
   const agent42Status = document.getElementById('player-agent42-status');
@@ -22,6 +24,7 @@
   let pollTimer;
   let agent42MapUrl = '';
   let timelineMarkup = '';
+  let storyMarkup = '';
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -68,6 +71,16 @@
       element.textContent = player.quest_question || 'the question from your quest';
     });
     document.getElementById('player-api-key').textContent = apiKey;
+    const nextStoryMarkup = (player.story_so_far || []).map((section) => `
+      <section class="player-story-section">
+        <h4>${escapeHtml(section.title)}</h4>
+        <p>${escapeHtml(section.text)}</p>
+      </section>
+    `).join('');
+    if (nextStoryMarkup !== storyMarkup) {
+      questStorySections.innerHTML = nextStoryMarkup;
+      storyMarkup = nextStoryMarkup;
+    }
     const events = player.timeline || [];
     const completedMissions = new Set(events
       .filter((event) => event.type === 'mission_complete')
@@ -104,6 +117,8 @@
       ].filter(Boolean).join('. ');
       const attributes = `class="player-timeline-dot" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"`;
       const detail = [
+        event.scene,
+        event.question ? `Question: ${event.question}` : '',
         event.transport ? `Transport: ${event.transport}` : '',
         event.detail,
       ].filter(Boolean).join('\n\n') || 'No additional details recorded.';
@@ -116,7 +131,7 @@
           <svg class="player-timeline-connector" viewBox="0 0 72 64" aria-hidden="true" focusable="false">
             <path d="M24 0 C24 32 48 32 48 64" />
           </svg>
-          <button ${attributes} type="button" aria-haspopup="dialog" ${action}>
+          <button ${attributes} type="button" aria-haspopup="dialog" ${action}${event.type === 'quest_started' ? ' data-quest-story' : ''}>
             ${marker}
             <span class="player-timeline-label" aria-hidden="true">${escapeHtml(title)}</span>
           </button>
@@ -420,6 +435,9 @@
     if (milestone) {
       document.getElementById('player-milestone-title').textContent = milestone.dataset.milestoneTitle;
       document.getElementById('player-milestone-detail').textContent = milestone.dataset.milestoneDetail;
+      const showsStory = milestone.hasAttribute('data-quest-story');
+      questStory.hidden = !showsStory;
+      milestoneDialog.classList.toggle('player-quest-story-dialog', showsStory);
       milestoneDialog.showModal();
     }
   });

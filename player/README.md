@@ -19,6 +19,11 @@ path connects milestones from **Start** to **End**, each with a single-line labe
 Click a dot or its label to open a small milestone details popup. Agent42
 milestones with route details still open the advice and map. Hover descriptions
 and keyboard activation are available for every milestone.
+Completed quest steps show their original scene and question alongside the
+completion story and any recorded transport choice.
+**Quest started** also opens **Story so far**: the opening, revealed quest steps,
+completed scenes, and the ending once you finish. It updates as you play, uses
+your assigned story version, and never includes future scenes or answer keys.
 
 Guided Mode groups its thirteen lessons, including the recap, into five named
 chapters. Chapters teach you to build the agent; **Quest steps** in **Your Quest**

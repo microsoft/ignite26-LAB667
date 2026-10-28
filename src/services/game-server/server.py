@@ -21,7 +21,7 @@ import os
 import re
 from pathlib import Path
 from typing import Annotated, Any, AsyncGenerator
-from urllib.parse import quote, urlsplit
+from urllib.parse import urlsplit
 
 import anyio
 from anyio.abc import TaskGroup, TaskStatus
@@ -62,7 +62,6 @@ load_dotenv(override=True)
 MCP_HOST = os.environ.get("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.environ.get("MCP_PORT", "8000"))
 ROUTE_REF_RE = re.compile(r"^[a-z0-9]{15}$")
-DASHBOARD_URL = os.environ.get("DASHBOARD_URL", "http://localhost:8090").rstrip("/")
 
 BASE_DIR = Path(__file__).resolve().parent
 ACTIVE_PLAYER_STATUSES = {"mission"}
@@ -238,18 +237,12 @@ def _mission_payload(
             "answer and call submit_mission_answer(answer)."
         )
     elif slug and mission.get("uses_city_guide") is not False and str(quest.get("city_guide") or "").strip():
-        quest_id = quote(str(quest.get("id", "")), safe="")
-        version = int(player.get("game_version", 1))
-        payload["resources"] = [{
-            "name": f"{quest.get('name') or 'Challenge'} city guide",
-            "description": "Download this guide and add it to Foundry IQ to answer the mission question.",
-            "url": f"{DASHBOARD_URL}/{quote(slug, safe='')}/guides/{version}/{quest_id}.md",
-            "media_type": "text/markdown",
-        }]
         payload["ask_user"] = (
-            "Read the full scene and question to the user. Give them the city guide "
-            "download URL from resources and tell them to use that document with "
-            "Foundry IQ. Do not answer the question yourself."
+            "Read the full scene and question to the user. Tell them: "
+            "'Use Foundry IQ and the provided data to answer the question.' "
+            "The city guide data is already in the lab's Blob Storage. "
+            "Do not ask them to download or upload a city guide. "
+            "Do not answer the question yourself."
         )
     return payload
 

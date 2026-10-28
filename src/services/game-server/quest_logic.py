@@ -182,6 +182,34 @@ def _current_mission_index(player: dict[str, Any]) -> int:
     return 0
 
 
+def _story_so_far(player: dict[str, Any], quest: dict[str, Any]) -> list[dict[str, str]]:
+    if not player.get("started_at"):
+        return []
+    quest = _normalize_quest(quest)
+    current = _current_mission_index(player)
+    finished = player.get("status") == "complete"
+    completed = {result.get("mission_index") for result in player.get("mission_results") or []}
+    sections = [{
+        "title": "Opening",
+        "text": _as_text(quest["begin"].get("prompt"), quest["begin"].get("flavor")),
+    }]
+    for index, mission in enumerate(quest["missions"]):
+        if index > current and not finished:
+            break
+        sections.append({
+            "title": f"Quest step {index + 1}",
+            "text": _as_text(mission.get("arrival_prompt"), mission.get("mission")),
+        })
+        if index < current or index in completed or finished:
+            sections.append({
+                "title": f"Quest step {index + 1} complete",
+                "text": _as_text(mission.get("complete_prompt")),
+            })
+    if finished:
+        sections.append({"title": "Ending", "text": _as_text(quest["end"].get("prompt"))})
+    return [section for section in sections if section["text"]]
+
+
 def _player_location(player: dict[str, Any], quest: dict[str, Any]) -> dict[str, Any] | None:
     """Last known story location, never an inferred live/GPS position."""
     missions = _quest_missions(quest)

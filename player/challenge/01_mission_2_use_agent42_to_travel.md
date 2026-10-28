@@ -34,5 +34,6 @@ AGENT42_URL={{ agent42_url }}
 ## Completion check
 
 Agent42 returns a defensible route recommendation, the agent submits it to MCP,
-and the Player timeline shows both the Agent42 advice and arrival at the first
-checkpoint.
+and the **Your Quest** sidebar on the right shows both the Agent42 advice and
+arrival at the first checkpoint. Click the advice entry's dot or label to see
+the route details and map.
