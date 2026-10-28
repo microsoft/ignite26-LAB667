@@ -335,7 +335,7 @@ class InstructionsTests(unittest.TestCase):
             response = client.get("/amsterdam/player")
             self.assertEqual(response.status_code, 200)
             self.assertNotIn("Challenge mode", response.text)
-            self.assertIn("Mission 1: Get Ready and Start the Game", response.text)
+            self.assertIn("Chapter 1: Get Ready and Start the Game", response.text)
             self.assertIn("A published Amsterdam story from the quest document.", response.text)
             self.assertIn("Load the <code>game_play_prompt</code> instructions", response.text)
             self.assertIn("Next lesson", response.text)
@@ -346,7 +346,7 @@ class InstructionsTests(unittest.TestCase):
             foundry_iq = client.get("/amsterdam/player/02_mission_3_solve_the_quest_with_foundry_iq")
             self.assertIn("Foundry IQ", foundry_iq.text)
 
-    def test_guided_lessons_are_grouped_into_named_missions(self) -> None:
+    def test_guided_lessons_are_grouped_into_named_chapters(self) -> None:
         lessons = [
             {
                 "slug": path.stem,
@@ -358,11 +358,11 @@ class InstructionsTests(unittest.TestCase):
         self.assertEqual(
             [(mission["label"], mission["name"], len(mission["lessons"])) for mission in missions],
             [
-                ("Mission 1", "Get Ready and Start the Game", 5),
-                ("Mission 2", "Travel with Agent42", 2),
-                ("Mission 3", "Build the City Guide", 3),
-                ("Mission 4", "Read the Secret Note", 2),
-                ("Mission 5", "Lab Recap", 1),
+                ("Chapter 1", "Get Ready and Start the Game", 5),
+                ("Chapter 2", "Travel with Agent42", 2),
+                ("Chapter 3", "Build the City Guide", 3),
+                ("Chapter 4", "Read the Secret Note", 2),
+                ("Chapter 5", "Lab Recap", 1),
             ],
         )
 
@@ -374,7 +374,7 @@ class InstructionsTests(unittest.TestCase):
         self.assertEqual(response.text.count('class="workshop-nav-mission"'), 5)
         self.assertRegex(
             response.text,
-            r'class="lesson-mission-heading">\s*<span>Mission 2</span>\s*'
+            r'class="lesson-mission-heading">\s*<span>Chapter 2</span>\s*'
             r'<strong>Travel with Agent42</strong>',
         )
         self.assertEqual(response.text.count('aria-current="page"'), 1)
@@ -469,41 +469,159 @@ class InstructionsTests(unittest.TestCase):
             page.get_by_label("Choose your nickname").fill("Browser Fox")
             start_button.click()
             expect(page.get_by_text("Player: Browser Fox", exact=True)).to_be_visible()
-            expect(page.get_by_text("LIVE PROGRESS", exact=True)).to_be_visible()
+            expect(page.get_by_text("LIVE PROGRESS", exact=True)).to_have_count(0)
+            progress_rail = page.get_by_role("complementary", name="Your Quest")
+            timeline_shell = page.locator("#player-timeline-shell")
+            expect(progress_rail).to_be_visible()
+            expect(progress_rail.get_by_role("heading", name="Your Quest")).to_be_visible()
+            expect(progress_rail.get_by_text("Click on the steps for more info.", exact=True)).to_be_visible()
+            expect(page.locator("#player-progress-toggle")).to_have_count(0)
+            expect(timeline_shell).to_be_visible()
+            self.assertEqual(progress_rail.evaluate(
+                "(element) => getComputedStyle(element).backgroundColor"
+            ), "rgb(255, 255, 255)")
+            self.assertEqual(progress_rail.bounding_box()["width"], 192)
+            expect(page.locator(".workshop-header #player-progress")).to_have_count(0)
+            self.assertLess(page.locator(".workshop-header").bounding_box()["height"], 120)
+            nav_toggle = page.locator("#workshop-nav-toggle")
+            chapter_nav = page.locator("#workshop-nav")
+            nav_icon = nav_toggle.locator(".workshop-nav-toggle-icon")
+            def toggle_with_animation(dimension: str) -> None:
+                measurements = page.evaluate(
+                    """(dimension) => {
+                        const layout = document.getElementById('player-content');
+                        const sidebar = layout.querySelector('.workshop-sidebar');
+                        const size = () => sidebar.getBoundingClientRect()[dimension];
+                        const before = size();
+                        document.getElementById('workshop-nav-toggle').click();
+                        const animations = layout.getAnimations({subtree: true});
+                        const durations = animations.map(animation =>
+                            animation.effect.getTiming().duration);
+                        for (const animation of animations) {
+                            animation.pause();
+                            animation.currentTime = animation.effect.getTiming().duration / 2;
+                        }
+                        const middle = size();
+                        for (const animation of animations) animation.finish();
+                        return {before, middle, after: size(), durations};
+                    }""",
+                    dimension,
+                )
+                self.assertIn(240, measurements["durations"])
+                self.assertGreater(
+                    measurements["middle"], min(measurements["before"], measurements["after"])
+                )
+                self.assertLess(
+                    measurements["middle"], max(measurements["before"], measurements["after"])
+                )
+
+            expect(nav_toggle).to_have_attribute("aria-expanded", "false")
+            expect(chapter_nav).to_have_js_property("inert", True)
+            expect(nav_toggle).to_have_attribute("aria-label", "Show chapters")
+            expect(nav_toggle).to_have_attribute("title", "Show chapters")
+            expect(nav_toggle).to_have_text("")
+            expect(chapter_nav).to_be_hidden()
+            self.assertEqual(
+                nav_icon.evaluate("(element) => getComputedStyle(element, '::before').content"),
+                '"\u203a"',
+            )
+            toggle_with_animation("width")
+            expect(chapter_nav).to_be_visible()
+            expect(chapter_nav).to_have_js_property("inert", False)
+            expect(nav_toggle).to_have_attribute("aria-expanded", "true")
+            expect(nav_toggle).to_have_attribute("aria-label", "Hide chapters")
+            expect(nav_toggle).to_have_attribute("title", "Hide chapters")
+            self.assertEqual(
+                nav_icon.evaluate("(element) => getComputedStyle(element, '::before').content"),
+                '"\u2039"',
+            )
+            page.reload()
+            expect(chapter_nav).to_be_visible()
+            expect(nav_toggle).to_have_attribute("aria-expanded", "true")
+            nav_toggle.focus()
+            page.keyboard.press("Enter")
+            expect(chapter_nav).to_be_hidden()
+            page.reload()
+            expect(chapter_nav).to_be_hidden()
+            expect(nav_toggle).to_have_attribute("aria-expanded", "false")
+            expect(nav_toggle).to_have_attribute("title", "Show chapters")
+            page.evaluate("localStorage.setItem('lost-in-the-city:progress-collapsed', 'true')")
+            page.reload()
+            expect(page.get_by_text("Player: Browser Fox", exact=True)).to_be_visible()
+            expect(chapter_nav).to_be_hidden()
+            expect(timeline_shell).to_be_visible()
+            expect(timeline_shell).to_have_js_property("inert", False)
+            page.emulate_media(reduced_motion="reduce")
+            nav_toggle.click()
+            expect(chapter_nav).to_be_visible()
+            self.assertEqual(page.locator("#player-content").evaluate(
+                "(element) => element.getAnimations({subtree: true}).length"
+            ), 0)
+            nav_toggle.click()
+            expect(chapter_nav).to_be_hidden()
+            expect(timeline_shell).to_be_visible()
+            page.emulate_media(reduced_motion="no-preference")
             expect(page.get_by_text("missions completed")).to_have_count(0)
             expect(page.get_by_text("Your game timeline")).to_have_count(0)
-            self.assertEqual(
-                page.locator("#player-timeline").evaluate(
-                    "(element) => getComputedStyle(element).display"
-                ),
-                "flex",
+            expect(page.locator(".player-timeline-label")).to_have_text(["Start", "Quest step 1", "End"])
+            expect(page.locator(".player-timeline-pending-end")).to_have_count(1)
+            path_style = page.locator(".player-timeline-connector").first.evaluate(
+                "(element) => { const style = getComputedStyle(element); "
+                "return {dash: style.strokeDasharray, cap: style.strokeLinecap}; }"
             )
+            self.assertEqual(path_style, {"dash": "1px, 6px", "cap": "round"})
             marker_alignment = page.locator(".player-timeline-event").first.evaluate(
                 """(element) => {
-                    const event = element.getBoundingClientRect();
                     const marker = element.querySelector('.player-timeline-marker').getBoundingClientRect();
-                    const connector = getComputedStyle(element, '::after');
+                    const next = element.nextElementSibling.querySelector('.player-timeline-marker').getBoundingClientRect();
+                    const path = element.querySelector('path');
+                    const start = path.getPointAtLength(0).matrixTransform(path.getScreenCTM());
+                    const end = path.getPointAtLength(path.getTotalLength()).matrixTransform(path.getScreenCTM());
                     return {
-                        horizontal: Math.abs(
-                            marker.left + marker.width / 2 - event.left - parseFloat(connector.left)
-                        ),
-                        vertical: Math.abs(
-                            marker.top + marker.height / 2 - event.top
-                            - parseFloat(connector.top) - parseFloat(connector.borderTopWidth) / 2
-                        ),
+                        startX: Math.abs(marker.left + marker.width / 2 - start.x),
+                        startY: Math.abs(marker.top + marker.height / 2 - start.y),
+                        endX: Math.abs(next.left + next.width / 2 - end.x),
+                        endY: Math.abs(next.top + next.height / 2 - end.y),
+                        verticalDistance: next.top - marker.top,
                     };
                 }"""
             )
-            self.assertLessEqual(marker_alignment["horizontal"], .5)
-            self.assertLessEqual(marker_alignment["vertical"], .5)
+            for coordinate in ("startX", "startY", "endX", "endY"):
+                self.assertLessEqual(marker_alignment[coordinate], .5)
+            self.assertEqual(marker_alignment["verticalDistance"], 64)
             expect(page.locator(".player-timeline-pending")).to_have_count(1)
-            expect(page.locator(".player-timeline-pending")).to_contain_text("Mission 1")
-            expect(page.locator("#player-timeline time")).to_have_count(0)
-            pending_colors = page.locator(".player-timeline-pending").evaluate(
-                "(element) => { const style = getComputedStyle(element.querySelector('div')); "
-                "return [style.color, style.backgroundColor]; }"
+            expect(page.locator(".player-timeline-pending .player-timeline-dot")).to_have_attribute(
+                "aria-label", "Quest step 1. Not completed yet."
             )
-            self.assertNotEqual(pending_colors[0], pending_colors[1])
+            expect(page.locator(".player-timeline-pending .player-timeline-dot")).to_have_attribute(
+                "title", "Quest step 1. Not completed yet."
+            )
+            expect(page.locator("#player-timeline time")).to_have_count(0)
+            expect(page.locator("#player-timeline button[aria-haspopup='dialog']")).to_have_count(3)
+            milestone_dialog = page.locator("#player-milestone-dialog")
+            for title, detail in (
+                ("Start", "Your adventure begins here."),
+                ("Quest step 1", "Not completed yet."),
+                ("End", "Your final destination."),
+            ):
+                trigger = page.locator(".player-timeline-dot").filter(has_text=title)
+                trigger.locator(".player-timeline-label").click()
+                expect(milestone_dialog).to_be_visible()
+                expect(milestone_dialog.get_by_role("heading", name=title, exact=True)).to_be_visible()
+                expect(milestone_dialog).to_contain_text(detail)
+                page.keyboard.press("Escape")
+                expect(milestone_dialog).not_to_be_visible()
+                expect(trigger).to_be_focused()
+            page.keyboard.press("Enter")
+            expect(milestone_dialog).to_be_visible()
+            page.get_by_role("button", name="Close milestone details").click()
+            expect(milestone_dialog).not_to_be_visible()
+            page.keyboard.press("Tab")
+            page.locator(".player-timeline-dot").first.focus()
+            page.keyboard.press("Space")
+            expect(milestone_dialog).to_be_visible()
+            page.mouse.click(1, 1)
+            expect(milestone_dialog).not_to_be_visible()
             page.get_by_role("button", name="API key").click()
             expect(page.get_by_role("dialog", name="Private API key")).to_be_visible()
             key_colors = page.locator("#player-api-key").evaluate(
@@ -567,7 +685,7 @@ class InstructionsTests(unittest.TestCase):
             ):
                 page.reload()
                 expect(page.locator("[data-agent42-event]")).to_be_visible()
-                page.locator("[data-agent42-event]").click()
+                page.locator("[data-agent42-event] .player-timeline-label").click()
                 agent42_dialog = page.get_by_role("dialog", name="Agent42 route advice")
                 expect(agent42_dialog).to_be_visible()
                 expect(agent42_dialog).to_contain_text("14 C, light rain")
@@ -583,14 +701,75 @@ class InstructionsTests(unittest.TestCase):
                     page.set_viewport_size({"width": width, "height": 900})
                     self.assertFalse(page.evaluate("document.documentElement.scrollWidth > innerWidth"))
                     expect(page.get_by_role("link", name="Next lesson")).to_be_visible()
-            timeline_previous = page.get_by_role("button", name="Scroll timeline left")
-            timeline_next = page.get_by_role("button", name="Scroll timeline right")
-            expect(timeline_previous).to_be_visible()
-            expect(timeline_previous).to_be_disabled()
-            expect(timeline_next).to_be_visible()
-            expect(timeline_next).to_be_enabled()
-            timeline_next.click()
-            expect(page.locator("#player-timeline")).not_to_have_js_property("scrollLeft", 0)
+                    toggle_with_animation("height" if width <= 900 else "width")
+                    expect(chapter_nav).to_be_visible()
+                    self.assertFalse(page.evaluate("document.documentElement.scrollWidth > innerWidth"))
+                    toggle_with_animation("height" if width <= 900 else "width")
+                    expect(chapter_nav).to_be_hidden()
+                    rail_box = progress_rail.bounding_box()
+                    lesson_box = page.locator("#player").bounding_box()
+                    self.assertGreaterEqual(rail_box["x"], lesson_box["x"] + lesson_box["width"] - 1)
+                    self.assertLessEqual(rail_box["x"] + rail_box["width"], width)
+                    for endpoint in (
+                        page.locator(".player-timeline-label").first,
+                        page.locator(".player-timeline-label").last,
+                    ):
+                        expect(endpoint).to_be_visible()
+                        self.assertFalse(endpoint.evaluate(
+                            "(element) => element.scrollWidth > element.clientWidth"
+                        ))
+                    label_style = page.locator(".player-timeline-label").nth(1).evaluate(
+                        "(element) => { const style = getComputedStyle(element); "
+                        "return {whitespace: style.whiteSpace, overflow: style.textOverflow}; }"
+                    )
+                    self.assertEqual(label_style, {"whitespace": "nowrap", "overflow": "ellipsis"})
+                    expect(timeline_shell).to_be_visible()
+                    expect(progress_rail.get_by_role("heading", name="Your Quest")).to_be_visible()
+                    page.locator(".player-timeline-label").first.click()
+                    expect(milestone_dialog).to_be_visible()
+                    self.assertLessEqual(milestone_dialog.bounding_box()["width"], width)
+                    page.get_by_role("button", name="Close milestone details").click()
+
+            def add_long_timeline(player: dict) -> None:
+                for index in range(20):
+                    player_identity.append_timeline_event(
+                        player, "mission_complete", f"Completed stage {index + 1}",
+                        detail="Read <b>the sign</b> & continue.",
+                    )
+
+            storage.update_player("amsterdam", browser_api_key, add_long_timeline)
+            page.reload()
+            expect(page.locator(".player-timeline-dot")).to_have_count(24)
+            page.locator(".player-timeline-dot").filter(has_text="Completed stage 1").first.click()
+            expect(page.locator("#player-milestone-detail")).to_have_text("Read <b>the sign</b> & continue.")
+            expect(milestone_dialog.locator("b")).to_have_count(0)
+            page.get_by_role("button", name="Close milestone details").click()
+            self.assertTrue(timeline_shell.evaluate(
+                "(element) => element.scrollHeight > element.clientHeight"
+            ))
+            page.locator(".player-timeline-dot").last.focus()
+            expect(timeline_shell).not_to_have_js_property("scrollTop", 0)
+            with page.expect_response(re.compile(r"/api/games/amsterdam/player$")):
+                pass
+            expect(page.locator(".player-timeline-dot").last).to_be_focused()
+            def complete_adventure(player: dict) -> None:
+                player_identity.append_timeline_event(
+                    player, "mission_complete", "Mission 1 complete", mission_index=0,
+                )
+                player["status"] = "complete"
+
+            storage.update_player("amsterdam", browser_api_key, complete_adventure)
+            expect(page.locator(".player-timeline-pending")).to_have_count(0)
+            expect(page.locator(".player-timeline-dot").nth(-2)).to_have_attribute(
+                "aria-label", "Quest step 1 complete"
+            )
+            expect(page.locator(".player-timeline-dot").last).to_have_attribute(
+                "aria-label", "End. Adventure completed."
+            )
+            expect(page.locator(".player-timeline-end")).to_have_count(1)
+            expect(page.locator(".player-timeline-label").first).to_have_text("Start")
+            expect(page.locator(".player-timeline-label").last).to_have_text("End")
+            expect(page.get_by_role("button", name="Scroll timeline left")).to_have_count(0)
             page.get_by_role("link", name="Next lesson").click()
             expect(page).to_have_url(
                 "https://instructions.test/amsterdam/player/05_add_session_logging"

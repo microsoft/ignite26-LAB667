@@ -10,9 +10,7 @@
   const progress = document.getElementById('player-progress');
   const content = document.getElementById('player-content');
   const timeline = document.getElementById('player-timeline');
-  const timelineShell = document.getElementById('player-timeline-shell');
-  const timelinePrevious = document.getElementById('player-timeline-previous');
-  const timelineNext = document.getElementById('player-timeline-next');
+  const milestoneDialog = document.getElementById('player-milestone-dialog');
   const agent42Dialog = document.getElementById('player-agent42-dialog');
   const agent42Content = document.getElementById('player-agent42-content');
   const agent42Status = document.getElementById('player-agent42-status');
@@ -23,26 +21,11 @@
   let apiKey = localStorage.getItem(storageKey) || '';
   let pollTimer;
   let agent42MapUrl = '';
+  let timelineMarkup = '';
 
   const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[character]));
-
-  function updateTimelineControls() {
-    const maxScroll = Math.max(0, timeline.scrollWidth - timeline.clientWidth);
-    timelineShell.classList.toggle('player-timeline-scrollable', maxScroll > 1);
-    timelinePrevious.hidden = maxScroll <= 1;
-    timelineNext.hidden = maxScroll <= 1;
-    timelinePrevious.disabled = timeline.scrollLeft <= 1;
-    timelineNext.disabled = timeline.scrollLeft >= maxScroll - 1;
-  }
-
-  function scrollTimeline(direction) {
-    const milestone = timeline.querySelector('.player-timeline-event');
-    const distance = milestone ? milestone.getBoundingClientRect().width : timeline.clientWidth;
-    timeline.scrollLeft += direction * distance;
-    updateTimelineControls();
-  }
 
   function showRegistration(message = '') {
     clearTimeout(pollTimer);
@@ -55,8 +38,10 @@
     registration.hidden = false;
     headerIdentity.hidden = true;
     progress.hidden = true;
+    document.getElementById('player-progress-status').hidden = true;
     content.hidden = true;
     if (keyDialog.open) keyDialog.close();
+    if (milestoneDialog.open) milestoneDialog.close();
     error.textContent = message;
     error.hidden = !message;
   }
@@ -92,31 +77,60 @@
       (_, index) => index,
     ).filter((index) => !completedMissions.has(index)).map((index) => ({
       type: 'pending',
-      title: `Mission ${index + 1}`,
+      title: `Quest step ${index + 1}`,
       detail: 'Not completed yet.',
       occurred_at: '',
     }));
-    timeline.innerHTML = [...events, ...pendingMissions].map((event) => `
-      <li class="player-timeline-event player-timeline-${escapeHtml(event.type)}">
-        <span class="player-timeline-marker" aria-hidden="true"></span>
-        <div>
-          ${event.type === 'agent42' && event.has_details
-            ? `<button class="player-timeline-detail" type="button" data-agent42-event="${event.event_index}">
-                <span class="player-timeline-meta"><strong>${escapeHtml(event.title)}</strong></span>
-                ${event.detail ? `<span class="player-timeline-detail-summary">${escapeHtml(event.detail)}</span>` : ''}
-                <span class="player-timeline-detail-cta">View route details &rarr;</span>
-              </button>`
-            : `<div class="player-timeline-meta">
-                <strong>${escapeHtml(event.title)}</strong>
-              </div>
-              ${event.transport
-                ? `<span class="player-timeline-transport">Transport: ${escapeHtml(event.transport)}</span>`
-                : ''}
-              ${event.detail ? `<p>${escapeHtml(event.detail)}</p>` : ''}`}
-        </div>
-      </li>
-    `).join('');
-    requestAnimationFrame(updateTimelineControls);
+    const milestones = [
+      { type: 'start', title: 'Start', detail: 'Your adventure begins here.' },
+      ...events.filter((event) => event.type !== 'registered'),
+      ...pendingMissions,
+      {
+        type: player.status === 'complete' ? 'end' : 'pending-end',
+        title: 'End',
+        detail: player.status === 'complete' ? 'Adventure completed.' : 'Your final destination.',
+      },
+    ];
+    const markup = milestones.map((event) => {
+      const hasDetails = event.type === 'agent42' && event.has_details;
+      const title = event.type === 'mission_complete'
+        ? event.title.replace(/^Mission (\d+) complete$/, 'Quest step $1 complete')
+        : event.title;
+      const label = [
+        title,
+        event.transport ? `Transport: ${event.transport}` : '',
+        event.detail,
+        hasDetails ? 'View route details' : '',
+      ].filter(Boolean).join('. ');
+      const attributes = `class="player-timeline-dot" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"`;
+      const detail = [
+        event.transport ? `Transport: ${event.transport}` : '',
+        event.detail,
+      ].filter(Boolean).join('\n\n') || 'No additional details recorded.';
+      const action = hasDetails
+        ? `data-agent42-event="${escapeHtml(event.event_index)}"`
+        : `data-milestone-title="${escapeHtml(title)}" data-milestone-detail="${escapeHtml(detail)}"`;
+      const marker = '<span class="player-timeline-marker" aria-hidden="true"></span>';
+      return `
+        <li class="player-timeline-event player-timeline-${escapeHtml(event.type)}">
+          <svg class="player-timeline-connector" viewBox="0 0 72 64" aria-hidden="true" focusable="false">
+            <path d="M24 0 C24 32 48 32 48 64" />
+          </svg>
+          <button ${attributes} type="button" aria-haspopup="dialog" ${action}>
+            ${marker}
+            <span class="player-timeline-label" aria-hidden="true">${escapeHtml(title)}</span>
+          </button>
+        </li>
+      `;
+    }).join('');
+    if (markup !== timelineMarkup) {
+      const focusedIndex = [...timeline.children].findIndex((event) => event.contains(document.activeElement));
+      timeline.innerHTML = markup;
+      timelineMarkup = markup;
+      if (focusedIndex >= 0) {
+        timeline.children[focusedIndex]?.querySelector('.player-timeline-dot').focus({ preventScroll: true });
+      }
+    }
   }
 
   function releaseAgent42Map() {
@@ -366,9 +380,12 @@
   function setNavCollapsed(collapsed) {
     content.classList.toggle('workshop-nav-collapsed', collapsed);
     navToggle.setAttribute('aria-expanded', String(!collapsed));
-    navToggle.querySelector('.workshop-nav-toggle-label').textContent = collapsed ? 'Show chapters' : 'Hide chapters';
+    document.getElementById('workshop-nav').inert = collapsed;
+    const label = collapsed ? 'Show chapters' : 'Hide chapters';
+    navToggle.setAttribute('aria-label', label);
+    navToggle.title = label;
   }
-  setNavCollapsed(localStorage.getItem(navCollapsedKey) === 'true');
+  setNavCollapsed(localStorage.getItem(navCollapsedKey) !== 'false');
   navToggle.addEventListener('click', () => {
     const collapsed = !content.classList.contains('workshop-nav-collapsed');
     localStorage.setItem(navCollapsedKey, String(collapsed));
@@ -395,14 +412,25 @@
     });
   });
 
-  timelinePrevious.addEventListener('click', () => scrollTimeline(-1));
-  timelineNext.addEventListener('click', () => scrollTimeline(1));
   timeline.addEventListener('click', (event) => {
     const trigger = event.target.closest('[data-agent42-event]');
-    if (trigger) openAgent42Details(trigger.dataset.agent42Event);
+    if (trigger) {
+      openAgent42Details(trigger.dataset.agent42Event);
+      return;
+    }
+    const milestone = event.target.closest('[data-milestone-title]');
+    if (milestone) {
+      document.getElementById('player-milestone-title').textContent = milestone.dataset.milestoneTitle;
+      document.getElementById('player-milestone-detail').textContent = milestone.dataset.milestoneDetail;
+      milestoneDialog.showModal();
+    }
   });
-  timeline.addEventListener('scroll', updateTimelineControls, { passive: true });
-  window.addEventListener('resize', updateTimelineControls);
+  document.getElementById('close-player-milestone').addEventListener('click', () => {
+    milestoneDialog.close();
+  });
+  milestoneDialog.addEventListener('click', (event) => {
+    if (event.target === milestoneDialog) milestoneDialog.close();
+  });
   agent42Dialog.addEventListener('close', releaseAgent42Map);
 
   loadState().catch((loadError) => {

@@ -1,4 +1,4 @@
-# Mission 3: Solve the Quest with Foundry IQ
+# Chapter 3: Solve the Quest with Foundry IQ
 
 At the checkpoint, the game gives you a question and access to trusted
 {{ game_city }} resources. Add **Foundry IQ** to the player so the answer is

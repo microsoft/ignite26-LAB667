@@ -3,39 +3,52 @@
 Follow these steps to build an agent that plays **Lost in the City**.
 Players open **/<game-slug>/player** on the dashboard service. In **Guided
 Mode**, the shared lessons below are rendered with the selected game's values.
-In **Challenge Mode**, players receive four outcome-focused game missions
+In **Challenge Mode**, players receive four outcome-focused chapters
 without the Guided Mode implementation walkthrough. The experience assumes a
 prepared Windows workshop machine; the facilitator supplies credentials
 privately.
 For local service setup, see the [workshop overview](../docs/workshop-overview.md).
 
-Guided Mode groups its thirteen lessons, including the recap, into five named missions. The
-game's own completion shows in the Player page's live progress:
+The chapter sidebar starts collapsed. Use the `>` / `<` button to show or hide
+it; its hover tooltip describes the action. The sidebar slides open and closed,
+unless your browser requests reduced motion. The browser remembers your choice
+between lessons and visits.
 
-1. **Mission 1: Get Ready and Start the Game**
+Live progress stays visible in the white **Your Quest** sidebar on the right. A dotted
+path connects milestones from **Start** to **End**, each with a single-line label.
+Click a dot or its label to open a small milestone details popup. Agent42
+milestones with route details still open the advice and map. Hover descriptions
+and keyboard activation are available for every milestone.
+
+Guided Mode groups its thirteen lessons, including the recap, into five named
+chapters. Chapters teach you to build the agent; **Quest steps** in **Your Quest**
+track the assigned game's tasks. These are separate sequences: reading a lesson
+does not complete a quest step, and their counts do not need to match.
+
+1. **Chapter 1: Get Ready and Start the Game**
    - [Step into your workspace](guided/00_step_into_your_workspace.md)
    - [Get Azure OpenAI details from Microsoft Foundry](guided/01_get_azure_openai_details_from_foundry.md)
    - [Create a hello world agent](guided/02_create_hello_world_agent.md)
    - [Connect to the gaming MCP server](guided/03_connect_to_the_gaming_mcp_server.md)
    - [Add session logging](guided/05_add_session_logging.md)
-2. **Mission 2: Travel with Agent42**
+2. **Chapter 2: Travel with Agent42**
    - [Agent42 transport specialist](guided/06_test_agent42_transport_specialist.md)
    - [Add Agent42 to your agent](guided/06_use_agent42_in_the_game.md)
-3. **Mission 3: Build the City Guide**
+3. **Chapter 3: Build the City Guide**
    - [City Guide part 1: create the knowledge base](guided/07_create_the_city_guide_knowledge_base.md)
    - [City Guide part 2: connect the knowledge base to your agent](guided/07_test_the_city_guide_agent.md)
    - [Add the City Guide to your agent](guided/08_bring_specialists_into_main_agent.md)
-4. **Mission 4: Read the Secret Note**
+4. **Chapter 4: Read the Secret Note**
    - [Note Reader specialist](guided/08_read_the_secret_note.md)
    - [Add the Note Reader to your agent](guided/08_use_the_note_reader_in_the_game.md)
-5. **Mission 5: Lab Recap**
+5. **Chapter 5: Lab Recap**
    - [Lab recap](guided/09_lab_recap.md)
 
 Challenge Mode follows the game itself:
 
-1. [Mission 1: Get ready and start the game](challenge/00_mission_1_get_ready_and_start_the_game.md)
-2. [Mission 2: Use Agent42 to travel](challenge/01_mission_2_use_agent42_to_travel.md)
-3. [Mission 3: Solve the quest with Foundry IQ](challenge/02_mission_3_solve_the_quest_with_foundry_iq.md)
+1. [Chapter 1: Get ready and start the game](challenge/00_mission_1_get_ready_and_start_the_game.md)
+2. [Chapter 2: Use Agent42 to travel](challenge/01_mission_2_use_agent42_to_travel.md)
+3. [Chapter 3: Solve the quest with Foundry IQ](challenge/02_mission_3_solve_the_quest_with_foundry_iq.md)
 4. [Arrived: Complete the game](challenge/03_arrived_complete_the_game.md)
 
 The canonical runnable sample is in

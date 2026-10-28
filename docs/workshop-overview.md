@@ -125,7 +125,7 @@ until a schedule is set. Settings take effect immediately, separately from story
 publication.
 
 Share `http://localhost:8090/<slug>/player` with players (use the dashboard host
-in Azure). Guided Mode groups thirteen lessons into five missions; Challenge Mode
+in Azure). Guided Mode groups thirteen lessons into five chapters; Challenge Mode
 renders four outcome-focused game stages: setup and MCP, Agent42 travel, a
 Foundry IQ grounded question, and final arrival. Both use the game's name,
 endpoint, dates, times, and timezone. **Preview player** serves the same content
@@ -274,7 +274,7 @@ against their canonical source using Python's abstract syntax tree.
 
 ## Workshop flow
 
-Guided Mode groups these thirteen lessons into five missions: getting ready,
+Guided Mode groups these thirteen lessons into five chapters: getting ready,
 Agent42 travel, the City Guide, the Note Reader, and a recap. See the
 [player guide](../player/README.md) for the grouping and Challenge Mode path.
 

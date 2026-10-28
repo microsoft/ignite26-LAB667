@@ -1,4 +1,4 @@
-# Mission 2: Use Agent42 to Travel
+# Chapter 2: Use Agent42 to Travel
 
 The game has given you a travel situation. Extend the player with an A2A
 specialist called **Agent42** and use its recommendation to reach the first

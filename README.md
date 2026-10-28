@@ -30,7 +30,7 @@ If you're following along during a live session:
 2. On the prepared Windows 11 lab VM, click the **Visual Studio Code** desktop
    icon. The **C:\workshop** folder should already be open; open a PowerShell
    terminal there.
-3. Follow the Player page's Guided or Challenge missions. Add the supplied
+3. Follow the Player page's Guided or Challenge chapters. Add the supplied
    model/search settings, **GAME_MCP_URL**, and **GAME_API_KEY** to the existing
    **C:\workshop\.env** file. Keep credentials private.
 

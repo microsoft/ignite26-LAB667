@@ -1,6 +1,6 @@
-# Mission 1: Get Ready and Start the Game
+# Chapter 1: Get Ready and Start the Game
 
-Your first mission is to prepare the development environment and build an agent
+In this chapter, prepare the development environment and build an agent
 that can enter {{ game_name }}.
 
 The situation is:

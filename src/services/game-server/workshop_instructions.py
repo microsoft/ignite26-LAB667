@@ -41,7 +41,7 @@ PLAYER_MARKUP = {
 }
 GUIDED_MISSIONS = (
     {
-        "label": "Mission 1",
+        "label": "Chapter 1",
         "name": "Get Ready and Start the Game",
         "lessons": (
             "00_step_into_your_workspace",
@@ -52,7 +52,7 @@ GUIDED_MISSIONS = (
         ),
     },
     {
-        "label": "Mission 2",
+        "label": "Chapter 2",
         "name": "Travel with Agent42",
         "lessons": (
             "06_test_agent42_transport_specialist",
@@ -60,7 +60,7 @@ GUIDED_MISSIONS = (
         ),
     },
     {
-        "label": "Mission 3",
+        "label": "Chapter 3",
         "name": "Build the City Guide",
         "lessons": (
             "07_create_the_city_guide_knowledge_base",
@@ -69,7 +69,7 @@ GUIDED_MISSIONS = (
         ),
     },
     {
-        "label": "Mission 4",
+        "label": "Chapter 4",
         "name": "Read the Secret Note",
         "lessons": (
             "08_read_the_secret_note",
@@ -77,7 +77,7 @@ GUIDED_MISSIONS = (
         ),
     },
     {
-        "label": "Mission 5",
+        "label": "Chapter 5",
         "name": "Lab Recap",
         "lessons": (
             "09_lab_recap",

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>{{ game.display_name }} | Player</title>
   <link rel="stylesheet" href="/static/css/admin.css" />
-  <link rel="stylesheet" href="/static/css/player.css?v=lesson-table-v2" />
+  <link rel="stylesheet" href="/static/css/player.css?v=quest-hint-v10" />
   {% if availability.state == 'open' %}<script src="/static/js/player_boot.js?v=1" data-game-slug="{{ game.slug }}"></script>{% endif %}
 </head>
 <body data-game-slug="{{ game.slug }}" data-game-mcp-url="{{ variables.game_mcp_url }}" data-player-window="{{ availability.state }}">
@@ -18,15 +18,7 @@
     <span>Player: <strong id="player-name"></strong></span>
     <button id="open-player-key" class="button button-quiet player-key-trigger" type="button">API key</button>
   </div>
-  <section id="player-progress" class="player-progress" aria-label="Live progress" hidden>
-    <span class="eyebrow">LIVE PROGRESS</span>
-    <p id="player-progress-status" class="player-progress-status" role="status" hidden></p>
-    <div id="player-timeline-shell" class="player-timeline-shell">
-      <button id="player-timeline-previous" class="player-timeline-control player-timeline-control-previous" type="button" aria-label="Scroll timeline left">&larr;</button>
-      <ol id="player-timeline" class="player-timeline"></ol>
-      <button id="player-timeline-next" class="player-timeline-control player-timeline-control-next" type="button" aria-label="Scroll timeline right">&rarr;</button>
-    </div>
-  </section>
+  <p id="player-progress-status" class="player-progress-status" role="status" hidden></p>
   {% endif %}
 </header>
 {% if availability.state != 'open' %}
@@ -78,6 +70,13 @@
   </div>
   <p id="copy-player-key-status" class="copy-status" role="status"></p>
 </dialog>
+<dialog id="player-milestone-dialog" class="player-key-dialog player-milestone-dialog" aria-labelledby="player-milestone-title" aria-describedby="player-milestone-detail">
+  <div class="player-key-dialog-heading">
+    <h2 id="player-milestone-title">Quest milestone</h2>
+    <button id="close-player-milestone" class="button button-quiet" type="button" aria-label="Close milestone details">Close</button>
+  </div>
+  <p id="player-milestone-detail"></p>
+</dialog>
 <dialog id="player-agent42-dialog" class="player-agent42-dialog" aria-labelledby="player-agent42-title">
   <div class="player-key-dialog-heading">
     <div>
@@ -109,13 +108,13 @@
     </section>
   </div>
 </dialog>
-<div id="player-content" class="workshop-layout" hidden>
+<div id="player-content" class="workshop-layout workshop-nav-collapsed" hidden>
   <aside class="workshop-sidebar">
-    <button type="button" class="workshop-nav-toggle" id="workshop-nav-toggle" aria-controls="workshop-nav" aria-expanded="true">
+    <button type="button" class="workshop-nav-toggle" id="workshop-nav-toggle" aria-controls="workshop-nav" aria-expanded="false" aria-label="Show chapters" title="Show chapters">
       <span class="workshop-nav-toggle-icon" aria-hidden="true"></span>
-      <span class="workshop-nav-toggle-label">Hide chapters</span>
     </button>
-    <nav class="workshop-nav" id="workshop-nav" aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
+    <div class="workshop-nav-panel">
+    <nav class="workshop-nav" id="workshop-nav" inert aria-label="{{ 'Challenge chapters' if player_mode == 'challenge' else 'Guided player lessons' }}">
       {% if mission_navigation %}
       {% for mission in mission_navigation %}
       {% set is_current = mission.lessons | selectattr('slug', 'equalto', selected) | list | length > 0 %}
@@ -137,6 +136,7 @@
       {% endfor %}
       {% endif %}
     </nav>
+    </div>
   </aside>
   <main id="player">
     {% if current_mission %}
@@ -151,6 +151,15 @@
       {% if next %}<a class="button button-primary" href="/{{ game.slug }}/player/{{ next.slug }}">Next lesson &rarr;</a>{% endif %}
     </nav>
   </main>
+  <aside id="player-progress" class="player-progress" aria-labelledby="player-progress-title" hidden>
+    <div class="player-progress-heading">
+      <h2 id="player-progress-title" class="player-progress-title">Your Quest</h2>
+      <p class="player-progress-hint">Click on the steps for more info.</p>
+    </div>
+    <div id="player-timeline-shell" class="player-timeline-shell">
+      <ol id="player-timeline" class="player-timeline" aria-label="Game progress path"></ol>
+    </div>
+  </aside>
   {% for panel in more_info %}
   <dialog id="more-{{ panel.slug }}" class="player-key-dialog more-info-dialog" aria-labelledby="more-{{ panel.slug }}-title">
     <div class="player-key-dialog-heading">
@@ -164,7 +173,7 @@
   </dialog>
   {% endfor %}
 </div>
-<script src="/static/js/player.js?v=quest-question-v2"></script>
+<script src="/static/js/player.js?v=quest-steps-v11"></script>
 {% endif %}
 {% if availability.state == 'scheduled' and availability.seconds_until_start < 86400 %}
 <script src="/static/js/player_window.js"></script>
