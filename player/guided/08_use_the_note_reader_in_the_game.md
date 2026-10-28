@@ -1,16 +1,18 @@
 # Add The Note Reader To Your Agent
 
+![The game agent calls read_secret_note to ask the Note Reader for the note's language, translation, and password, helping the player enter Microsoft Ignite](../assets/illustration-add-note-reader.png)
+
 In this exercise, you give your game agent its last specialist: the **Note
 Reader**. In the previous mission, you stopped at the door of Microsoft Ignite
 because the host asked for a secret password. Now your game agent gets the
 **read_secret_note** tool, reads the note, and gets you through the door.
 
-> [!Hint] 🖥️ **In VS Code** — this whole step happens in the VS Code editor and terminal.
-
 ## Add the Note Reader to the game agent
 
 Your agent needs four changes. Read through them first; at the end you replace
 **agent.py** with the complete code.
+
+![Four changes to add the Note Reader: import its builders, open the Note Reader with async with, build read_secret_note using build_note_reader_tool, and add note_tool to the game agent's tools](../assets/illustration-note-reader-four-changes.png)
 
 ### 1. Import the Note Reader
 

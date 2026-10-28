@@ -1,16 +1,18 @@
 # Add The City Guide To Your Agent
 
+![A player and Agent42 use the City Guide through knowledge_base_retrieve over MCP to find their way to Microsoft Ignite at Moscone Center](../assets/illustration-add-city-guide.png)
+
 In this exercise, you give your game agent its second specialist: the **City
 Guide** knowledge base. In the previous mission, you stopped at a question about
 the city. Now your game agent gets the **knowledge_base_retrieve** tool, looks
 up the answer in the city guide, and travels on to the event.
 
-> [!Hint] 🖥️ **In VS Code** — this whole step happens in the VS Code editor and terminal.
-
 ## Add the City Guide to the game agent
 
 Your agent needs three changes. Read through them first; at the end you replace
 **agent.py** with the complete code.
+
+![Three changes to add the City Guide: import build_city_guide_tool, open its connection with async with, and add guide_tool to the agent's tools alongside game_mcp and agent42_tool](../assets/illustration-city-guide-three-changes.png)
 
 ### 1. Import the City Guide
 
@@ -64,6 +66,8 @@ should explain the problem rather than guess.
 Now put the three changes together. Replace everything in **agent.py** with the
 code below and save the file. It's the same agent you played with in the
 previous mission, now with the City Guide.
+
+![Replace all of agent.py with the complete code from the instructions and save with Ctrl+S; the agent includes Game MCP, Agent42, and the City Guide](../assets/illustration-city-guide-replace-agent.png)
 
 ```python-notype
 """Game play agent using Microsoft Agent Framework with Microsoft Foundry."""
@@ -157,6 +161,8 @@ the answer, and it calls **knowledge_base_retrieve**. Here is what the
 conversation looks like. The agent's own words can change a little from run to
 run:
 
+![Example conversation: the player asks the agent to look up the city question, knowledge_base_retrieve returns an answer, and the agent submits it; Your Quest and the session log show the progress](../assets/illustration-city-guide-lookup.png)
+
 ```output-read
 Chat with Game Play Agent (type 'exit' or 'quit' to stop)
 
@@ -191,6 +197,8 @@ Agent: <arrival at the event>. Before you go in, I need the secret password.
 
 ## A password at the door
 
+![At the Microsoft Ignite entrance, a host asks for a password while the player holds an unreadable note; exit the agent with progress saved and continue from the door in the next mission](../assets/illustration-city-guide-door-password.png)
+
 You made it to the event, but the host at the entrance asks for a secret
 password. You remember the folded piece of paper you got at the start of your
 quest. It's written in a strange language, and your agent has no way to read it
@@ -201,12 +209,21 @@ the game server, so you continue from the door in the next mission.
 
 ## What You Learned
 
-Your game agent now has two specialists. Agent42 is a separate agent that your
-agent reaches over A2A through the **ask_agent42** tool. The City Guide is a
-knowledge base that your agent reaches directly over MCP through
-**knowledge_base_retrieve**. Your agent decides by itself which one to use for
-each mission.
+You added the City Guide to your game agent by importing its builder, opening
+its connection, and adding **guide_tool** to the agent's tools.
 
-Your agent can now handle travel missions and questions about the city, but it
-can't read the note. In the next mission, you build a **Note Reader** that reads
-the note for you.
+Your agent now has two specialists:
+
+- **Agent42**, reached over A2A through **ask_agent42**, provides travel advice.
+- **The City Guide**, reached over MCP through **knowledge_base_retrieve**,
+  retrieves answers from the data in Foundry IQ.
+
+The model selects the appropriate tool based on your request and the game
+instructions. You checked the session log to see the retrieval call and its
+result.
+
+You reached the event, but the password challenge is still waiting. In the
+next lesson, you build a **Note Reader** to read the secret note and continue
+your quest.
+
+![Ready for the next mission: City Guide added to the game agent, Agent42 and City Guide available as specialists, retrieval checked in the session log, and Microsoft Ignite reached; next, build the Note Reader](../assets/illustration-city-guide-integration-recap.png)

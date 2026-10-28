@@ -1,5 +1,7 @@
 # Note Reader Specialist
 
+![Test the Note Reader separately: send an image of the secret note to the specialist, which detects the language, translates the text, and returns a SecretNote with language, translation, and password fields](../assets/illustration-note-reader-header.png)
+
 At the door of Microsoft Ignite, the host asks for a secret password. You
 remember the folded piece of paper you got at the start of your quest, but it's
 written in a strange language. Instead of guessing, your agent can ask a **Note
@@ -33,6 +35,8 @@ a tool your game agent can use. It does five things:
   you reach the door.
 
 ## Create agent_note_reader.py
+
+![In VS Code, select the workshop folder, create agent_note_reader.py, and paste the complete code from the instructions, including the SecretNote model with language, translation, and password fields](../assets/illustration-note-reader-create-file.png)
 
 1. In the VS Code Explorer, select the **C:\workshop** folder.
 2. Select **New File** and name it **agent_note_reader.py**.
@@ -133,6 +137,8 @@ explanation of each part.
 
 ## Test the Note Reader
 
+![Run python agent_note_reader.py in the VS Code terminal and inspect the sample note's language, translation, and password fields; the note at the door comes next](../assets/illustration-note-reader-test.png)
+
 Run **agent_note_reader.py** from the VS Code terminal:
 
 ```powershell
@@ -154,8 +160,23 @@ that note on its own.
 
 ## What You Learned
 
-You built a Note Reader: a specialist agent that reads an image from a link,
-detects the language, and translates it. It answers with structured output, a
-**SecretNote** with a language, a translation, and a password, so your code gets
-clean fields instead of free text. You turned it into a custom tool called
-**read_secret_note** and tested it on its own.
+You built a Note Reader specialist that uses a vision-capable model to read a
+note image from a URL.
+
+- **Image input:** you sent the note image and a text instruction to the model.
+- **Structured output:** you defined **SecretNote** with Pydantic and requested
+  it as the response format. Your code reads **language**, **translation**, and
+  **password** directly instead of extracting them from a free-text reply.
+- **Function tool:** you prepared **read_secret_note**, a custom tool that lets
+  the game agent ask the Note Reader to read an image.
+- **Standalone testing:** you ran the reader on a sample note and inspected
+  the three returned fields before connecting it to the game.
+
+Structured output gives your code a predictable response shape; it does not
+guarantee that the model read or interpreted the note correctly.
+
+The Note Reader is not connected to your game agent yet. In the next lesson,
+you add **read_secret_note** to its tools and use the note image supplied by
+the game to tackle the password challenge at the door.
+
+![Ready for the next mission: image and instruction sent, SecretNote structured output defined with Pydantic, read_secret_note tool prepared, and sample note tested separately; check the reading, then add the tool to the game agent](../assets/illustration-note-reader-recap.png)
