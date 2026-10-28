@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 PLAYER_DIR = Path(__file__).resolve().parents[1]
 ROOT = PLAYER_DIR.parents[2]
+LESSONS_DIR = ROOT / "player" / "guided"
 sys.path.insert(0, str(PLAYER_DIR))
 
 PYTHON_BLOCK = re.compile(r"^```python[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL)
@@ -33,7 +34,7 @@ class WorkshopSnippetTests(unittest.TestCase):
             patch.dict(os.environ, {"PYTHON_DOTENV_DISABLED": "1"}, clear=True),
             patch("socket.socket.connect", side_effect=AssertionError("Examples must not connect on import")),
         ):
-            for path in sorted((ROOT / "instructions").glob("[0-9][0-9]_*.md")):
+            for path in sorted(LESSONS_DIR.glob("[0-9][0-9]_*.md")):
                 for index, code in enumerate(PYTHON_BLOCK.findall(path.read_text(encoding="utf-8"))):
                     with self.subTest(lesson=path.name, block=index):
                         tree = ast.parse(code)
@@ -64,10 +65,10 @@ class WorkshopSnippetTests(unittest.TestCase):
             with self.subTest(lesson=lesson, source=source):
                 expected = ast.dump(ast.parse((PLAYER_DIR / source).read_text(encoding="utf-8")))
                 blocks = PYTHON_BLOCK.findall(
-                    (ROOT / "instructions" / lesson).read_text(encoding="utf-8")
+                    (LESSONS_DIR / lesson).read_text(encoding="utf-8")
                 )
                 actual = [ast.dump(ast.parse(block)) for block in blocks]
-                self.assertIn(expected, actual, f"Refresh the {source} example in {lesson}.")
+                self.assertTrue(expected in actual, f"Refresh the {source} example in {lesson}.")
 
 
 if __name__ == "__main__":

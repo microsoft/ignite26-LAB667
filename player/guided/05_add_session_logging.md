@@ -26,7 +26,14 @@ keeps **agent.py** short: it only needs to import the helper and switch it on.
    VS Code saves the file automatically.
 
 ```python-notype
-"""Per-session conversation and tool I/O logging."""
+"""Per-session conversation + tool I/O logging for the sample agent.
+
+`open_session_log()` creates a fresh log file under `src/agents/player/logs/`.
+`build_logging_middleware(path)` returns Agent Framework middlewares that
+record every user/agent turn, every tool call, AND every chat call (which
+includes the resolved agent instructions) into that file.
+"""
+from __future__ import annotations
 
 import json
 import uuid
@@ -52,6 +59,7 @@ LOGS_DIR = Path(__file__).resolve().parent / "logs"
 
 
 def open_session_log() -> Path:
+    """Create a fresh log file for this chat session and return its path."""
     LOGS_DIR.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     path = LOGS_DIR / f"session-{stamp}-{uuid.uuid4().hex[:6]}.log"
@@ -63,13 +71,15 @@ def open_session_log() -> Path:
 
 
 def _append(path: Path, header: str, body: str) -> None:
-    timestamp = datetime.now().strftime("%H:%M:%S")
-    with path.open("a", encoding="utf-8") as file:
-        file.write(f"[{timestamp}] {header}\n{body.rstrip()}\n\n")
+    ts = datetime.now().strftime("%H:%M:%S")
+    with path.open("a", encoding="utf-8") as f:
+        f.write(f"[{ts}] {header}\n{body.rstrip()}\n\n")
 
 
 def _truncate(text: str, limit: int = 4000) -> str:
-    return text if len(text) <= limit else text[:limit] + "\n... [truncated]"
+    if len(text) <= limit:
+        return text
+    return text[:limit] + f"\n... [truncated {len(text) - limit} chars]"
 
 
 def _stringify(value: Any) -> str:
@@ -84,14 +94,21 @@ def _stringify(value: Any) -> str:
 
 
 def _format_messages(messages: Sequence[Message]) -> str:
-    return "\n".join(
-        f"[{message.role}] {message.text}"
-        for message in messages
-        if message.text
-    )
+    parts: list[str] = []
+    for message in messages:
+        if message.text:
+            parts.append(f"[{message.role}] {message.text}")
+    return "\n".join(parts)
 
 
 def build_logging_middleware(log_path: Path):
+    """Return (agent_mw, chat_mw, function_mw) writing to log_path.
+
+    - `agent_mw` logs user turns and final agent responses.
+    - `chat_mw` logs the fully-resolved message list sent to the model.
+    - `function_mw` logs every tool call's inputs and outputs.
+    """
+
     @agent_middleware
     async def log_agent(
         context: AgentContext,
@@ -109,9 +126,13 @@ def build_logging_middleware(log_path: Path):
         context: ChatContext,
         call_next: Callable[[], Awaitable[None]],
     ) -> None:
+        instructions = (context.options or {}).get("instructions")
+        if instructions:
+            _append(log_path, "MODEL INSTRUCTIONS (post context providers) ->",
+                    _truncate(_stringify(instructions)))
         text = _format_messages(context.messages)
         if text:
-            _append(log_path, "MODEL INPUT ->", _truncate(text))
+            _append(log_path, "MODEL INPUT (post context providers) ->", _truncate(text))
         await call_next()
 
     @function_middleware
@@ -119,15 +140,16 @@ def build_logging_middleware(log_path: Path):
         context: FunctionInvocationContext,
         call_next: Callable[[], Awaitable[None]],
     ) -> None:
+        fn_name = context.function.name
         _append(
             log_path,
-            f"TOOL CALL {context.function.name}",
+            f"TOOL CALL  {fn_name}",
             _truncate(_stringify(context.arguments)),
         )
         await call_next()
         _append(
             log_path,
-            f"TOOL RESULT {context.function.name}",
+            f"TOOL RESULT {fn_name}",
             _truncate(_stringify(context.result)),
         )
 

@@ -49,19 +49,21 @@ command selects the latest releases compatible with the upstream packages.
 The A2A integration is still a preview package: its explicit minimum prevents
 pip from retaining the older preview that required A2A SDK 0.3.
 
-Validated together: Agent Framework **1.19.0**, `agent-framework-a2a`
-**1.0.0b260918**, and `a2a-sdk` **1.2.1**. The server uses the SDK's HTTP-server
+Validated locally together: Agent Framework **1.23.0**, `agent-framework-a2a`
+**1.0.0b261022**, `agent-framework-foundry` **1.15.0**, `a2a-sdk` **1.3.0**,
+and MCP **2.3.0**. The server uses the SDK's HTTP-server
 extra, route factories, protobuf messages, and A2A 1.0 AgentCard schema.
 The player's [requirements](../../agents/player/requirements.txt) also require
 the current integration. Upgrade/redeploy Agent42 before upgrading existing
 players: the new server accepts legacy `message/send` calls, but new clients
 send A2A 1.0 requests that an old server does not understand.
 
-Keep this environment separate from the
-[game server's environment](../game-server/README.md): the current Agent
-Framework release still requires MCP SDK 1.x, while the game server uses SDK
-2.x. Similarly, `agent-framework-foundry` 1.13.1 currently requires
-`azure-ai-projects<2.7`; do not bypass upstream constraints with `--no-deps`.
+Separate service environments remain recommended for isolation, but Agent
+Framework 1.23 and the [game server](../game-server/README.md) now both support
+MCP SDK 2.x. Upgrade the Agent Framework packages together through this
+requirements file. `agent-framework-foundry` 1.15.0 requires
+`azure-ai-projects>=2.2.0,<2.8.0`; do not bypass upstream constraints with
+`--no-deps` or add a blanket `--pre`. Run `python -m pip check` after upgrading.
 
 ## Run
 
@@ -79,6 +81,16 @@ python test.py
 
 The interactive client defaults to `http://localhost:8042`. Set `AGENT42_URL`
 to test a deployed server instead.
+
+For local A2A regression tests, run from this directory:
+
+```bash
+PYTHON_DOTENV_DISABLED=1 python -m unittest discover -s tests -p 'test_*.py' -v
+```
+
+The tests exercise A2A routes with a fake agent and make no live model, Maps,
+or storage calls. On PowerShell, set `$env:PYTHON_DOTENV_DISABLED = "1"` first,
+then run the command without the Bash environment-variable prefix.
 
 ## Environment variables
 

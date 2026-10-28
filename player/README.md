@@ -11,8 +11,8 @@ For local service setup, see the [workshop overview](../docs/workshop-overview.m
 
 The chapter sidebar starts collapsed. Use the `>` / `<` button to show or hide
 it; its hover tooltip describes the action. The sidebar slides open and closed,
-unless your browser requests reduced motion. The browser remembers your choice
-between lessons and visits.
+unless your browser requests reduced motion. Every lesson starts with the sidebar
+collapsed, including after Next, Previous, or a page reload.
 
 Live progress stays visible in the white **Your Quest** sidebar on the right. A dotted
 path connects milestones from **Start** to **End**, each with a single-line label.

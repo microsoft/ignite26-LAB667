@@ -12,8 +12,9 @@ dependencies; the player agent runs separately.
 
 The runnable player and specialist smoke tests use their own
 [requirements](agents/player/requirements.txt) and
-[environment example](agents/player/.env.example). Keep that Python environment
-separate from the game server's MCP 2 environment. The player reads **.env**
+[environment example](agents/player/.env.example). Separate Python environments
+are recommended for service isolation, not conflicting MCP versions: Agent
+Framework 1.23 and the game server both support MCP SDK 2.x. The player reads **.env**
 beside **agent.py**, writes **logs/** beside **log.py**, and closes its network
 clients through asynchronous context managers. **GAME_API_KEY** identifies the
 player; game progress is stored on the server, not in a local memory file.

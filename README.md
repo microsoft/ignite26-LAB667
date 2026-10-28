@@ -44,9 +44,9 @@ If you're learning at your own pace:
 1. Clone this repository and open it in Codespaces or a local development
    container as described below.
 2. Follow the [workshop overview](docs/workshop-overview.md) to configure and
-   run the game services, Agent42, and reference player. Use separate Python
-   environments for the game server and agents because their MCP SDK
-   requirements differ.
+   run the game services, Agent42, and reference player. Separate Python
+   environments are recommended for service isolation; the agents and game
+   server now both support MCP SDK 2.x.
 3. Supply attendee model access and an Azure AI Search knowledge base. The
    shared-service deployment below does not provision these attendee resources.
 4. Open **http://localhost:8090/san-francisco/player** when running locally,

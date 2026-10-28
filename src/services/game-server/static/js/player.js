@@ -376,7 +376,6 @@
   }
 
   const navToggle = document.getElementById('workshop-nav-toggle');
-  const navCollapsedKey = 'lost-in-the-city:nav-collapsed';
   function setNavCollapsed(collapsed) {
     content.classList.toggle('workshop-nav-collapsed', collapsed);
     navToggle.setAttribute('aria-expanded', String(!collapsed));
@@ -385,10 +384,9 @@
     navToggle.setAttribute('aria-label', label);
     navToggle.title = label;
   }
-  setNavCollapsed(localStorage.getItem(navCollapsedKey) !== 'false');
+  setNavCollapsed(true);
   navToggle.addEventListener('click', () => {
     const collapsed = !content.classList.contains('workshop-nav-collapsed');
-    localStorage.setItem(navCollapsedKey, String(collapsed));
     setNavCollapsed(collapsed);
   });
 

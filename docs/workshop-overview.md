@@ -208,16 +208,18 @@ python agent.py
 ```
 
 For an existing player environment, activate it and rerun the install command
-to select the latest compatible dependencies. Keep it separate from the game
-server's Python environment: the player can call the MCP SDK 2 server while
-using Agent Framework's supported MCP client SDK.
+to select the latest compatible dependencies. Separate service environments
+remain recommended for isolation, but the player and game server now both use
+MCP SDK 2.x.
 
-The player requirements currently start at `agent-framework>=1.19.0` and
-`agent-framework-a2a>=1.0.0b260918`. The explicit A2A prerelease minimum is
-intentional; do not add a blanket `--pre` or force MCP 2 into this environment.
-The verified combination uses Agent Framework 1.19.0, its A2A integration
-1.0.0b260918, A2A SDK 1.2.1, and MCP client 1.30.0 with the separately hosted
-MCP 2.2 server. Use `python -m pip check` after an upgrade.
+The player requirements start at `agent-framework>=1.23.0,<2`,
+`agent-framework-a2a>=1.0.0b261022,<2`, and `mcp>=2.2.0,<3`.
+Agent Framework 1.23's MCP integration explicitly supports SDK 2.x.
+The locally verified combination uses Agent Framework 1.23.0, its A2A
+integration 1.0.0b261022, A2A SDK 1.3.0, and MCP 2.3.0 on both client and
+server. Upgrade these together through the requirements file. The explicit
+A2A prerelease minimum is intentional; do not add a blanket `--pre` or bypass
+dependency constraints with `--no-deps`. Run `python -m pip check` afterward.
 
 The player now uses the A2A 1.x integration. Upgrade the deployed Agent42 service
 before running the updated player against it; see the
@@ -271,6 +273,29 @@ Azure, model, or game-service calls. They cover player behavior and resource
 cleanup, compile and import the full lesson samples without credentials, and
 compare the Step 5 logging helper, Step 6–7 specialists, and Step 8 player
 against their canonical source using Python's abstract syntax tree.
+
+### Validate MCP compatibility locally
+
+From the repository root, use a test environment with the
+[game-server test requirements](../src/services/game-server/requirements-test.txt),
+which include the player dependencies:
+
+```bash
+python -m pip install --upgrade -r src/services/game-server/requirements-test.txt
+python -m pip check
+PYTHON_DOTENV_DISABLED=1 python -m unittest discover -s src/services/game-server/tests -p 'test_mcp_transport.py' -v
+```
+
+The transport suite runs the real game server over loopback HTTP with fake
+Azure Tables. It verifies Agent Framework tool and prompt discovery, bearer
+authentication, generated function invocation, structured tool-result content,
+rejected and accepted answers, quest completion, and filtered connections
+without prompt loading. This uses the real MCP SDK 2 client and server, not
+mock MCP calls. No Azure credentials, browser, or model are required.
+
+These local checks do not validate deployed Agent42, Azure OpenAI, or the
+hosted City Guide knowledge base. Use the specialist smoke tests above with
+your configured services before a workshop.
 
 ## Workshop flow
 

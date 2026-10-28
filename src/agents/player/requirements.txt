@@ -1,5 +1,5 @@
-agent-framework>=1.19.0
-agent-framework-a2a>=1.0.0b260918
-mcp>=1.24.0,<2
+agent-framework>=1.23.0,<2
+agent-framework-a2a>=1.0.0b261022,<2
+mcp>=2.2.0,<3
 python-dotenv
 httpx

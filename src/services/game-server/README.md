@@ -172,7 +172,7 @@ immediately at `/<slug>/mcp`.
 ### MCP SDK compatibility
 
 The server uses the **official MCP Python SDK 2.x** (`mcp>=2.2.0,<3`),
-validated with 2.2.0. It imports `MCPServer` from `mcp.server.mcpserver`;
+validated with 2.3.0. It imports `MCPServer` from `mcp.server.mcpserver`;
 the separate `fastmcp` package is not required.
 
 The server exposes seven game tools and `game_play_prompt` at per-game
@@ -191,10 +191,11 @@ Reinstall requirements and restart/rebuild the MCP service to apply the
 upgrade; changing the admin UI alone does not update the deployed MCP service.
 No game-data migration or player reset is required.
 
-Keep the game-server environment separate from the player-agent environment.
-Agent Framework 1.19's MCP integration requires `mcp<2`; do not force SDK 2
-into that environment. The player agent can continue using SDK 1 as an HTTP
-client of this SDK 2 server.
+The player now uses Agent Framework **1.23.0** with MCP **2.3.0**, validated
+against this server over real HTTP. Separate service environments are still
+recommended for isolation, but are no longer required by conflicting MCP
+major versions. Upgrade the player's Agent Framework and MCP packages
+together using its [requirements](../../agents/player/requirements.txt).
 
 Run `python dashboard.py` separately to serve the live room dashboard at
 `http://localhost:8090/<slug>/dashboard`. It shows up
@@ -389,8 +390,14 @@ From this directory, in a virtual environment:
 ```bash
 pip install -r requirements-test.txt
 python -m playwright install --with-deps chromium
-python -m unittest discover -s tests -p 'test_*.py' -v
+PYTHON_DOTENV_DISABLED=1 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
+
+On PowerShell, set `$env:PYTHON_DOTENV_DISABLED = "1"` first, then run the
+`python -m unittest` command without the Bash environment-variable prefix.
+The test requirements include Agent Framework and the player dependencies
+for client/server integration coverage; production server dependencies remain
+in **requirements.txt**.
 
 Authentication tests use fake Azure Tables; browser tests use deterministic
 API fixtures, plus a full browser login/password-change/game-creation flow
@@ -403,7 +410,12 @@ storage, including legacy migration and old/new players completing different
 published stories. Transport tests exercise the actual per-game HTTP
 dispatcher, legacy protocol initialization, modern SDK clients over a local
 HTTP server, tool/prompt schemas and responses, concurrent requests, and
-cache replacement/shutdown. These also use fake storage only.
+cache replacement/shutdown. Agent Framework tests connect with a real MCP 2
+client, discover tools and prompts, invoke generated functions through an
+entire quest, check structured results, and verify tool filtering without
+prompt loading. These use fake storage only and make no model or Azure calls.
+For transport-only validation, use `-p 'test_mcp_transport.py'`; Chromium is
+not needed for that subset.
 
 ## Deploy with azd
 
