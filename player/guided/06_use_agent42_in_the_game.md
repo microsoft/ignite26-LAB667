@@ -1,5 +1,7 @@
 # Add Agent42 To Your Agent
 
+![The player chats with the game agent in the terminal while it calls ask_agent42 over A2A for travel advice about driving, walking, cycling, and weather](../assets/illustration-add-agent42.png)
+
 In this exercise, you give your game agent its first specialist. You tested
 Agent42 on its own in the previous lesson. Now your game agent gets the
 **ask_agent42** tool and asks Agent42 for help by itself when a travel mission
@@ -9,12 +11,12 @@ You also turn the agent into a chat. Until now, **agent.py** sent two fixed
 messages and stopped. After this step, you keep talking to the agent in the
 terminal and play the first part of your quest.
 
-> [!Hint] 🖥️ **In VS Code** — this whole step happens in the VS Code editor and terminal.
-
 ## Add Agent42 to the game agent
 
 Your agent needs four changes. Read through them first; at the end you replace
 **agent.py** with the complete code.
+
+![Four changes to add Agent42: import its builders, open the connection with async with, add ask_agent42 to the agent's tools, and keep chatting in the same session until exit or quit](../assets/illustration-agent42-four-changes.png)
 
 ### 1. Import Agent42
 
@@ -89,6 +91,8 @@ replies in the terminal.
 Now put the four changes together. Replace everything in **agent.py** with the
 code below and save the file. It's the same agent with session logging, now with
 Agent42 and a chat loop.
+
+![Replace all of agent.py with the complete code from the instructions and save with Ctrl+S; the agent includes Game MCP, Agent42, session logging, and a chat loop that reuses the same session](../assets/illustration-agent42-replace-agent.png)
 
 ```python-notype
 """Game play agent using Microsoft Agent Framework with Microsoft Foundry."""
@@ -169,6 +173,8 @@ if __name__ == "__main__":
 
 ## Play the first travel mission
 
+![Play the first travel mission: ask for HELP to get Agent42's weather, route, and travel-time advice, confirm your transport choice, and check the completed travel step in Your Quest](../assets/illustration-agent42-first-travel.png)
+
 Run the agent from the VS Code terminal:
 
 ```powershell
@@ -200,6 +206,8 @@ Agent: <arrival at your next stop>
 
 ## A question about the city
 
+![The player reaches a city-guide question, but the City Guide is not connected yet; exit the agent with progress saved and continue from the question in the next mission](../assets/illustration-agent42-city-question.png)
+
 At your next stop, the game asks a question about the city:
 **{{ player_quest_question }}**
 
@@ -211,10 +219,25 @@ the game server, so you continue from this question in the next mission.
 
 ## What You Learned
 
-You gave your game agent its first specialist. The agent reaches Agent42 over
-A2A through the **ask_agent42** tool and decides by itself when to ask for help.
-A chat loop lets you keep playing in the terminal.
+You connected Agent42 to your game agent by importing its builders, opening
+the connection, and adding **agent42_tool** to the agent's tools.
 
-Your agent can now handle travel missions, but not questions about the city.
-In the next mission, you build a **City Guide** that looks up the answers in the
-city guide.
+- **Specialist access:** the game agent calls **ask_agent42** to request travel
+  advice from Agent42 over A2A. The model selects the tool based on your request
+  and the game instructions.
+- **Conversation state:** you added a terminal chat loop that reuses the same
+  **session**, keeping the conversation context between turns while the agent
+  is running.
+- **Player choice:** you asked for help, read Agent42's advice, and confirmed
+  how to travel before the game agent submitted your choice.
+- **Progress checks:** you checked **Your Quest** for Agent42's route advice
+  and the completed travel step.
+
+The game server saves your quest progress separately from the chat session,
+so typing **exit** stops the agent without losing your place in the quest.
+
+Your agent can now ask for travel advice, but it does not yet have a tool to
+look up the city question. In the next lessons, you connect the **City Guide**
+through Foundry IQ so the agent can retrieve an answer instead of guessing.
+
+![Ready for the next mission: Agent42 connected over A2A, chat loop reusing the same session while running, travel choice confirmed and checked in Your Quest, and quest progress saved after exit; next, connect the City Guide with Foundry IQ](../assets/illustration-agent42-integration-recap.png)

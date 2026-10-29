@@ -71,6 +71,8 @@ Now put the four changes together. Replace everything in **agent.py** with the
 code below and save the file. It's the same agent you played with in the
 previous mission, now with the Note Reader.
 
+![Replace all of agent.py with the complete code from the instructions and save with Ctrl+S; the agent includes Game MCP, Agent42, City Guide, and the Note Reader through note_tool](../assets/illustration-note-reader-replace-agent.png)
+
 ```python-notype
 """Game play agent using Microsoft Agent Framework with Microsoft Foundry."""
 
@@ -184,8 +186,8 @@ You: Yes
 Agent: <the host lets you in>. Welcome in! <final scene of your quest>
 ```
 
-> [!Hint] The agent reads any image link in the conversation. To try it, paste
-> the sample note link from the previous lesson and ask the agent to read it.
+> [!Hint] To try another note, paste the sample note link from the previous
+> lesson and ask the agent to read it. Use an image URL that the model can access.
 
 > **Checkpoint:** the agent confirms that your quest is complete, and the
 > **Your Quest** sidebar on the right shows every quest step as completed
@@ -194,10 +196,21 @@ Agent: <the host lets you in>. Welcome in! <final scene of your quest>
 
 ## What You Learned
 
-Your game agent now has three specialists. Agent42 is a separate agent that your
-agent reaches over A2A through **ask_agent42**. The City Guide is a knowledge
-base that your agent reaches directly over MCP through
-**knowledge_base_retrieve**. The Note Reader is a specialist agent behind your
-own custom tool, **read_secret_note**, that reads an image and answers with
-structured output. Your agent decided by itself which one to use for each
-mission and played your quest to the end.
+You connected the Note Reader to your game agent by importing its builders,
+opening the specialist, building **note_tool**, and adding it to the agent's
+tools.
+
+Your game agent now has three specialists:
+
+- **Agent42**, reached over A2A through **ask_agent42**, provides travel advice.
+- **The City Guide**, reached over MCP through **knowledge_base_retrieve**,
+  retrieves answers from the data in Foundry IQ.
+- **The Note Reader**, called through your custom **read_secret_note**
+  function tool, reads a note image and returns its language, translation,
+  and password as structured output.
+
+The model selects tools based on your request and the game instructions. You
+asked it to read the note, confirmed the password submission, and checked
+**Your Quest** to verify that the quest was complete.
+
+![Quest complete: Note Reader added to the game agent alongside Agent42 and City Guide, the note read and password submission confirmed, and completion verified in Your Quest](../assets/illustration-note-reader-integration-recap.png)
