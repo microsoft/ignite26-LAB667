@@ -92,6 +92,8 @@ Try the knowledge base with a quick test agent in the portal.
 1. On the **san-francisco-cityguide** knowledge base page, click
    **Use in an agent**.
 2. Name the agent **test-agent** and create it.
+   If you see **Use the Microsoft Copilot harness**, leave it at its default
+   setting; no action is required.
 3. In the agent's chat, ask:
 
 ```text
