@@ -78,12 +78,10 @@ source control. Do not commit player API keys or generated session logs.
 - When changing quest questions or accepted answers, check them against the
   [city guide](data/city-guide/) and keep the San Francisco endpoint consistent.
 - Use sentence case for headings and preserve intentional Skillable syntax.
-  See the [authoring conventions](docs/authoring/common-knowledge.md) and
-  [Skillable reference](skillable/docs/skillable.md).
+  See the [authoring conventions](docs/authoring/common-knowledge.md).
 - Per-game content is served from the Guided and Challenge sources. Redeploy
-  the admin and dashboard after lesson or screenshot changes. Regenerate the
-  legacy exports with `python scripts/sync-to-skillable.py` only when maintaining
-  that legacy delivery path, not for ordinary per-game content changes.
+  the admin and dashboard after lesson or screenshot changes. The legacy
+  Skillable import and its generator have been removed.
 - Check affected relative links and exercise the changed behavior in a
   development environment. Use the [load-test utility](scripts/README.md) only
   against an instance intended for load testing, not a live attendee session.
@@ -99,13 +97,12 @@ check syntax.
 
 The [legacy workflows](infra/legacy-workflows/) are intentionally inactive.
 Their resource names, secrets, and publishing destinations still refer to the
-old workshop. Review those settings before enabling them. The
-[Skillable template](skillable/infra/skillable.bicep) provisions lab resources,
-not the shared game-server Container Apps. The admin UI uses table-backed
+old workshop. Review those settings before enabling them. The admin UI uses table-backed
 username/password authentication and requires changing the initial `admin` /
 `admin` password before game management. MCP requests require a player bearer
-API key; the public Player page issues keys on registration. The dashboard and
-Agent42 remain publicly accessible. Restrict admin access to workshop operators
+API key; the public Player page issues keys on registration. Agent42 advice
+requires the same key; its discovery card and the dashboard remain public.
+Restrict admin access to workshop operators
 before broader use.
 
 Before publishing, verify the session description, exactly three learning

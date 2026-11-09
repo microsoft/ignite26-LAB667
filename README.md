@@ -35,7 +35,8 @@ If you're following along during a live session:
    **C:\workshop\.env** file. Keep credentials private.
 
 The [player guide](player/README.md) lists the lessons. A configured game
-schedule can restrict when the Player page and gameplay are available.
+schedule restricts gameplay and access to Player lessons, registration, and
+city-guide downloads outside the play window.
 
 #### On your own
 
@@ -67,8 +68,7 @@ Windows-specific setup steps.
 | [data/](data/README.md) | San Francisco city-guide source material for retrieval |
 | [docs/](docs/README.md) | Workshop overview, local setup, gameplay, and authoring references |
 | [infra/](infra/README.md) | azd shared-service deployment and inactive legacy workflows |
-| [skillable/](skillable/README.md) | Skillable-specific documentation and infrastructure |
-| [scripts/](scripts/README.md) | Workshop export and local load-testing utilities |
+| [scripts/](scripts/README.md) | Local maintenance and load-testing utilities |
 
 For the existing workshop setup and service run commands, see the
 [workshop overview](docs/workshop-overview.md).
@@ -129,11 +129,11 @@ By the end of this session, you will be able to:
 
 ### 💻 Technologies used
 
-- Python and Microsoft Agent Framework
-- Model Context Protocol (MCP) and Agent-to-Agent (A2A)
-- Microsoft Foundry, Azure OpenAI, Foundry IQ, and Azure AI Search
-- FastAPI, Azure Tables, Azure Blob Storage, and Azure Maps
-- Azure Container Apps, Azure Developer CLI, Bicep, and GitHub Actions
+- [Python](https://learn.microsoft.com/windows/python/) and [Microsoft Agent Framework](https://learn.microsoft.com/agent-framework/overview/)
+- [Model Context Protocol (MCP)](https://learn.microsoft.com/agent-framework/agents/tools/hosted-mcp-tools) and [Agent-to-Agent (A2A)](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/agent-to-agent)
+- [Microsoft Foundry](https://learn.microsoft.com/azure/foundry/), [Azure OpenAI](https://learn.microsoft.com/azure/ai-services/openai/overview), [Foundry IQ](https://learn.microsoft.com/azure/foundry/agents/concepts/what-is-foundry-iq), and [Azure AI Search](https://learn.microsoft.com/azure/search/search-what-is-azure-search)
+- [FastAPI](https://learn.microsoft.com/azure/app-service/quickstart-python), [Azure Tables](https://learn.microsoft.com/python/api/overview/azure/data-tables-readme), [Azure Blob Storage](https://learn.microsoft.com/azure/storage/blobs/storage-blobs-overview), and [Azure Maps](https://learn.microsoft.com/azure/azure-maps/about-azure-maps)
+- [Azure Container Apps](https://learn.microsoft.com/azure/container-apps/overview), [Azure Developer CLI](https://learn.microsoft.com/azure/developer/azure-developer-cli/overview), [Bicep](https://learn.microsoft.com/azure/azure-resource-manager/bicep/overview), and [GitHub Actions](https://learn.microsoft.com/azure/developer/github/github-actions)
 
 ### 📚 Continue your learning
 
@@ -141,7 +141,7 @@ Pick your next step based on your learning style:
 
 | Resource | What you'll get |
 |----------|-----------------|
-| **[Ignite 2026 Next Steps](https://aka.ms/ignite26-next-steps)** | Additional session repos and materials from Microsoft Ignite 2026 |
+| **[Microsoft Ignite](https://ignite.microsoft.com)** | Official event information and session resources |
 | **[Microsoft AI Skills Navigator](https://aka.ms/ignite26-asn)** | Discover AI skills, learning paths, and resources for your next step |
 | **[Microsoft Learn](https://aka.ms/ignite26-learn)** | Official documentation and guided learning paths on these topics |
 | **[Microsoft Foundry Community](https://aka.ms/MicrosoftFoundryDiscord-Ignite26)** | Connect with other learners and experts in our Discord community |

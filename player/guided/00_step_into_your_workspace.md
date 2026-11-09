@@ -47,8 +47,9 @@ a real application instead of a toy demo.
 
 ## Your Skillable Environment
 
-You are reading this guide, so you have successfully signed in to your
-Skillable environment.
+During a facilitated session, use the prepared Windows lab VM in Skillable.
+The Player page hosts these lessons separately; opening it does not sign you
+in to the lab VM. Your facilitator supplies the lab sign-in details.
 
 ## Credentials
 

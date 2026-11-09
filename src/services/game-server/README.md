@@ -127,10 +127,6 @@ City-guide mission prompts tell players to use Foundry IQ and the provided data
 already in the lab's Blob Storage. They do not return a guide download URL or
 ask players to upload a document. Note-image missions still return their image
 resource for the Note Reader.
-When the player
-reaches that question, MCP returns a version-pinned download URL in
-`resources`; the player adds that document to Foundry IQ to retrieve the
-grounded answer.
 
 ## Install
 
@@ -429,8 +425,9 @@ provisions shared storage and Maps, wires the service URLs, and supplies keys
 through Container Apps secrets. The admin requires authentication, with
 HTTPS-only session cookies enabled by the template. Complete the initial
 password change before sharing access. MCP requests require a player bearer
-API key issued through public registration; the dashboard and Agent42 remain
-publicly accessible. Do not treat this as a production deployment.
+API key issued through public registration. Agent42 advice requires the same
+key; its discovery card and the dashboard remain public. Do not treat this as
+a production deployment.
 
 ## Legacy deployment reference
 

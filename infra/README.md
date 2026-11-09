@@ -21,8 +21,9 @@ San Francisco automatically; the model configuration applies only to Agent42.
 > `admin` / `admin`; change the password immediately before opening access to
 > others. The first person using these known defaults can claim the account.
 > MCP requests require a player bearer API key obtained through public Player
-> registration; this is not an attendee admission control. The dashboard and
-> Agent42 remain publicly accessible. Agent42 requests can incur
+> registration; this is not an attendee admission control. Agent42 advice also
+> requires that player key. The dashboard and Agent42 discovery card remain
+> public. Authenticated Agent42 requests can incur
 > model and Maps charges. Route PNG/JSON blobs are readable by URL (not publicly
 > listable), and the dashboard's Maps key is sent to the browser. Do not use
 > sensitive data; add access controls before broader use.
@@ -184,8 +185,9 @@ azd env get-value AGENT42_URL
 3. Open the URL from `azd env get-value AGENT42_CARD_URL`; its JSON should
    advertise the deployed HTTPS Agent42 URL, not localhost.
 4. Set `GAME_MCP_URL` and `AGENT42_URL` in the player's local environment file.
-   The attendee instructions still contain the old hosted URLs; use the
-   deployment outputs when running your own environment.
+  Current Player lessons use the service URLs configured on the dashboard
+  and admin. Use the deployment outputs when running your own environment;
+  the legacy exports may still contain old hosted URLs.
 5. With the player's separate model/search settings configured, start the
    [player agent](../src/agents/player/) and complete a movement mission.
    Confirm Agent42 returns accessible map/directions links and that the

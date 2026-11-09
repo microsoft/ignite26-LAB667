@@ -22,8 +22,7 @@ players.
 | [player/](../player/README.md) | Guided and Challenge Mode chapters used by the public Player experience. |
 | [docs/](README.md) | Supporting gameplay, setup, and authoring documentation. |
 | [infra/](../infra/README.md) | Shared-service infrastructure and inactive legacy deployment workflows. |
-| [skillable/](../skillable/README.md) | Skillable-specific documentation and infrastructure. |
-| [scripts/](../scripts/README.md) | Workshop export and local load-testing utilities. |
+| [scripts/](../scripts/README.md) | Local maintenance and load-testing utilities. |
 
 ## How the game works
 
@@ -341,8 +340,9 @@ provision and deploy the four shared services with `azd up`. This includes
 Agent42's dedicated model, storage, Maps, and service configuration, but not
 attendee model/search resources. The admin endpoint requires a login and a
 mandatory change of its initial `admin` / `admin` password. MCP requests require
-a player bearer API key issued through public registration; the dashboard and
-Agent42 remain publicly accessible. Review the access limitations before deployment.
+a player bearer API key issued through public registration. Agent42 advice
+requires the same key; its discovery card and the dashboard remain public.
+Review the access limitations before deployment.
 
 The repository preserves inactive legacy GitHub Actions workflows for Agent42
 and the game-server container apps:

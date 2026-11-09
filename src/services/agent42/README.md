@@ -80,7 +80,9 @@ python test.py
 ```
 
 The interactive client defaults to `http://localhost:8042`. Set `AGENT42_URL`
-to test a deployed server instead.
+to test a deployed server instead. Run the game MCP server too, register on its
+Player page, and set `GAME_API_KEY` for the client. Agent42 validates that key
+through `GAME_SERVER_URL` and records its advice against the player.
 
 For local A2A regression tests, run from this directory:
 
@@ -99,6 +101,7 @@ See [.env.example](.env.example) for the full set; required at minimum:
 | Variable | Required | Notes |
 | --- | --- | --- |
 | `AZURE_MAPS_KEY` | yes | Shared key from an Azure Maps account ([docs](https://learn.microsoft.com/azure/azure-maps/how-to-manage-authentication)) |
+| `GAME_SERVER_URL` | no | Game MCP service base URL for player authentication and advice events; default `http://localhost:8000`. Required to change when deploying separately. |
 | `AGENT42_BLOB_CONNECTION_STRING` | yes | Connection string for the Azure Storage account that hosts rendered maps |
 | `AGENT42_BLOB_CONTAINER` | no | Container name (default `agent42-routes`). Created on first use with public-blob access when the storage account allows it. |
 | `AGENT42_BLOB_SAS_EXPIRY_HOURS` | no | Expiry, in hours, for generated read-only map / directions SAS URLs when the connection string includes an account key. Default `168`. |
@@ -135,20 +138,31 @@ with `recommendation: none`.
 ## Talk to Agent42 from another agent
 
 ```python
+import os
+
+import httpx
 from agent_framework.a2a import A2AAgent
 
-agent42 = A2AAgent(
+async with httpx.AsyncClient(
+  headers={"Authorization": f"Bearer {os.environ['GAME_API_KEY']}"},
+) as http_client:
+  async with A2AAgent(
     name="Agent42",
-    url="http://localhost:8042",   # or your deployed URL
-)
-response = await agent42.run(
-    "I'm in The Mission and need to get to Hayes Valley. "
-    "Taxi, walking, or bike?"
-)
-print(response.text)
+    url="http://localhost:8042",
+    http_client=http_client,
+  ) as agent42:
+    response = await agent42.run(
+      "I'm in The Mission and need to get to Hayes Valley. "
+      "Taxi, walking, or bike?"
+    )
+    print(response.text)
 ```
 
-Or hit the JSON-RPC endpoint directly: `POST /` with `A2A-Version: 1.0`,
+Inside an async function, this example uses `GAME_API_KEY` from the process
+environment. Never put the key in the prompt or commit it to source control.
+
+Or hit the JSON-RPC endpoint directly: `POST /` with a player
+`Authorization: Bearer <GAME_API_KEY>` header, `A2A-Version: 1.0`,
 method `SendMessage`, and an A2A 1.0 message payload. Legacy `message/send`
 payloads remain accepted with `A2A-Version: 0.3` (or no version header).
 Discovery at `/.well-known/agent-card.json` now returns the A2A 1.0 card with

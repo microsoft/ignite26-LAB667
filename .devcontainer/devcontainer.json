@@ -45,7 +45,7 @@
       "onAutoForward": "notify"
     },
     "8080": {
-      "label": "Game admin (no authentication)",
+      "label": "Game admin (sign-in required)",
       "onAutoForward": "notify"
     },
     "8042": {

@@ -55,19 +55,6 @@ Run its isolated tests without Azure credentials:
 bash scripts/test-restore-azd-images.sh
 ```
 
-## Generate attendee indexes
-
-```bash
-python scripts/sync-to-skillable.py
-```
-
-The generator reads only numbered step files in
-[player/guided/](../player/guided/) and writes
-[skillable.md](../player/skillable.md) and [index.html](../player/index.html)
-under [player/](../player/). It excludes the folder README.
-The original Skillable hosting URLs are preserved; this command writes local
-files only and does not publish them.
-
 ## Local game-server load test
 
 [load_test.py](load_test.py) sends concurrent HTTP requests to a game server

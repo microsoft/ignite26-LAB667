@@ -39,6 +39,6 @@ Use these facts when editing documentation, workshop steps, README content, or g
 
 - Guided sources live in `player/guided/`; Challenge sources live in `player/challenge/`; the dashboard serves `/<slug>/player`.
 - Game variables are documented in `player/README.md`. Use the allowlisted placeholders, never credentials or executable templates.
-- Each game can have start/end datetimes, an IANA timezone, and a Player mode, edited in **Schedule & player**. The MCP server enforces the play window; Player content remains public before and after it.
+- Each game can have start/end datetimes, an IANA timezone, and a Player mode, edited in the game editor. The MCP server enforces the play window; outside it, the Player page hides lessons, navigation, registration, and city-guide downloads.
 - Admin and dashboard container builds include the shared lessons and screenshots. Redeploy them after source edits; local development reads the source directly.
-- `player/skillable.md` and `player/index.html` are legacy Guided Mode exports from `scripts/sync-to-skillable.py`, not the current delivery path. Do not regenerate them for per-game content changes.
+- `player/index.html` is an archived Guided Mode index, not the current delivery path. The legacy Skillable import and its generator have been removed. Edit the shared lesson sources for per-game content changes.

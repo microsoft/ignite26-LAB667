@@ -107,6 +107,5 @@ explicitly if the file is missing. Existing panels are in [more/](more/).
 Screenshots shared by Guided Mode are in [assets/](assets/). The admin and dashboard container builds
 bundle these source lessons and images; redeploy those services after updating
 content. Local development reads this directory directly. The old
-[web index](index.html), [Skillable import](skillable.md), and
-[export script](../scripts/sync-to-skillable.py) remain legacy exports and are
-not the per-game player delivery path.
+[web index](index.html) is an archive, not the per-game player delivery path.
+The legacy Skillable import file and its generator have been removed.
