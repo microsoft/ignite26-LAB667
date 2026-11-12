@@ -149,11 +149,15 @@ async def main() -> None:
 
         session = agent.create_session()
 
-        response = await agent.run("Hi, can we start the game?", session=session)
-        print(response.text)
+        message = "Hi, can we start the game?"
+        print(f"You:\n{message}\n")
+        response = await agent.run(message, session=session)
+        print(f"Agent:\n{response.text}\n")
 
-        response2 = await agent.run("Yes", session=session)
-        print(response2.text)
+        message = "Yes"
+        print(f"You:\n{message}\n")
+        response2 = await agent.run(message, session=session)
+        print(f"Agent:\n{response2.text}\n")
 
 
 if __name__ == "__main__":
@@ -168,8 +172,8 @@ python agent.py
 
 Here is what the conversation looks like. The game gives each player one of
 several quests, so your story and route may be different. The agent's own words
-can also change a little from run to run. The terminal shows only the agent's
-replies; your two messages come from **agent.py**.
+can also change a little from run to run. The terminal shows both the messages
+from **agent.py** and the agent's replies.
 
 ```output-read
 You:
