@@ -57,7 +57,7 @@ in to the lab VM. Your facilitator supplies the lab sign-in details.
 
 - Find your Azure and Microsoft Foundry credentials on the **Resources** tab
   in the panel on the right in Skillable.
-- Find your game credentials on this Player page.
+- Find your game API key on this Player page.
 
 ## Your Workspace for Today
 
