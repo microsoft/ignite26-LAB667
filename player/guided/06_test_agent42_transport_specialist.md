@@ -126,7 +126,7 @@ Agent42 compares the travel options and recommends one. Its reply looks like
 this; the weather, times, links, and recommendation depend on the live route:
 
 ```output-read
-Weather: <current San Francisco weather>
+Weather: <current San Francisco weather in °F>
 
 Options:
 Car: <distance, travel time, and pickup wait>

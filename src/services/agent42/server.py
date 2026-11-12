@@ -135,7 +135,7 @@ option for the requested trip.
 When you are asked a question:
 1. Identify the origin and destination from the question.
 2. Call `get_current_weather` for the origin (so you know if it's raining,
-   cold, windy, etc.).
+   cold, windy, etc.; temperature fields are in Fahrenheit).
 3. Call `get_route` THREE times: once with mode='car', once with
    mode='walking', and once with mode='bike'. Read these fields from each
    response:
@@ -158,7 +158,7 @@ When you are asked a question:
 
 OUTPUT FORMAT (plain text, no markdown, no asterisks, no backticks):
 
-Weather: <short summary, e.g. "12°C, light rain" or "15°C, clear">
+Weather: <short summary, e.g. "54°F, light rain" or "59°F, clear">
 
 Options:
 Car: <X.X> miles, <N> minutes + <T> minutes for traffic + <W> minutes pickup wait

@@ -40,7 +40,7 @@ _WMO: dict[int, str] = {
 }
 
 
-@tool(description="Get the current weather for a location anywhere in the world (e.g. 'The Mission, San Francisco', 'Brandenburg Gate, Berlin'). Geocodes via Azure Maps and fetches conditions from Open-Meteo. Returns temperature in C, precipitation, wind, and a short condition string.")
+@tool(description="Get the current weather for a location anywhere in the world (e.g. 'The Mission, San Francisco', 'Brandenburg Gate, Berlin'). Geocodes via Azure Maps and fetches conditions from Open-Meteo. Returns temperature in Fahrenheit, precipitation, wind, and a short condition string.")
 async def get_current_weather(location: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=15) as client:
         try:
@@ -54,6 +54,7 @@ async def get_current_weather(location: str) -> dict[str, Any]:
                     "latitude": lat,
                     "longitude": lon,
                     "current": "temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,relative_humidity_2m",
+                    "temperature_unit": "fahrenheit",
                     "wind_speed_unit": "kmh",
                     "timezone": "auto",
                 },
@@ -69,8 +70,8 @@ async def get_current_weather(location: str) -> dict[str, Any]:
         "latitude": lat,
         "longitude": lon,
         "time": cur.get("time"),
-        "temperature_c": cur.get("temperature_2m"),
-        "feels_like_c": cur.get("apparent_temperature"),
+        "temperature_f": cur.get("temperature_2m"),
+        "feels_like_f": cur.get("apparent_temperature"),
         "humidity_pct": cur.get("relative_humidity_2m"),
         "precipitation_mm": cur.get("precipitation"),
         "wind_speed_kmh": cur.get("wind_speed_10m"),

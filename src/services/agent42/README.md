@@ -119,7 +119,7 @@ See [.env.example](.env.example) for the full set; required at minimum:
 ## Output format
 
 ```
-Weather: 12°C, light rain
+Weather: 54°F, light rain
 Options:
 Car: 1.8 miles, 9 minutes + 3 minutes for traffic + 5 minutes pickup wait
 Bike: 1.8 miles, 11 minutes
