@@ -97,6 +97,7 @@ class InstructionsTests(unittest.TestCase):
             self.assertIn("GAME_MCP_URL=https://mcp.example.test/london/mcp", other)
             self.assertNotIn("https://mcp.example.test/amsterdam/mcp", other)
             story = client.get("/amsterdam/player/00_step_into_your_workspace").text
+            self.assertIn("Find your game API key on this Player page.", story)
             self.assertIn("A published Amsterdam story from the quest document.", story)
             self.assertIn("Amsterdam city guide", story)
             self.assertNotIn("arrived in San Francisco", story)
