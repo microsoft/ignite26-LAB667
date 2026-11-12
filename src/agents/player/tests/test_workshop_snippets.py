@@ -2,13 +2,15 @@
 from __future__ import annotations
 
 import ast
+import contextlib
+import io
 import os
 import re
 import sys
 import textwrap
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 PLAYER_DIR = Path(__file__).resolve().parents[1]
 ROOT = PLAYER_DIR.parents[2]
@@ -69,6 +71,62 @@ class WorkshopSnippetTests(unittest.TestCase):
                 )
                 actual = [ast.dump(ast.parse(block)) for block in blocks]
                 self.assertTrue(expected in actual, f"Refresh the {source} example in {lesson}.")
+
+
+class ConversationOutputTests(unittest.IsolatedAsyncioTestCase):
+    async def test_sequential_messages_and_replies_are_printed_in_order(self) -> None:
+        for lesson in ("03_connect_to_the_gaming_mcp_server.md", "05_add_session_logging.md"):
+            with self.subTest(lesson=lesson):
+                blocks = PYTHON_BLOCK.findall((LESSONS_DIR / lesson).read_text(encoding="utf-8"))
+                code = next(block for block in blocks if 'if __name__ == "__main__":' in block)
+                framework = MagicMock()
+                openai = MagicMock()
+                dotenv = MagicMock()
+                log = MagicMock()
+                log.build_logging_middleware.return_value = (None, None, None)
+                mcp = framework.MCPStreamableHTTPTool.return_value
+                mcp.get_prompt = AsyncMock(return_value="game instructions")
+                agent = framework.Agent.return_value
+                session = agent.create_session.return_value
+                output = io.StringIO()
+                output_at_send = []
+
+                async def run(message, *, session):
+                    output_at_send.append(output.getvalue())
+                    return MagicMock(text=f"Reply to {message}")
+
+                agent.run = AsyncMock(side_effect=run)
+                namespace = {"__name__": "workshop_example", "__file__": str(PLAYER_DIR / "agent.py")}
+                with (
+                    patch.dict(sys.modules, {
+                        "agent_framework": framework,
+                        "agent_framework.openai": openai,
+                        "dotenv": dotenv,
+                        "log": log,
+                    }),
+                    patch.dict(os.environ, {
+                        "AZURE_OPENAI_ENDPOINT": "https://model.invalid",
+                        "AZURE_OPENAI_API_KEY": "offline-key",
+                        "AZURE_OPENAI_DEPLOYMENT_NAME": "model",
+                        "GAME_MCP_URL": "https://game.invalid",
+                        "GAME_API_KEY": "offline-key",
+                    }),
+                    contextlib.redirect_stdout(output),
+                ):
+                    exec(compile(code, lesson, "exec"), namespace)
+                    await namespace["main"]()
+
+                messages = ["Hi, can we start the game?", "Yes"]
+                self.assertEqual([call.args[0] for call in agent.run.await_args_list], messages)
+                for call in agent.run.await_args_list:
+                    self.assertIs(call.kwargs["session"], session)
+                first = "You:\nHi, can we start the game?\n\n"
+                first_reply = "Agent:\nReply to Hi, can we start the game?\n\n"
+                second = "You:\nYes\n\n"
+                second_reply = "Agent:\nReply to Yes\n\n"
+                self.assertTrue(output_at_send[0].endswith(first))
+                self.assertTrue(output_at_send[1].endswith(first + first_reply + second))
+                self.assertTrue(output.getvalue().endswith(first + first_reply + second + second_reply))
 
 
 if __name__ == "__main__":

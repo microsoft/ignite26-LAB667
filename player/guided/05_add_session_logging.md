@@ -6,11 +6,11 @@ In this exercise, you add a session log to your agent. Each time you run the
 agent, it writes a new file that records what happened behind the scenes.
 
 Your agent does more than reply. Before it answers, it can send your message to
-the model, call one or more game tools, and read their results. You only see the
-final answer in the terminal. The session log shows every step in order: your
-message, what the model received, each tool call and its result, and the agent's
-reply. That makes it easy to see why the agent did something, or to find out
-what went wrong.
+the model, call one or more game tools, and read their results. The terminal shows
+the conversation, but not those intermediate steps. The session log shows every
+step in order: your message, what the model received, each tool call and its
+result, and the agent's reply. That makes it easy to see why the agent did
+something, or to find out what went wrong.
 
 > [!Hint] 🖥️ **In VS Code** — create the logging helper beside **agent.py** in
 > **C:\workshop**.
@@ -266,11 +266,15 @@ async def main() -> None:
 
         session = agent.create_session()
 
-        response = await agent.run("Hi, can we start the game?", session=session)
-        print(response.text)
+        message = "Hi, can we start the game?"
+        print(f"You:\n{message}\n")
+        response = await agent.run(message, session=session)
+        print(f"Agent:\n{response.text}\n")
 
-        response2 = await agent.run("Yes", session=session)
-        print(response2.text)
+        message = "Yes"
+        print(f"You:\n{message}\n")
+        response2 = await agent.run(message, session=session)
+        print(f"Agent:\n{response2.text}\n")
 
 
 if __name__ == "__main__":
