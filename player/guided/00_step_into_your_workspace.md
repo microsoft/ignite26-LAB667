@@ -45,12 +45,6 @@ you'll have seen how the framework, MCP, A2A, and retrieval fit together in
 a real application instead of a toy demo.
 
 
-## Your Skillable Environment
-
-During a facilitated session, use the prepared Windows lab VM in Skillable.
-The Player page hosts these lessons separately; opening it does not sign you
-in to the lab VM. Your facilitator supplies the lab sign-in details.
-
 ## Credentials
 
 ![The Skillable lab window with the Resources tab open on the right, showing Azure and Microsoft Foundry usernames and passwords, while a pigeon points and says your credentials are here](../assets/illustration-welcome-credentials.webp)

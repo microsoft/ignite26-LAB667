@@ -61,7 +61,7 @@ The canonical runnable sample is in
 Step 5 also supplies the logging helper, Steps 6–7 supply the specialist helpers,
 and the final Note Reader integration supplies the complete **agent.py**. Keep those full copies and their
 smaller integration snippets synchronized with the reference files. Step 0
-introduces the Skillable environment, credential locations, and VS Code workspace.
+introduces credential locations and the VS Code workspace.
 
 ## Per-game variables
 
