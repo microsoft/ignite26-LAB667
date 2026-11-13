@@ -16,9 +16,41 @@ short summary ending in a `recommendation: <choice>` line and a
 
 | Tool | Source | Notes |
 | --- | --- | --- |
-| `get_current_weather(location)` | [Open-Meteo](https://open-meteo.com/) (no key) + [Azure Maps geocoding](https://learn.microsoft.com/azure/azure-maps/) | Returns temperature, precipitation, wind, condition. |
-| `get_route(origin, destination, mode)` | [Azure Maps Route Directions](https://learn.microsoft.com/rest/api/maps/route/) | `mode` ∈ {`driving`/`taxi`/`car`, `walking`/`pedestrian`, `bike`/`bicycle`}. Car uses real-time traffic. Refuses trips > ~100 mi apart. |
+| `get_current_weather(location)` | [Open-Meteo](https://open-meteo.com/) (no key) + [Azure Maps geocoding](https://learn.microsoft.com/azure/azure-maps/) | Returns temperature and feels-like temperature in Celsius and Fahrenheit, precipitation, wind, condition. |
+| `get_route(origin, destination, mode)` | [Azure Maps Route Directions](https://learn.microsoft.com/rest/api/maps/route/) | `mode` ∈ {`driving`/`taxi`/`car`, `walking`/`pedestrian`, `bike`/`bicycle`}. Car uses traffic data cached for up to 30 minutes. Refuses trips > ~100 mi apart. |
 | `render_route_map(origin, destination, mode)` | [Azure Maps Static Image](https://learn.microsoft.com/rest/api/maps/render/get-map-static-image) + [Azure Blob Storage](https://learn.microsoft.com/azure/storage/blobs/) | Uploads `<code>.png` and `<code>.json` and returns readable URLs. `<code>` is a 15-char `[a-z0-9]` "recommendation code". |
+
+Weather results include `temperature_c`, `temperature_f`, `feels_like_c`, and
+`feels_like_f`. Fahrenheit values are converted locally from Celsius and rounded
+to one decimal place, without extra API calls. Missing temperatures remain null
+in both units.
+
+Successful weather lookups are cached for **one hour** per location in the
+Agent42 process's memory, avoiding repeated weather and geocoding calls.
+Location keys ignore case and extra whitespace. Concurrent requests reuse a
+successful lookup; errors are not cached. The cache holds up to 1,024 locations,
+evicting the oldest entry when full. Each container replica has its own cache,
+which clears on restart.
+
+Successful Azure Maps route responses, including traffic, are cached for
+**30 minutes** per origin/destination coordinate pair and travel mode.
+Route advice and map rendering share this cache, so mode aliases such as
+`taxi` and `car` reuse the same route. Traffic may change during that window;
+departure and arrival timestamps remain those of the original lookup.
+This cache also holds up to 1,024 entries per process, evicts the oldest entry
+when full, clears on restart, and does not cache errors.
+
+Geocoding results are cached for **24 hours**, shared across weather, routes,
+and map rendering. Keys ignore case and extra whitespace and include the
+configured geocoding bias. The cache holds up to 1,024 locations.
+
+Static map image bytes are cached for **30 minutes** for identical route
+geometry and map settings (including pins, colors, zoom, and dimensions),
+with up to 128 images in memory. Each rendering still creates a fresh
+recommendation code and uploads its own PNG and directions JSON; artifact
+URLs are not reused. Both caches are process-local, clear on restart, evict
+the oldest entry when full, and never cache failed lookups. Concurrent
+requests reuse successful lookups.
 
 ## Project layout
 
@@ -119,11 +151,11 @@ See [.env.example](.env.example) for the full set; required at minimum:
 ## Output format
 
 ```
-Weather: 12°C, light rain
+Weather: 12°C / 53.6°F, light rain
 Options:
-Car: 1.8 miles, 9 minutes + 3 minutes for traffic + 5 minutes pickup wait
-Bike: 1.8 miles, 11 minutes
-Walking: 1.8 miles, 36 minutes
+Car: 2.9 km / 1.8 miles, 9 minutes + 3 minutes for traffic + 5 minutes pickup wait
+Bike: 2.9 km / 1.8 miles, 11 minutes
+Walking: 2.9 km / 1.8 miles, 36 minutes
 Reasoning: <2–3 short sentences>
 map: https://<account>.blob.core.windows.net/agent42-routes/<code>.png
 directions: https://<account>.blob.core.windows.net/agent42-routes/<code>.json
@@ -132,8 +164,9 @@ recommendation code: a1b2c3d4e5f6g7h
 ```
 
 If the two places are more than ~100 miles apart, the reply collapses to a
-short paragraph suggesting a flight / train / long-distance bus and ends
-with `recommendation: none`.
+short paragraph showing the straight-line distance in both kilometers and
+miles, suggesting a flight / train / long-distance bus, and ending with
+`recommendation: none`.
 
 ## Talk to Agent42 from another agent
 
