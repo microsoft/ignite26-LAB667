@@ -523,6 +523,63 @@ class InstructionsTests(unittest.TestCase):
             self.assertEqual(errors, [])
             browser.close()
 
+    def test_more_info_modal_keeps_background_scroll_position(self) -> None:
+        with TestClient(dashboard.build_app()) as client, sync_playwright() as playwright:
+            browser = playwright.chromium.launch()
+            page = browser.new_page(reduced_motion="reduce")
+            page.add_init_script("localStorage.clear()")
+
+            def serve(route):
+                url = route.request.url.removeprefix("https://instructions.test")
+                response = client.request(
+                    route.request.method, url, headers=dict(route.request.headers),
+                    content=route.request.post_data,
+                )
+                route.fulfill(status=response.status_code, body=response.content,
+                              content_type=response.headers.get("content-type", "text/plain"))
+
+            page.route("**/*", serve)
+            for width, height in ((1280, 720), (390, 740)):
+                with self.subTest(width=width):
+                    page.set_viewport_size({"width": width, "height": height})
+                    page.goto("https://instructions.test/amsterdam/player/03_connect_to_the_gaming_mcp_server")
+                    page.get_by_label("Choose your nickname").fill("Scroll tester")
+                    page.get_by_role("button", name="Start game").click()
+                    trigger = page.locator('a[href="#more-game-tools"]')
+                    trigger.scroll_into_view_if_needed()
+                    background_y = page.evaluate("window.scrollY")
+                    self.assertGreater(background_y, 0)
+                    trigger.click()
+                    dialog = page.locator("#more-game-tools")
+                    expect(dialog).to_be_visible()
+                    self.assertTrue(dialog.evaluate("(el) => el.scrollHeight > el.clientHeight"))
+                    box = dialog.bounding_box()
+                    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+
+                    dialog.evaluate("(el) => { el.scrollTop = 0; }")
+                    page.mouse.wheel(0, -600)
+                    page.wait_for_timeout(250)
+                    self.assertEqual(page.evaluate("window.scrollY"), background_y)
+                    page.mouse.wheel(0, 300)
+                    page.wait_for_function("document.querySelector('#more-game-tools').scrollTop > 0")
+                    self.assertEqual(page.evaluate("window.scrollY"), background_y)
+                    dialog.evaluate("(el) => { el.scrollTop = el.scrollHeight; }")
+                    page.mouse.wheel(0, 600)
+                    page.wait_for_timeout(250)
+                    self.assertEqual(page.evaluate("window.scrollY"), background_y)
+                    page.mouse.move(1, 1)
+                    page.mouse.wheel(0, 600)
+                    page.wait_for_timeout(250)
+                    self.assertEqual(page.evaluate("window.scrollY"), background_y)
+
+                    page.keyboard.press("Escape")
+                    expect(dialog).not_to_be_visible()
+                    expect(trigger).to_be_focused()
+                    self.assertEqual(page.evaluate("window.scrollY"), background_y)
+                    page.mouse.wheel(0, -300)
+                    page.wait_for_function("(y) => window.scrollY < y", arg=background_y)
+            browser.close()
+
     def test_public_lessons_are_responsive_and_navigation_preserves_game(self) -> None:
         with patch.object(
             game_schedule, "utcnow",
