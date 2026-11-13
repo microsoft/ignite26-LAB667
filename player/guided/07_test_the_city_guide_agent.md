@@ -18,29 +18,31 @@ a separate file and test it on its own, before you add it to your game agent.
 Your agent needs the address and key of the Azure AI Search service that stores
 your knowledge base. You find both in the Microsoft Foundry portal.
 
-![Microsoft Foundry: 1 select Manage, 2 select Project details, 3 open Connected resources; in the CognitiveSearch row, Key goes to AZURE_SEARCH_KEY and Target goes to AZURE_SEARCH_ENDPOINT in .env](../assets/illustration-foundry-connected-resources.png)
-
-1. In the Microsoft Foundry portal, select **Manage** in the top menu.
-2. Select **Project details** in the left menu.
-3. Open the **Connected resources** tab.
-4. Find the Search connection you added in part 1. Its **Category** is
-   **CognitiveSearch**.
-5. Copy the **Target** value. It looks like
-   **https://search-xxxx.search.windows.net/**.
-6. Copy the **Key** value from the same row.
-
-Copy the values from the **Connected resources** table, not the **Project
-endpoint** and **API Key** at the top of the page. Those belong to your
-Foundry project, not to Search.
-
-Open the existing **.env** file, add these lines, and replace the two
-placeholders with the **Target** and **Key** you copied:
+First, open the existing **C:\workshop\.env** file in VS Code and add these
+lines. You will replace the two placeholders in the steps below:
 
 ```env
 AZURE_SEARCH_ENDPOINT=<Target>
 AZURE_SEARCH_KEY=<Key>
 AZURE_SEARCH_KNOWLEDGE_BASE_NAME=san-francisco-cityguide
 ```
+
+![Microsoft Foundry: 1 select Manage, 2 select Project details, 3 open Connections; in the CognitiveSearch row, Key goes to AZURE_SEARCH_KEY and Target goes to AZURE_SEARCH_ENDPOINT in .env](../assets/illustration-foundry-connected-resources.png)
+
+1. In the Microsoft Foundry portal, select **Manage** in the top menu.
+2. Select **Project details** in the left menu.
+3. Open the **Connections** tab.
+4. Find the Search connection you added in part 1. Its **Category** is
+   **CognitiveSearch**.
+5. Copy the **Target** value. It looks like
+   **https://search-xxxx.search.windows.net/**. In **.env**, replace
+   `<Target>` in `AZURE_SEARCH_ENDPOINT` with the copied value.
+6. Return to the same row in the portal and copy the **Key** value. In
+   **.env**, replace `<Key>` in `AZURE_SEARCH_KEY` with the copied value.
+
+Copy the values from the **Connections** table, not the **Project
+endpoint** and **API Key** at the top of the page. Those belong to your
+Foundry project, not to Search.
 
 ## Create the City Guide tool
 
