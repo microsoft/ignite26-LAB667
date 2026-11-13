@@ -7,11 +7,15 @@ directly at those public blobs.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import secrets
 import string
-from typing import Any
+from collections.abc import Awaitable, Callable, Hashable
+from copy import deepcopy
+from time import monotonic
+from typing import Any, Generic, TypeVar
 
 import httpx
 from agent_framework import tool
@@ -21,9 +25,41 @@ from azure.storage.blob import (
 )
 from azure.storage.blob.aio import BlobServiceClient, ContainerClient
 
+_CacheValue = TypeVar("_CacheValue")
+
+
+class _MemoryCache(Generic[_CacheValue]):
+    def __init__(self, ttl_seconds: int, max_entries: int) -> None:
+        self._ttl_seconds = ttl_seconds
+        self._max_entries = max_entries
+        self._entries: dict[Hashable, tuple[float, _CacheValue]] = {}
+        self._lock = asyncio.Lock()
+
+    async def get_or_load(
+        self, key: Hashable, load: Callable[[], Awaitable[_CacheValue]],
+    ) -> _CacheValue:
+        cached = self._entries.get(key)
+        if cached is not None and monotonic() < cached[0]:
+            return cached[1]
+        async with self._lock:
+            cached = self._entries.get(key)
+            if cached is not None and monotonic() < cached[0]:
+                return cached[1]
+            self._entries.pop(key, None)
+            value = await load()
+            if len(self._entries) >= self._max_entries:
+                self._entries.pop(next(iter(self._entries)))
+            self._entries[key] = (monotonic() + self._ttl_seconds, value)
+            return value
+
+
 # --- Open-Meteo (no API key required) ----------------------------------------
 
 FORECAST_URL = "https://api.open-meteo.com/v1/forecast"
+_WEATHER_CACHE_TTL_SECONDS = 3600
+_WEATHER_CACHE_MAX_ENTRIES = 1024
+_weather_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_weather_cache_lock = asyncio.Lock()
 
 # WMO weather codes -> short text. Subset; unknowns fall back to "unknown".
 _WMO: dict[int, str] = {
@@ -40,8 +76,31 @@ _WMO: dict[int, str] = {
 }
 
 
-@tool(description="Get the current weather for a location anywhere in the world (e.g. 'The Mission, San Francisco', 'Brandenburg Gate, Berlin'). Geocodes via Azure Maps and fetches conditions from Open-Meteo. Returns temperature in C, precipitation, wind, and a short condition string.")
+@tool(description="Get the current weather for a location anywhere in the world (e.g. 'The Mission, San Francisco', 'Brandenburg Gate, Berlin'). Geocodes via Azure Maps and fetches conditions from Open-Meteo, cached for up to one hour. Returns temperature and feels-like temperature in Celsius and Fahrenheit, precipitation, wind, and a short condition string.")
 async def get_current_weather(location: str) -> dict[str, Any]:
+    key = " ".join(location.split()).casefold()
+    cached = _weather_cache.get(key)
+    if cached is not None and monotonic() < cached[0]:
+        return cached[1].copy()
+
+    # Recheck after waiting so simultaneous requests reuse the first lookup.
+    async with _weather_cache_lock:
+        cached = _weather_cache.get(key)
+        if cached is not None and monotonic() < cached[0]:
+            return cached[1].copy()
+        _weather_cache.pop(key, None)
+        weather = await _fetch_current_weather(location)
+        if "error" not in weather:
+            if len(_weather_cache) >= _WEATHER_CACHE_MAX_ENTRIES:
+                _weather_cache.pop(next(iter(_weather_cache)))
+            _weather_cache[key] = (
+                monotonic() + _WEATHER_CACHE_TTL_SECONDS,
+                weather.copy(),
+            )
+        return weather
+
+
+async def _fetch_current_weather(location: str) -> dict[str, Any]:
     async with httpx.AsyncClient(timeout=15) as client:
         try:
             lat, lon, label = await _geocode_azure(client, location)
@@ -54,6 +113,7 @@ async def get_current_weather(location: str) -> dict[str, Any]:
                     "latitude": lat,
                     "longitude": lon,
                     "current": "temperature_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_gusts_10m,relative_humidity_2m",
+                    "temperature_unit": "celsius",
                     "wind_speed_unit": "kmh",
                     "timezone": "auto",
                 },
@@ -64,13 +124,17 @@ async def get_current_weather(location: str) -> dict[str, Any]:
             return {"error": f"weather lookup failed: {exc}"}
     cur = data.get("current", {})
     code = int(cur.get("weather_code", -1))
+    temperature_c = cur.get("temperature_2m")
+    feels_like_c = cur.get("apparent_temperature")
     return {
         "location": label,
         "latitude": lat,
         "longitude": lon,
         "time": cur.get("time"),
-        "temperature_c": cur.get("temperature_2m"),
-        "feels_like_c": cur.get("apparent_temperature"),
+        "temperature_c": temperature_c,
+        "temperature_f": round(temperature_c * 9 / 5 + 32, 1) if temperature_c is not None else None,
+        "feels_like_c": feels_like_c,
+        "feels_like_f": round(feels_like_c * 9 / 5 + 32, 1) if feels_like_c is not None else None,
         "humidity_pct": cur.get("relative_humidity_2m"),
         "precipitation_mm": cur.get("precipitation"),
         "wind_speed_kmh": cur.get("wind_speed_10m"),
@@ -91,11 +155,45 @@ async def get_current_weather(location: str) -> dict[str, Any]:
 AZ_GEOCODE_URL = "https://atlas.microsoft.com/geocode"
 AZ_GEOCODE_API_VERSION = "2025-01-01"
 AZ_ROUTE_URL = "https://atlas.microsoft.com/route/directions/json"
+_ROUTE_CACHE_TTL_SECONDS = 1800
+_ROUTE_CACHE_MAX_ENTRIES = 1024
+_route_cache: dict[tuple[str, str], tuple[float, dict[str, Any]]] = {}
+_route_cache_lock = asyncio.Lock()
+
+
+async def _get_route_data(client: httpx.AsyncClient, params: dict[str, Any]) -> dict[str, Any]:
+    key = (params["query"], params["travelMode"])
+    cached = _route_cache.get(key)
+    if cached is not None and monotonic() < cached[0]:
+        return deepcopy(cached[1])
+
+    async with _route_cache_lock:
+        cached = _route_cache.get(key)
+        if cached is not None and monotonic() < cached[0]:
+            return deepcopy(cached[1])
+        _route_cache.pop(key, None)
+        try:
+            response = await client.get(AZ_ROUTE_URL, params=params)
+        except httpx.HTTPError as exc:
+            return {"error": f"Azure Maps route request failed: {exc}"}
+        if response.status_code >= 400:
+            return {"error": f"Azure Maps HTTP {response.status_code}", "body": response.text[:400]}
+        try:
+            data = response.json()
+        except ValueError as exc:
+            return {"error": f"Azure Maps returned invalid JSON: {exc}"}
+        if not data.get("routes"):
+            return {"error": "no route found"}
+        if len(_route_cache) >= _ROUTE_CACHE_MAX_ENTRIES:
+            _route_cache.pop(next(iter(_route_cache)))
+        _route_cache[key] = (monotonic() + _ROUTE_CACHE_TTL_SECONDS, deepcopy(data))
+        return data
 
 # Optional geocoding bias. Set AGENT42_GEOCODE_BIAS to a "lon,lat" string
 # (e.g. "-122.4194,37.7749" for downtown San Francisco) to nudge short or
 # ambiguous queries toward a specific city. Leave unset for global behavior.
 GEOCODE_BIAS_POINT = os.environ.get("AGENT42_GEOCODE_BIAS", "").strip() or None
+_geocode_cache = _MemoryCache[tuple[float, float, str]](ttl_seconds=86400, max_entries=1024)
 
 # Logical mode names -> Azure Maps travelMode values. Azure Maps does not
 # currently offer public-transit routing, so we map car / walking / bike
@@ -126,6 +224,11 @@ async def _geocode_azure(client: httpx.AsyncClient, query: str) -> tuple[float, 
     or "Brandenburg Gate, Berlin") for best results; an optional bias point
     can be configured via the AGENT42_GEOCODE_BIAS env var.
     """
+    key = (" ".join(query.split()).casefold(), GEOCODE_BIAS_POINT)
+    return await _geocode_cache.get_or_load(key, lambda: _fetch_geocode_azure(client, query))
+
+
+async def _fetch_geocode_azure(client: httpx.AsyncClient, query: str) -> tuple[float, float, str]:
     params: dict[str, Any] = {
         "api-version": AZ_GEOCODE_API_VERSION,
         "subscription-key": _azure_maps_key(),
@@ -195,9 +298,10 @@ def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 @tool(description=(
     "Get route information between two places using Azure Maps. "
-    "mode must be one of: 'driving' / 'taxi' / 'car' (real-time traffic), "
+    "mode must be one of: 'driving' / 'taxi' / 'car' (traffic-aware), "
     "'walking' / 'pedestrian', or 'bike' / 'bicycle'. "
     "Returns total distance, travel time, traffic delay (for driving), and per-leg summary. "
+    "Route and traffic data are cached for up to 30 minutes; departure and arrival times reflect the original lookup. "
     "Note: Azure Maps does not currently provide public-transit routing. "
     "If the two places are more than ~100 miles apart in a straight line the "
     "tool refuses to plan a route and returns an error."
@@ -247,21 +351,11 @@ async def get_route(origin: str, destination: str, mode: str = "driving") -> dic
             params["routeType"] = "fastest"
             params["computeTravelTimeFor"] = "all"
 
-        try:
-            r = await client.get(AZ_ROUTE_URL, params=params)
-        except httpx.HTTPError as exc:
-            return {"error": f"Azure Maps route request failed: {exc}"}
+        data = await _get_route_data(client, params)
+    if "error" in data:
+        return data
 
-    if r.status_code >= 400:
-        return {"error": f"Azure Maps HTTP {r.status_code}", "body": r.text[:400]}
-    try:
-        data = r.json()
-    except ValueError as exc:
-        return {"error": f"Azure Maps returned invalid JSON: {exc}"}
-
-    routes = data.get("routes") or []
-    if not routes:
-        return {"error": "no route found"}
+    routes = data["routes"]
     route = routes[0]
     summary = route.get("summary", {}) or {}
 
@@ -298,6 +392,18 @@ async def get_route(origin: str, destination: str, mode: str = "driving") -> dic
 
 AZ_STATIC_MAP_URL = "https://atlas.microsoft.com/map/static"
 AZ_STATIC_MAP_API_VERSION = "2024-04-01"
+_static_map_cache = _MemoryCache[bytes](ttl_seconds=1800, max_entries=128)
+
+
+async def _get_static_map(client: httpx.AsyncClient, params: dict[str, Any]) -> bytes:
+    key = tuple(sorted((name, str(value)) for name, value in params.items() if name != "subscription-key"))
+
+    async def fetch() -> bytes:
+        response = await client.get(AZ_STATIC_MAP_URL, params=params)
+        response.raise_for_status()
+        return response.content
+
+    return await _static_map_cache.get_or_load(key, fetch)
 
 # --- Blob Storage for rendered maps + directions ----------------------------
 
@@ -404,7 +510,8 @@ def _center_and_zoom(points: list[dict[str, Any]], width: int, height: int, pad:
     "Render a static PNG map of a route between two places and upload it to "
     "Azure Blob Storage along with a turn-by-turn directions JSON. Use this "
     "AFTER you've picked your recommendation; pass the same origin, "
-    "destination, and mode. Returns `url` (PNG), `directions_url` (JSON), and "
+    "destination, and mode. Uses route and traffic data cached for up to 30 minutes. "
+    "Returns `url` (PNG), `directions_url` (JSON), and "
     "`recommendation_code` (a 15-character id shared by both blobs)."
 ))
 async def render_route_map(origin: str, destination: str, mode: str = "car") -> dict[str, Any]:
@@ -444,19 +551,10 @@ async def render_route_map(origin: str, destination: str, mode: str = "car") -> 
             route_params["routeType"] = "fastest"
             route_params["computeTravelTimeFor"] = "all"
 
-        try:
-            rr = await client.get(AZ_ROUTE_URL, params=route_params)
-        except httpx.HTTPError as exc:
-            return {"error": f"Azure Maps route request failed: {exc}"}
-        if rr.status_code >= 400:
-            return {"error": f"Azure Maps route HTTP {rr.status_code}", "body": rr.text[:300]}
-        try:
-            route_data = rr.json()
-        except ValueError as exc:
-            return {"error": f"Azure Maps route returned invalid JSON: {exc}"}
-        routes = route_data.get("routes") or []
-        if not routes:
-            return {"error": "no route found"}
+        route_data = await _get_route_data(client, route_params)
+        if "error" in route_data:
+            return route_data
+        routes = route_data["routes"]
         all_points: list[dict[str, Any]] = []
         for leg in routes[0].get("legs", []) or []:
             all_points.extend(leg.get("points") or [])
@@ -488,12 +586,14 @@ async def render_route_map(origin: str, destination: str, mode: str = "car") -> 
             "pins": pins_param,
         }
         try:
-            mr = await client.get(AZ_STATIC_MAP_URL, params=map_params)
+            image_bytes = await _get_static_map(client, map_params)
+        except httpx.HTTPStatusError as exc:
+            return {
+                "error": f"Azure Maps static map HTTP {exc.response.status_code}",
+                "body": exc.response.text[:300],
+            }
         except httpx.HTTPError as exc:
             return {"error": f"Azure Maps static map request failed: {exc}"}
-
-    if mr.status_code >= 400:
-        return {"error": f"Azure Maps static map HTTP {mr.status_code}", "body": mr.text[:300]}
 
     # Build the turn-by-turn directions JSON for the recommended mode.
     summary = (routes[0].get("summary") or {}) if routes else {}
@@ -535,7 +635,7 @@ async def render_route_map(origin: str, destination: str, mode: str = "car") -> 
             container = await _get_container(svc)
             await container.upload_blob(
                 name=png_blob,
-                data=mr.content,
+                data=image_bytes,
                 overwrite=True,
                 content_settings=ContentSettings(content_type="image/png"),
             )
@@ -557,5 +657,5 @@ async def render_route_map(origin: str, destination: str, mode: str = "car") -> 
         "destination": destination,
         "url": png_url,
         "directions_url": directions_url,
-        "size_bytes": len(mr.content),
+        "size_bytes": len(image_bytes),
     }
