@@ -34,9 +34,10 @@ a container named **city-guide**. You turn them into a knowledge base. On the
 
 ### Basic configuration
 
-![The Create a new knowledge base form: 1 Name san-francisco-cityguide, 2 the description, 3 Chat completions model gpt-5.6-luna, 4 Retrieval reasoning effort Low, 5 the retrieval instructions, 6 Output mode Answer synthesis](../assets/illustration-foundry-iq-configure.webp)
+![The Create a new knowledge base form: 1 Name san-francisco-cityguide, 2 the description; under Improve retrieval, 3 Chat completions model gpt-5.6-luna, 4 Retrieval reasoning effort Low, 5 the retrieval instructions](../assets/illustration-foundry-iq-configure.png)
 
-Fill in these settings:
+Fill in **Name** and **Description**, then expand **Improve retrieval** to
+configure the remaining three settings:
 
 | # | Setting | Value |
 | --- | --- | --- |
@@ -45,7 +46,6 @@ Fill in these settings:
 | 3 | **Chat completions model** | gpt-5.6-luna |
 | 4 | **Retrieval reasoning effort** | Low |
 | 5 | **Retrieval instructions** | Search the San Francisco city guide. Prefer chapters about neighborhoods, landmarks, and local knowledge. |
-| 6 | **Output mode** | Answer synthesis |
 
 ### Knowledge sources
 
@@ -107,7 +107,7 @@ again.
 
 ## What You Learned
 
-![Ready for the next mission: Foundry IQ and Azure AI Search connected, city guide chapters indexed, san-francisco-cityguide configured with gpt-5.6-luna and Answer synthesis, and tested with test-agent. Next, connect your Python City Guide over MCP.](../assets/illustration-foundry-iq-recap.png)
+![Ready for the next mission: Foundry IQ and Azure AI Search connected, city guide chapters indexed, san-francisco-cityguide configured with gpt-5.6-luna, and tested with test-agent. Next, connect your Python City Guide over MCP.](../assets/illustration-foundry-iq-recap.png)
 
 You built the knowledge your City Guide needs, without writing any code:
 
@@ -118,8 +118,8 @@ You built the knowledge your City Guide needs, without writing any code:
   indexed them with the **text-embedding-3-small** model.
 - A **knowledge base** combines one or more sources with the settings for
   searching them. Yours, **san-francisco-cityguide**, plans each search with
-  **gpt-5.6-luna**, uses your retrieval instructions to focus on the city
-  guide, and writes a short answer with **Answer synthesis**.
+  **gpt-5.6-luna** and uses your retrieval instructions to focus on the city
+  guide.
 - You tested it with **test-agent** in the portal. The answer, **The Mission**,
   came from the city guide, not from what the model already knew.
 
