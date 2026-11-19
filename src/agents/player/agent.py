@@ -27,7 +27,7 @@ async def main() -> None:
 
     # Step 1 - Create the chat client the main game agent uses to reason and choose tools.
     client = OpenAIChatClient(
-        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+        azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/").removesuffix("/openai/v1"),
         api_key=os.environ["AZURE_OPENAI_API_KEY"],
         model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
     )

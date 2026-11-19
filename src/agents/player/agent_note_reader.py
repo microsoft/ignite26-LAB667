@@ -26,7 +26,7 @@ class SecretNote(BaseModel):
 @asynccontextmanager
 async def build_note_reader_agent() -> AsyncGenerator[Agent, None]:
 	client = OpenAIChatClient(
-		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/").removesuffix("/openai/v1"),
 		api_key=os.environ["AZURE_OPENAI_API_KEY"],
 		model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
 	)
