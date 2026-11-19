@@ -1,11 +1,75 @@
-/* Dashboard-specific layout. The 50-slot player grid is the only thing that
-   would be awkward to express purely with Tailwind utility classes. */
+.dashboard-layout {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+}
+
+.dashboard-map {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.departure-board {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  width: clamp(12rem, 33.333%, 42rem);
+  padding: clamp(0.4rem, 0.9vw, 0.8rem);
+  border-right: 2px solid #e0a72e;
+  background: #171714;
+}
+
+.departure-board-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.5rem;
+  font: 700 0.75rem/1.5 ui-monospace, monospace;
+}
+
+.departure-board-header h2 {
+  margin-right: auto;
+  color: #e0a72e;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
 
 .player-grid {
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-rows: repeat(25, minmax(0, 1fr));
   grid-auto-flow: column;
+  grid-template-rows: repeat(25, minmax(1.25rem, 1fr));
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.125rem 0.25rem;
+  overflow: auto;
+  perspective: 700px;
+}
+
+@media (max-height: 799px) {
+  .departure-tile-quest { display: none; }
+}
+
+.departure-tile {
+  background: linear-gradient(to bottom, #272722 49%, #141414 49%, #141414 51%, #20201d 51%);
+  font-family: ui-monospace, monospace;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .player-grid.is-flipping .departure-tile {
+    animation: departure-flip 350ms ease-out both;
+    animation-delay: calc(var(--tile-index) * 25ms);
+  }
+}
+
+@keyframes departure-flip {
+  0% { transform: rotateX(-85deg); opacity: 0.3; }
+  55% { transform: rotateX(10deg); opacity: 1; }
+  72% { transform: rotateX(-4deg); }
+  100% { transform: rotateX(0deg); }
 }
 
 #map {

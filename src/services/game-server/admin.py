@@ -468,7 +468,7 @@ def api_publish(slug: str, payload: RevisionBody) -> dict[str, Any]:
 def api_activity(slug: str) -> dict[str, Any]:
     game = existing_game(slug)
     current, _ = storage.load_published(slug)
-    data = Dashboard().build_data(game, limit=None)
+    data = Dashboard().build_data(game)
     versions = storage.list_versions(slug)
     data.update(
         published_version=current, versions=versions,
