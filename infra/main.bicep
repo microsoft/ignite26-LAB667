@@ -16,7 +16,7 @@ param modelSku string = 'GlobalStandard'
 
 @minValue(1)
 @description('Model capacity units, subject to the selected model and subscription quota.')
-param modelCapacity int = 10
+param modelCapacity int = 100
 
 @description('Image references saved by azd after publishing. Empty on the first deployment.')
 param mcpImage string = ''
