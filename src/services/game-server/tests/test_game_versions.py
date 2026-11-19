@@ -3,18 +3,21 @@ from __future__ import annotations
 
 import asyncio
 import copy
+import json
 import unittest
 from unittest.mock import patch
 
 from azure.core.exceptions import ResourceExistsError
 from mcp.server.mcpserver import MCPServer
 from mcp.types import CallToolResult
+from starlette.requests import Request
+
 from test_admin_auth import fake_service
 import init
 import storage
 import server
 import player_identity
-from dashboard import Dashboard
+from dashboard import Dashboard, dashboard_data
 from game_schedule import GameSchedule
 from quest_validation import validate_document
 
@@ -267,13 +270,28 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(self.call(mcp, "get_player_status", {}, old_id)["quest_name"], "Original story")
         board = storage.get_leaderboard("test-city")
         self.assertEqual({entry["game_version"] for entry in board}, {1, 2})
-        data = Dashboard().build_data(storage.get_game("test-city"), limit=None)
+        data = Dashboard().build_data(storage.get_game("test-city"))
         names = {p["game_version"]: p["quest_name"] for p in data["players"]}
         self.assertEqual(names, {1: "Original story", 2: "New story"})
         self.assertEqual(data["quest_versions"], [1, 2])
         locations = Dashboard().build_quest_locations(storage.get_game("test-city"))
         self.assertEqual(locations["versions"], [1, 2])
         self.assertEqual(len(locations["quests"]), 2)
+
+    def test_public_dashboard_includes_routes_for_attendees_after_fifty(self) -> None:
+        for index in range(60):
+            player_id, player = player_identity.register_player("test-city", f"Attendee {index + 1}")
+            player["created_at"] = f"2026-07-01T00:00:{index:02}Z"
+            if index == 59:
+                player["mission_results"] = [{"route_ref": "abcdefghijklmno"}]
+            storage.save_player("test-city", player_id, player)
+
+        request = Request({"type": "http", "path_params": {"slug": "test-city"}})
+        response = asyncio.run(dashboard_data(request))
+        data = json.loads(response.body)
+        self.assertEqual(data["counts"]["total"], 60)
+        self.assertEqual([p["name"] for p in data["players"]], [f"Attendee {i}" for i in range(1, 61)])
+        self.assertEqual(data["players"][-1]["mission_results"][0]["route_ref"], "abcdefghijklmno")
 
     def test_move_completion_records_transport_on_timeline(self) -> None:
         document = story("bike")

@@ -4,15 +4,20 @@
 {% block body_attrs %} data-slug="{{ slug }}" data-display-name="{{ display_name }}" data-azure-maps-key="{{ azure_maps_key }}"{% endblock %}
 {% block head %}
   <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" />
-  <link rel="stylesheet" href="/static/css/dashboard.css?v=welcome-overlay-v1" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=departure-board-v2" />
   <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
 {% endblock %}
 {% block content %}
-<main class="flex h-screen w-screen bg-ink text-paper">
-  <aside class="flex h-full w-1/3 min-w-[33%] flex-col border-r border-paper/15">
-    <div id="players" class="player-grid min-h-0 flex-1 gap-x-3 gap-y-1 p-4"></div>
+<main class="dashboard-layout bg-ink text-paper">
+  <aside class="departure-board" aria-labelledby="departure-board-title">
+    <header class="departure-board-header">
+      <h2 id="departure-board-title">Attendee departures</h2>
+      <span id="player-board-count">Loading attendees&hellip;</span>
+      <button id="player-board-pause" type="button" class="text-paper/80 underline disabled:opacity-40" disabled>Pause rotation</button>
+    </header>
+    <div id="players" class="player-grid"></div>
   </aside>
-  <section class="relative flex h-full flex-1 flex-col bg-paper">
+  <section class="dashboard-map bg-paper" aria-label="Game map">
     <div id="map" class="absolute inset-0"></div>
     <div id="map-status" class="pointer-events-none absolute left-4 top-4 hidden bg-ink/85 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-paper"></div>
   </section>
@@ -26,5 +31,5 @@
 </div>
 {% endblock %}
 {% block scripts %}
-<script src="/static/js/dashboard.js?v=welcome-overlay-v1"></script>
+<script src="/static/js/dashboard.js?v=departure-board-v3"></script>
 {% endblock %}

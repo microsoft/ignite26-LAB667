@@ -198,9 +198,10 @@ major versions. Upgrade the player's Agent Framework and MCP packages
 together using its [requirements](../../agents/player/requirements.txt).
 
 Run `python dashboard.py` separately to serve the live room dashboard at
-`http://localhost:8090/<slug>/dashboard`. It shows up
-to 50 player slots on the left side of the screen and refreshes player status,
-quest progress, and leaderboard data every few seconds.
+`http://localhost:8090/<slug>/dashboard`. The departure board on the left
+shows up to 50 attendees in two columns and flips to the next group every
+10 seconds. You can pause the rotation without stopping live updates or
+route animations on the map to the right.
 
 ## Run the admin UI
 

@@ -600,9 +600,12 @@ class AdminUITests(unittest.TestCase):
         self.assertEqual(len(filtered["legend"]), 1)
         self.assertEqual(len(filtered["lines"]), 1)
 
-    def test_public_map_updates_versions_without_removing_player_markers(self) -> None:
+    def test_public_board_cycles_all_attendees_without_resetting_the_map(self) -> None:
         version = 1
-        players = []
+        players = [
+            {"player_id": f"player-{i}", "name": f"Attendee {i}", "status": "registered"}
+            for i in range(1, 61)
+        ]
 
         def serve_public(route: Route) -> None:
             if route.request.url.endswith("/data"):
@@ -615,13 +618,15 @@ class AdminUITests(unittest.TestCase):
                 }]})
 
         self.page.goto(f"{ORIGIN}/login")
+        self.page.set_viewport_size({"width": 1600, "height": 900})
+        self.page.clock.install()
         self.page.route(f"{ORIGIN}/city/dashboard/*", serve_public)
-        self.page.set_content(
-            '<body data-slug="city" data-azure-maps-key="test-key">'
-            '<div id="players"></div><div id="map"></div><div id="map-status"></div>'
-            '<div id="player-welcome-overlay" hidden><span id="player-welcome-name"></span></div>'
-            '</body>'
+        dashboard_html = self.templates.get_template("dashboard.html").render(
+            slug="city", display_name="Test City", azure_maps_key="test-key",
         )
+        body = dashboard_html.split("<body", 1)[1].split("<script", 1)[0]
+        self.page.set_content("<body" + body + "</body>")
+        self.page.add_style_tag(path=ROOT / "static/css/dashboard.css")
         self.page.evaluate("""() => {
             window.pins = [];
             window.atlas = {
@@ -643,14 +648,41 @@ class AdminUITests(unittest.TestCase):
                 data: { BoundingBox: { fromPositions: positions => positions } }
             };
         }""")
+        self.page.clock.pause_at(self.page.evaluate("Date.now()") + 1000)
         self.page.add_script_tag(content=(ROOT / "static/js/dashboard.js").read_text())
         self.page.wait_for_function("window.pins.length === 1")
+        count = self.page.locator("#player-board-count")
+        expect(count).to_have_text("Showing 1\u201350 of 60")
+        tiles = self.page.locator(".departure-tile")
+        expect(tiles).to_have_count(50)
+        expect(tiles.last).to_contain_text("Attendee 50")
+        columns = tiles.evaluate_all("(tiles) => tiles.map(tile => tile.getBoundingClientRect().left)")
+        self.assertEqual(columns[:25], [columns[0]] * 25)
+        self.assertEqual(columns[25:], [columns[25]] * 25)
+        self.assertLess(columns[0], columns[25])
+        board_box = self.page.get_by_role("complementary", name="Attendee departures").bounding_box()
+        map_box = self.page.get_by_role("region", name="Game map").bounding_box()
+        self.assertAlmostEqual(board_box["x"] + board_box["width"], map_box["x"])
+        self.assertAlmostEqual(board_box["y"], map_box["y"])
+        self.assertLessEqual(tiles.last.evaluate("(tile) => tile.getBoundingClientRect().bottom"), 900)
         self.assertIn("Version 1", self.page.evaluate("window.pins[0].options.htmlContent"))
         self.page.evaluate("window.pins.push({player: true})")
         version = 2
         self.page.evaluate("refreshDashboard()")
         self.assertEqual(self.page.evaluate("window.pins.length"), 2)
         self.assertIn("Version 2", self.page.evaluate("window.pins.find(pin => !pin.player).options.htmlContent"))
+        self.page.clock.run_for(9999)
+        expect(count).to_have_text("Showing 1\u201350 of 60")
+        self.page.clock.run_for(1)
+        expect(count).to_have_text("Showing 51\u201360 of 60")
+        expect(tiles).to_have_count(10)
+        expect(tiles.last).to_contain_text("Attendee 60")
+        self.page.get_by_role("button", name="Pause rotation").click()
+        self.page.clock.run_for(10000)
+        expect(count).to_have_text("Showing 51\u201360 of 60")
+        self.page.get_by_role("button", name="Resume rotation").click()
+        self.page.clock.run_for(10000)
+        expect(count).to_have_text("Showing 1\u201350 of 60")
         self.assertTrue(self.page.evaluate("window.pins.some(pin => pin.player)"))
         players.append({
             "player_id": "new-player",

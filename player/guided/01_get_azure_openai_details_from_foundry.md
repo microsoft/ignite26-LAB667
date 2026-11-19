@@ -27,10 +27,8 @@ the top of the page.
 
 1. Open the existing **.env** file in **C:\workshop** in VS Code.
 2. Copy the value from the **Azure OpenAI endpoint** box and paste it after
-    **AZURE_OPENAI_ENDPOINT=**. If the value ends with **/openai/v1**, remove
-    that part. For example, change
-    **https://foundry-12345.openai.azure.com/openai/v1** to
-    **https://foundry-12345.openai.azure.com**.
+    **AZURE_OPENAI_ENDPOINT=**. Paste it as shown in Microsoft Foundry. The
+    agent code removes `/openai/v1` if it appears at the end of the URL.
 3. Copy the value from the **API key** box and paste it after
     **AZURE_OPENAI_API_KEY=**.
 4. Save **.env**.

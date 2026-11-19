@@ -199,7 +199,7 @@ class Dashboard:
             })
         return {"quests": quests_out, "versions": sorted(versions)}
 
-    def build_data(self, game: dict[str, Any], *, limit: int | None = 50) -> dict[str, Any]:
+    def build_data(self, game: dict[str, Any]) -> dict[str, Any]:
         slug = game["slug"]
         versions: dict[int, dict[str, Any]] = {}
         players: list[dict[str, Any]] = []
@@ -258,7 +258,9 @@ class Dashboard:
             })
 
         counts["attempts"] = attempts
-        players.sort(key=lambda item: (item.get("created_at") or "", str(item.get("name") or "").lower()))
+        players.sort(key=lambda item: (
+            item.get("created_at") or "", str(item.get("name") or "").lower(), item["player_id"],
+        ))
         quest_flow = [p for p in players if p["status"] in ACTIVE_STATUSES or p["status"] == "registered"]
         quest_flow.sort(key=lambda item: item.get("last_activity_at") or "", reverse=True)
         current, _ = storage.load_published(slug)
@@ -270,7 +272,7 @@ class Dashboard:
             "game": game,
             "quest_versions": sorted(quest_versions),
             "counts": counts,
-            "players": players[:limit] if limit is not None else players,
+            "players": players,
             "leaderboard": storage.get_leaderboard(slug, limit=10),
             "quest_flow": quest_flow[:12],
         }

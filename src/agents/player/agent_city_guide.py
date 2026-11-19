@@ -101,7 +101,7 @@ async def main() -> None:
 	load_dotenv(Path(__file__).with_name(".env"), override=True)
 
 	client = OpenAIChatClient(
-		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"],
+		azure_endpoint=os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/").removesuffix("/openai/v1"),
 		api_key=os.environ["AZURE_OPENAI_API_KEY"],
 		model=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
 	)

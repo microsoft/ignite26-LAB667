@@ -105,7 +105,7 @@ class ConversationOutputTests(unittest.IsolatedAsyncioTestCase):
                         "log": log,
                     }),
                     patch.dict(os.environ, {
-                        "AZURE_OPENAI_ENDPOINT": "https://model.invalid",
+                        "AZURE_OPENAI_ENDPOINT": "https://model.invalid/openai/v1/",
                         "AZURE_OPENAI_API_KEY": "offline-key",
                         "AZURE_OPENAI_DEPLOYMENT_NAME": "model",
                         "GAME_MCP_URL": "https://game.invalid",
@@ -116,6 +116,10 @@ class ConversationOutputTests(unittest.IsolatedAsyncioTestCase):
                     exec(compile(code, lesson, "exec"), namespace)
                     await namespace["main"]()
 
+                self.assertEqual(
+                    openai.OpenAIChatClient.call_args.kwargs["azure_endpoint"],
+                    "https://model.invalid",
+                )
                 messages = ["Hi, can we start the game?", "Yes"]
                 self.assertEqual([call.args[0] for call in agent.run.await_args_list], messages)
                 for call in agent.run.await_args_list:

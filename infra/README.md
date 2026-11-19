@@ -153,13 +153,19 @@ Set overrides before `azd up`, or before a later `azd provision`:
 | `AGENT42_MODEL_NAME` | `gpt-5.6-luna` |
 | `AGENT42_MODEL_VERSION` | `2026-07-09` |
 | `AGENT42_MODEL_SKU` | `GlobalStandard` |
-| `AGENT42_MODEL_CAPACITY` | `10` capacity units |
+| `AGENT42_MODEL_CAPACITY` | `100` capacity units |
 
-For example, to change the capacity:
+For the default model and SKU, 100 capacity units require 100,000 tokens per
+minute of quota. If your subscription has less quota in the model's region,
+set a lower capacity before provisioning. For example, with 10,000 tokens per
+minute of quota:
 
 ```bash
-azd env set AGENT42_MODEL_CAPACITY 20
+azd env set AGENT42_MODEL_CAPACITY 10
 ```
+
+For GitHub Actions, set the `AGENT42_MODEL_CAPACITY` variable in the
+`production` environment to override the default.
 
 Capacity units are model/SKU-specific; check your quota rather than assuming
 that the value is requests per second. To place the model in a different

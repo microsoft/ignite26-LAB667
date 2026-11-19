@@ -2,8 +2,16 @@
 
 const SLUG = document.body.dataset.slug;
 const AZURE_MAPS_KEY = document.body.dataset.azureMapsKey || '';
-const PLAYER_LIMIT = 50;
+const BOARD_ROTATION_MS = 10000;
+const BOARD_PAGE_SIZE = 50;
 const WELCOME_DURATION_MS = 4000;
+const board = document.getElementById('players');
+const boardCount = document.getElementById('player-board-count');
+const boardPause = document.getElementById('player-board-pause');
+let boardPage = 0;
+let boardPaused = false;
+let boardMarkup = null;
+let dashboardData = null;
 let knownPlayerIds = null;
 let welcomeTimer = null;
 const welcomeQueue = [];
@@ -57,15 +65,21 @@ function trophyForRank(rank) {
   return '';
 }
 
-function renderPlayers(players, leaderboard, competitive) {
+function renderPlayerBoard(advance = false) {
+  if (!dashboardData) return;
+  const { players, leaderboard, game } = dashboardData;
+  const pageCount = Math.max(1, Math.ceil(players.length / BOARD_PAGE_SIZE));
+  boardPage = advance ? (boardPage + 1) % pageCount : Math.min(boardPage, pageCount - 1);
+  const start = boardPage * BOARD_PAGE_SIZE;
+  const visible = players.slice(start, start + BOARD_PAGE_SIZE);
+  boardCount.textContent = players.length
+    ? `Showing ${start + 1}\u2013${start + visible.length} of ${players.length}`
+    : 'Waiting for attendees';
+  boardPause.disabled = pageCount === 1;
   const lbByPlayer = new Map((leaderboard || []).map((entry, index) => [entry.player_id, { rank: index + 1, score: entry.score }]));
-  const slots = Array.from({ length: PLAYER_LIMIT }, (_, index) => players[index] || null);
-  document.getElementById('players').innerHTML = slots.map((player, index) => {
-    if (!player) {
-      return `<div class="flex min-h-0 items-center border border-dashed border-paper/10 px-2 text-sm font-bold text-paper/16">${index + 1}</div>`;
-    }
+  const markup = visible.map((player, index) => {
     const style = STATUS_STYLES[player.status] || 'border-paper/40 text-paper/70';
-    const lb = competitive ? lbByPlayer.get(player.player_id) : null;
+    const lb = game?.competitive_mode ? lbByPlayer.get(player.player_id) : null;
     const trophy = lb ? trophyForRank(lb.rank) : '';
     const isActive = ACTIVE_STATUSES.has(player.status);
     let meta;
@@ -80,16 +94,21 @@ function renderPlayers(players, leaderboard, competitive) {
       ? `<div class="shrink-0 text-sm leading-none" title="Leaderboard #${lb.rank}">${trophy}</div>`
       : '';
     const questName = player.quest_name ? escapeHtml(shortenName(player.quest_name)) : '';
-    return `<div class="flex min-h-0 items-center gap-2 border-l-4 ${style} bg-paper/[0.06] px-2 py-1">
-      <div class="w-6 shrink-0 text-right text-xs font-black text-paper/35">${index + 1}</div>
+    return `<div class="departure-tile flex min-w-0 items-center gap-1 border-l-4 ${style} px-1.5" style="--tile-index:${index}" title="${escapeHtml(player.name)}">
+      <div class="shrink-0 text-right text-xs font-black text-paper/55">${start + index + 1}</div>
       <div class="min-w-0 flex-1">
-        <div class="truncate text-[clamp(0.7rem,1.1vw,1rem)] font-extrabold leading-tight">${escapeHtml(shortenName(player.name))}</div>
-        ${questName ? `<div class="truncate text-[0.6rem] font-semibold uppercase tracking-[0.08em] text-paper/40">${questName}</div>` : ''}
+        <div class="truncate text-[clamp(0.7rem,1.1vw,1rem)] font-extrabold leading-tight">${escapeHtml(player.name)}</div>
+        ${questName ? `<div class="departure-tile-quest truncate text-[0.6rem] font-semibold uppercase tracking-[0.08em] text-paper/40">${questName}</div>` : ''}
       </div>
       ${trophyHtml}
       <div class="shrink-0 text-[0.6rem] font-black uppercase tracking-[0.08em] text-paper/55">${escapeHtml(meta)}</div>
     </div>`;
   }).join('');
+  if (markup !== boardMarkup) {
+    board.classList.toggle('is-flipping', advance);
+    board.innerHTML = markup;
+    boardMarkup = markup;
+  }
 }
 
 function showNextWelcome() {
@@ -125,21 +144,20 @@ function welcomeNewPlayers(players) {
 async function refreshDashboard() {
   try {
     const response = await fetch(`/${SLUG}/dashboard/data`, { cache: 'no-store' });
+    if (!response.ok) throw new Error(`Attendee data unavailable (HTTP ${response.status})`);
     const data = await response.json();
-    const players = data.players || [];
-    renderPlayers(players, data.leaderboard || [], Boolean(data.game?.competitive_mode));
-    welcomeNewPlayers(players);
-    syncPlayerAnimations(players);
+    dashboardData = data;
+    renderPlayerBoard();
+    welcomeNewPlayers(data.players);
+    syncPlayerAnimations(data.players);
     if (mapRef && JSON.stringify(data.quest_versions || []) !== questMapVersions) {
       await loadQuestLocations(mapRef);
     }
   } catch (error) {
-    // ignore transient errors; next tick will retry
+    console.warn('[dashboard] Refresh failed; will retry', error);
+    if (!dashboardData) boardCount.textContent = 'Could not load attendees; retrying';
   }
 }
-
-refreshDashboard();
-setInterval(refreshDashboard, 5000);
 
 // --- Azure Map ---------------------------------------------------------------
 
@@ -251,7 +269,7 @@ function initMap() {
 let mapRef = null;
 const playerMarkers = new Map(); // player_id -> atlas.HtmlMarker
 const animatedCodes = new Set(); // `${player_id}:${code}`
-const pendingCodes = new Set();  // codes currently being fetched/animated
+const pendingCodes = new Set();  // player/route pairs currently being fetched
 const REPLAY_WINDOW_MS = 60 * 1000;
 let initialAnimationSync = true;
 let animationIssueCount = 0;
@@ -266,8 +284,9 @@ function reportAnimationIssue(reason, details) {
   }
 }
 
-function playerPinHtml(slot, status) {
-  return `<div class="player-pin player-pin--${status || 'mission'}">${slot}</div>`;
+function playerPinHtml(slot, player) {
+  const status = Object.hasOwn(STATUS_STYLES, player.status) ? player.status : 'mission';
+  return `<div class="player-pin player-pin--${status}" title="${escapeHtml(player.name)}">${slot}</div>`;
 }
 
 function parseTimestamp(value) {
@@ -372,34 +391,24 @@ function animateMarker(marker, polyline, totalMs = 8000, meta = {}) {
 }
 
 async function animatePlayerAlongRoute(player, slot, code) {
-  if (pendingCodes.has(code)) return false;
-  pendingCodes.add(code);
   const route = await fetchRoute(code);
-  if (!route) {
-    pendingCodes.delete(code);
-    return false;
-  }
   const polyline = extractPolyline(route);
-  if (polyline.length < 1) {
-    pendingCodes.delete(code);
-    return false;
-  }
+  if (polyline.length < 1) return false;
   let marker = playerMarkers.get(player.player_id);
   if (!marker) {
     marker = new atlas.HtmlMarker({
       position: polyline[0],
-      htmlContent: playerPinHtml(slot, player.status),
+      htmlContent: playerPinHtml(slot, player),
     });
     mapRef.markers.add(marker);
     playerMarkers.set(player.player_id, marker);
   } else {
-    marker.setOptions({ htmlContent: playerPinHtml(slot, player.status) });
+    marker.setOptions({ htmlContent: playerPinHtml(slot, player) });
   }
   animateMarker(marker, polyline, 8000, {
     playerId: player.player_id,
     routeRef: code,
   });
-  pendingCodes.delete(code);
   return true;
 }
 
@@ -411,12 +420,12 @@ function syncPlayerAnimations(players) {
     const slot = index + 1;
     // Refresh marker styling (status may have changed) without resetting position.
     const marker = playerMarkers.get(player.player_id);
-    if (marker) marker.setOptions({ htmlContent: playerPinHtml(slot, player.status) });
+    if (marker) marker.setOptions({ htmlContent: playerPinHtml(slot, player) });
     (player.mission_results || []).forEach((result) => {
       const code = String(result.route_ref || '').trim();
       if (!code) return;
       const key = `${player.player_id}:${code}`;
-      if (animatedCodes.has(key)) return;
+      if (animatedCodes.has(key) || pendingCodes.has(key)) return;
       if (initialAnimationSync) {
         const completedAt = parseTimestamp(result.completed_at);
         if (completedAt != null && completedAt < replayCutoff) {
@@ -424,15 +433,26 @@ function syncPlayerAnimations(players) {
           return;
         }
       }
+      pendingCodes.add(key);
       pendingAnimations.push({ key, player, slot, code });
     });
   });
   pendingAnimations.forEach(({ key, player, slot, code }) => {
     animatePlayerAlongRoute(player, slot, code).then((started) => {
       if (started) animatedCodes.add(key);
-    });
+    }).catch((error) => reportAnimationIssue('route-animation-failed', { routeRef: code, error }))
+      .finally(() => pendingCodes.delete(key));
   });
   initialAnimationSync = false;
 }
 
 initMap();
+refreshDashboard();
+setInterval(refreshDashboard, 5000);
+setInterval(() => {
+  if (!boardPaused && !boardPause.disabled) renderPlayerBoard(true);
+}, BOARD_ROTATION_MS);
+boardPause.addEventListener('click', () => {
+  boardPaused = !boardPaused;
+  boardPause.textContent = boardPaused ? 'Resume rotation' : 'Pause rotation';
+});

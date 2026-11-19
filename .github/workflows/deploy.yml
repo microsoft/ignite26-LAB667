@@ -45,7 +45,7 @@ jobs:
       AGENT42_MODEL_NAME: ${{ vars.AGENT42_MODEL_NAME || 'gpt-5.6-luna' }}
       AGENT42_MODEL_VERSION: ${{ vars.AGENT42_MODEL_VERSION || '2026-07-09' }}
       AGENT42_MODEL_SKU: ${{ vars.AGENT42_MODEL_SKU || 'GlobalStandard' }}
-      AGENT42_MODEL_CAPACITY: ${{ vars.AGENT42_MODEL_CAPACITY || '10' }}
+      AGENT42_MODEL_CAPACITY: ${{ vars.AGENT42_MODEL_CAPACITY || '100' }}
 
     steps:
       - name: Check out source
