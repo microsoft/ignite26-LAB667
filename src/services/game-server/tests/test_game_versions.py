@@ -17,7 +17,7 @@ import init
 import storage
 import server
 import player_identity
-from dashboard import Dashboard, dashboard_data
+from dashboard import Dashboard, dashboard_data, dashboard_v2_data, dashboard_v2_page
 from game_schedule import GameSchedule
 from quest_validation import validate_document
 
@@ -292,6 +292,37 @@ class GameVersionTests(unittest.TestCase):
         self.assertEqual(data["counts"]["total"], 60)
         self.assertEqual([p["name"] for p in data["players"]], [f"Attendee {i}" for i in range(1, 61)])
         self.assertEqual(data["players"][-1]["mission_results"][0]["route_ref"], "abcdefghijklmno")
+
+    def test_dashboard_v2_exposes_recent_activity_without_clue_answers(self) -> None:
+        document = story("SECRET-CODE")
+        document["quests"][0]["missions"].append({
+            "id": "cross-town", "type": "move", "mission": "Travel across town",
+            "valid_answers": ["bike"], "start_address": "Market Street",
+            "start_lat": 37.77, "start_lng": -122.42,
+            "end_address": "Ferry Building", "end_lat": 37.795, "end_lng": -122.393,
+        })
+        self.publish_new(document)
+        player_id, player = player_identity.register_player("test-city", "Henk")
+        player.update(
+            status="complete", started_at="2026-07-01T10:00:00Z", completed_at="2026-07-01T10:03:00Z",
+            mission_results=[
+                {"mission_index": 0, "answer": "SECRET-CODE", "completed_at": "2026-07-01T10:01:00Z"},
+                {"mission_index": 1, "answer": "bike", "route_ref": "abcdefghijklmno",
+                 "completed_at": "2026-07-01T10:02:00Z"},
+            ],
+        )
+        storage.save_player("test-city", player_id, player)
+        request = Request({"type": "http", "path_params": {"slug": "test-city"}})
+        page = asyncio.run(dashboard_v2_page(request))
+        self.assertIn(b"Recent activity", page.body)
+        response = asyncio.run(dashboard_v2_data(request))
+        data = json.loads(response.body)
+        self.assertEqual([event["kind"] for event in data["events"]], ["finished", "travel", "clue", "joined"])
+        self.assertEqual(data["events"][1]["destination"], "Ferry Building")
+        self.assertEqual(data["events"][1]["transport"], "bike")
+        self.assertEqual(data["players"][0]["mission_results"][0]["transport"], "bike")
+        self.assertNotIn(b"SECRET-CODE", response.body)
+        self.assertNotIn(player_id.encode(), response.body)
 
     def test_move_completion_records_transport_on_timeline(self) -> None:
         document = story("bike")

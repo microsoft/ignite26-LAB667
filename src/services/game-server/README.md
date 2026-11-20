@@ -203,6 +203,17 @@ shows up to 50 attendees in two columns and flips to the next group every
 10 seconds. You can pause the rotation without stopping live updates or
 route animations on the map to the right.
 
+For the activity view, open `http://localhost:8090/<slug>/dashboard-v2` or
+select **Open display v2** in the game admin. The newest quest events appear
+on the left without showing clue answers. On the right, the map marks the
+start, checkpoints, and finish. Players with a known game location appear on
+the map; recent travel replays with a transport icon and a name bubble.
+Stationary players at a quest pin are hidden to keep the pin clear. Hover
+over a stationary dot elsewhere to see the player's name.
+New quest completions show a postcard over the map for four seconds,
+stamped **Destination reached** with the player's name. With reduced motion
+enabled, the postcard appears without animation.
+
 ## Run the admin UI
 
 ```bash

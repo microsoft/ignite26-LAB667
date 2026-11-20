@@ -1,6 +1,7 @@
 // Dashboard live updater. Reads the game slug from <body data-slug="...">.
 
 const SLUG = document.body.dataset.slug;
+const ACTIVITY_MODE = Object.hasOwn(document.body.dataset, 'dashboardV2');
 const AZURE_MAPS_KEY = document.body.dataset.azureMapsKey || '';
 const BOARD_ROTATION_MS = 10000;
 const BOARD_PAGE_SIZE = 50;
@@ -15,6 +16,10 @@ let dashboardData = null;
 let knownPlayerIds = null;
 let welcomeTimer = null;
 const welcomeQueue = [];
+const TRANSPORT_ICONS = { car: '&#128663;', bike: '&#128690;', walking: '&#128694;' };
+let knownCompletions = null;
+const celebrationQueue = [];
+const CELEBRATION_MS = 4000;
 
 const STATUS_STYLES = {
   registered: 'border-gold/80 text-gold',
@@ -141,21 +146,110 @@ function welcomeNewPlayers(players) {
   showNextWelcome();
 }
 
+function renderActivity({ events, players }) {
+  const count = document.getElementById('activity-count');
+  const status = document.getElementById('activity-status');
+  const list = document.getElementById('activity-events');
+  count.textContent = `${players.length} ${players.length === 1 ? 'player' : 'players'}`;
+  status.hidden = events.length > 0;
+  status.textContent = 'Waiting for players to start a quest.';
+  const timeFormat = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
+  const markup = events.map(({ kind, at, name, quest, transport, destination }) => {
+    let action, icon;
+    switch (kind) {
+      case 'joined': action = 'joined the quest'; icon = '&#9654;'; break;
+      case 'finished': action = 'completed the quest'; icon = '&#9873;'; break;
+      case 'clue': action = 'solved a clue'; icon = '&#10003;'; break;
+      case 'travel': {
+        const verb = { car: 'drove', bike: 'biked', walking: 'walked' }[transport] || 'travelled';
+        action = destination ? `${verb} to ${destination}` : `${verb} to the next stop`;
+        icon = Object.hasOwn(TRANSPORT_ICONS, transport) ? TRANSPORT_ICONS[transport] : '&#8594;';
+        break;
+      }
+      default: return '';
+    }
+    const time = parseTimestamp(at);
+    return `<li class="activity-event activity-event--${kind}">
+      <span class="activity-icon" aria-hidden="true">${icon}</span>
+      <div><p><strong>${escapeHtml(name)}</strong> ${escapeHtml(action)}</p><span>${escapeHtml(quest)}</span></div>
+      ${time !== null ? `<time datetime="${escapeHtml(at)}">${escapeHtml(timeFormat.format(time))}</time>` : ''}
+    </li>`;
+  }).join('');
+  if (markup !== boardMarkup) {
+    list.innerHTML = markup;
+    boardMarkup = markup;
+  }
+}
+
+function showNextCelebration() {
+  const overlay = document.getElementById('quest-celebration');
+  if (!overlay || overlay.dataset.showing === 'true' || !celebrationQueue.length) return;
+  const message = document.getElementById('quest-celebration-message');
+  const caption = document.createElement('span');
+  caption.className = 'quest-postcard-caption';
+  caption.textContent = 'Greetings from';
+  const city = document.createElement('strong');
+  city.className = 'quest-postcard-city';
+  city.textContent = document.querySelector('.activity-header h1').textContent.replace(/^Lost in /i, '');
+  const stamp = document.createElement('span');
+  stamp.className = 'quest-postcard-stamp';
+  stamp.textContent = 'Destination reached';
+  const player = document.createElement('strong');
+  player.className = 'quest-postcard-player';
+  player.textContent = celebrationQueue.shift();
+  message.replaceChildren(caption, city, stamp, player);
+  overlay.dataset.showing = 'true';
+  setTimeout(() => {
+    overlay.dataset.showing = 'false';
+    message.textContent = '';
+    requestAnimationFrame(() => requestAnimationFrame(showNextCelebration));
+  }, CELEBRATION_MS);
+}
+
+function celebrateNewCompletions(players) {
+  if (!document.getElementById('quest-celebration')) return;
+  const isInitial = knownCompletions === null;
+  knownCompletions ??= new Set();
+  for (const player of players) {
+    if (player.status !== 'complete' || !player.completed_at) continue;
+    const key = `${player.player_id}:${player.completed_at}`;
+    if (knownCompletions.has(key)) continue;
+    knownCompletions.add(key);
+    if (!isInitial) celebrationQueue.push(player.name);
+  }
+  showNextCelebration();
+}
+
+let refreshing = false;
 async function refreshDashboard() {
+  if (refreshing) return;
+  refreshing = true;
   try {
-    const response = await fetch(`/${SLUG}/dashboard/data`, { cache: 'no-store' });
+    const response = await fetch(`/${SLUG}/${ACTIVITY_MODE ? 'dashboard-v2' : 'dashboard'}/data`, { cache: 'no-store' });
     if (!response.ok) throw new Error(`Attendee data unavailable (HTTP ${response.status})`);
     const data = await response.json();
     dashboardData = data;
-    renderPlayerBoard();
-    welcomeNewPlayers(data.players);
-    syncPlayerAnimations(data.players);
+    if (ACTIVITY_MODE) {
+      renderActivity(data);
+      celebrateNewCompletions(data.players);
+      syncActivityPlayers(data.players);
+    } else {
+      renderPlayerBoard();
+      welcomeNewPlayers(data.players);
+      syncPlayerAnimations(data.players);
+    }
     if (mapRef && JSON.stringify(data.quest_versions || []) !== questMapVersions) {
       await loadQuestLocations(mapRef);
     }
   } catch (error) {
     console.warn('[dashboard] Refresh failed; will retry', error);
-    if (!dashboardData) boardCount.textContent = 'Could not load attendees; retrying';
+    const status = ACTIVITY_MODE ? document.getElementById('activity-status') : boardCount;
+    if (ACTIVITY_MODE || !dashboardData) {
+      status.hidden = false;
+      status.textContent = 'Could not refresh the dashboard; retrying';
+    }
+  } finally {
+    refreshing = false;
   }
 }
 
@@ -173,12 +267,17 @@ function setMapStatus(text) {
 }
 
 function pinHtml(kind, label) {
+  if (ACTIVITY_MODE) {
+    const icon = kind === 'start' ? '&#9654;' : kind === 'end' ? '&#9873;' : label.match(/^Mission (\d+)/)?.[1] || '&#9670;';
+    return `<div class="quest-pin quest-pin--${kind}" title="${escapeHtml(label)}">${icon}</div>`;
+  }
   return `<div class="map-pin map-pin--${kind}" title="${escapeHtml(label)}">${label.charAt(0).toUpperCase()}</div>`;
 }
 
 let questMapVersions = null;
 let questMarkers = [];
 let loadingQuestLocations = false;
+let questPinPositions = new Set();
 
 async function loadQuestLocations(map) {
   if (loadingQuestLocations) return;
@@ -237,6 +336,10 @@ async function loadQuestLocations(map) {
     setMapStatus('No quest locations yet');
   }
   questMapVersions = JSON.stringify(payload.versions || []);
+  if (ACTIVITY_MODE) {
+    questPinPositions = new Set(positions.map((position) => position.join(',')));
+    if (dashboardData) syncActivityPlayers(dashboardData.players);
+  }
 }
 
 function initMap() {
@@ -260,6 +363,7 @@ function initMap() {
   map.events.add('ready', () => {
     mapRef = map;
     loadQuestLocations(map);
+    if (ACTIVITY_MODE && dashboardData) syncActivityPlayers(dashboardData.players);
   });
   map.events.add('error', () => setMapStatus('Map error \u2014 check AZURE_MAPS_KEY'));
 }
@@ -322,9 +426,13 @@ function lerp(a, b, t) {
   return a + (b - a) * t;
 }
 
-function animateMarker(marker, polyline, totalMs = 8000, meta = {}) {
+function animateMarker(marker, polyline, totalMs = 8000, meta = {}, onFinish = () => {}) {
+  function finish() {
+    if (polyline.length) marker.setOptions({ position: polyline[polyline.length - 1] });
+    onFinish();
+  }
   if (polyline.length < 2) {
-    if (polyline.length === 1) marker.setOptions({ position: polyline[0] });
+    finish();
     return;
   }
   const safeTotalMs = Number.isFinite(totalMs) && totalMs > 0 ? totalMs : 8000;
@@ -345,11 +453,11 @@ function animateMarker(marker, polyline, totalMs = 8000, meta = {}) {
         segmentMs,
         polylineLength: polyline.length,
       });
-      marker.setOptions({ position: polyline[polyline.length - 1] });
+      finish();
       return;
     }
     if (elapsed >= safeTotalMs) {
-      marker.setOptions({ position: polyline[polyline.length - 1] });
+      finish();
       return;
     }
     const progress = elapsed / segmentMs;
@@ -365,7 +473,7 @@ function animateMarker(marker, polyline, totalMs = 8000, meta = {}) {
         progress,
         polylineLength: polyline.length,
       });
-      marker.setOptions({ position: polyline[polyline.length - 1] });
+      finish();
       return;
     }
     const nextLng = lerp(from[0], to[0], t);
@@ -379,7 +487,7 @@ function animateMarker(marker, polyline, totalMs = 8000, meta = {}) {
         from,
         to,
       });
-      marker.setOptions({ position: polyline[polyline.length - 1] });
+      finish();
       return;
     }
     marker.setOptions({ position: [nextLng, nextLat] });
@@ -446,13 +554,129 @@ function syncPlayerAnimations(players) {
   initialAnimationSync = false;
 }
 
+const activityPlayers = new Map();
+const stationaryOffsets = new Map();
+const movingPlayers = new Set();
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+function activityPlayerPin(player, moving = false, transport = '') {
+  const status = Object.hasOwn(STATUS_STYLES, player.status) ? player.status : 'mission';
+  const name = escapeHtml(player.name);
+  const icon = Object.hasOwn(TRANSPORT_ICONS, transport) ? TRANSPORT_ICONS[transport] : '&#8594;';
+  return `<div class="activity-player activity-player--${status}${moving ? ' activity-player--moving' : ''}" title="${name}">
+    ${moving ? `<span class="activity-player-name">${name}</span>${icon}` : ''}
+  </div>`;
+}
+
+function setActivityMarker(player, position, moving = false, transport = '') {
+  let marker = playerMarkers.get(player.player_id);
+  if (!moving && isAtQuestPin(position)) {
+    if (marker) {
+      mapRef.markers.remove(marker);
+      playerMarkers.delete(player.player_id);
+    }
+    return;
+  }
+  const options = {
+    anchor: 'center',
+    htmlContent: activityPlayerPin(player, moving, transport),
+    pixelOffset: moving ? [0, 0] : stationaryOffsets.get(player.player_id) || [0, 0],
+  };
+  if (position) options.position = position;
+  if (!marker && position) {
+    marker = new atlas.HtmlMarker(options);
+    mapRef.markers.add(marker);
+    playerMarkers.set(player.player_id, marker);
+  } else if (marker) {
+    marker.setOptions(options);
+  }
+  return marker;
+}
+
+function storyPosition(player) {
+  const { lng, lat } = player.location || {};
+  return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+}
+
+function isAtQuestPin(position) {
+  return position !== null && questPinPositions.has(position.join(','));
+}
+
+async function playActivityRoute(playerId, result, key) {
+  movingPlayers.add(playerId);
+  try {
+    const polyline = extractPolyline(await fetchRoute(result.route_ref));
+    const player = activityPlayers.get(playerId);
+    if (!player) return;
+    if (!polyline.length) {
+      reportAnimationIssue('route-unavailable', { playerId, routeRef: result.route_ref });
+      return;
+    }
+    const marker = setActivityMarker(player, polyline[0], true, result.transport);
+    if (!reducedMotion.matches) {
+      await new Promise((resolve) => animateMarker(marker, polyline, 8000, {
+        playerId, routeRef: result.route_ref,
+      }, resolve));
+    } else {
+      marker.setOptions({ position: polyline[polyline.length - 1] });
+    }
+    animatedCodes.add(key);
+  } catch (error) {
+    reportAnimationIssue('route-animation-failed', { playerId, routeRef: result.route_ref, error });
+  } finally {
+    movingPlayers.delete(playerId);
+    const player = activityPlayers.get(playerId);
+    if (player) setActivityMarker(player, storyPosition(player));
+  }
+}
+
+function syncActivityPlayers(players) {
+  if (!mapRef) return;
+  const currentIds = new Set(players.map((player) => player.player_id));
+  activityPlayers.forEach((_, id) => {
+    if (currentIds.has(id)) return;
+    activityPlayers.delete(id);
+    const marker = playerMarkers.get(id);
+    if (marker) mapRef.markers.remove(marker);
+    playerMarkers.delete(id);
+  });
+  stationaryOffsets.clear();
+  const atLocation = new Map();
+  for (const player of players) {
+    const id = player.player_id;
+    activityPlayers.set(id, player);
+    const position = storyPosition(player);
+    if (position && !isAtQuestPin(position)) {
+      // Fan out co-located dots without changing their game coordinates.
+      const locationKey = position.join(',');
+      const index = atLocation.get(locationKey) || 0;
+      atLocation.set(locationKey, index + 1);
+      const ring = Math.floor(index / 8) + 1;
+      const angle = (index % 8) * Math.PI / 4;
+      const radius = 23 + (ring - 1) * 14;
+      stationaryOffsets.set(id, [Math.round(Math.cos(angle) * radius), Math.round(Math.sin(angle) * radius)]);
+    }
+    if (movingPlayers.has(id)) continue;
+    setActivityMarker(player, position);
+    for (const result of player.mission_results || []) {
+      const key = `${id}:${result.mission_index}:${result.route_ref}`;
+      const completedAt = parseTimestamp(result.completed_at);
+      if (animatedCodes.has(key) || completedAt === null || completedAt < Date.now() - REPLAY_WINDOW_MS) continue;
+      playActivityRoute(id, result, key);
+      break;
+    }
+  }
+}
+
 initMap();
 refreshDashboard();
 setInterval(refreshDashboard, 5000);
-setInterval(() => {
-  if (!boardPaused && !boardPause.disabled) renderPlayerBoard(true);
-}, BOARD_ROTATION_MS);
-boardPause.addEventListener('click', () => {
-  boardPaused = !boardPaused;
-  boardPause.textContent = boardPaused ? 'Resume rotation' : 'Pause rotation';
-});
+if (!ACTIVITY_MODE) {
+  setInterval(() => {
+    if (!boardPaused && !boardPause.disabled) renderPlayerBoard(true);
+  }, BOARD_ROTATION_MS);
+  boardPause.addEventListener('click', () => {
+    boardPaused = !boardPaused;
+    boardPause.textContent = boardPaused ? 'Resume rotation' : 'Pause rotation';
+  });
+}

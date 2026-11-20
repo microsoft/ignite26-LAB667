@@ -44,6 +44,7 @@ from player_identity import (
     bearer_token,
     player_state,
     public_agent42_advice,
+    public_player_ref,
     register_player,
 )
 from quest_logic import _current_mission_index, _normalize_quest, _player_location
@@ -61,6 +62,8 @@ AZURE_BLOB_HOST_SUFFIXES = (
     ".blob.core.cloudapi.de",
 )
 ACTIVE_STATUSES = {"mission"}
+PUBLIC_TRANSPORT = {"car", "bike", "walking"}
+ACTIVITY_LIMIT = 40
 
 
 def _move_routes_base_url() -> str:
@@ -131,8 +134,9 @@ class Dashboard:
         )
         self.templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-    def render_html(self, game: dict[str, Any]) -> str:
-        return self.templates.get_template("dashboard.html").render(
+    def render_html(self, game: dict[str, Any], *, activity: bool = False) -> str:
+        template = "dashboard_v2.html" if activity else "dashboard.html"
+        return self.templates.get_template(template).render(
             display_name=str(game.get("display_name") or game.get("slug") or "Dashboard"),
             slug=str(game.get("slug") or ""),
             azure_maps_key=self.azure_maps_key,
@@ -199,10 +203,11 @@ class Dashboard:
             })
         return {"quests": quests_out, "versions": sorted(versions)}
 
-    def build_data(self, game: dict[str, Any]) -> dict[str, Any]:
+    def build_data(self, game: dict[str, Any], *, activity: bool = False) -> dict[str, Any]:
         slug = game["slug"]
         versions: dict[int, dict[str, Any]] = {}
         players: list[dict[str, Any]] = []
+        events: list[dict[str, Any]] = []
         counts = {"total": 0, "registered": 0, "active": 0, "complete": 0, "abandoned": 0}
         attempts = 0
 
@@ -222,7 +227,7 @@ class Dashboard:
             elif status in counts:
                 counts[status] += 1
 
-            players.append({
+            public_player = {
                 "player_id": player.get("player_ref") or player_id,
                 "name": player.get("name") or player_id,
                 "quest_id": player.get("quest_id"),
@@ -255,7 +260,12 @@ class Dashboard:
                     if (result.get("route_ref") or "").strip()
                 ],
                 **({"score": player.get("score")} if game["competitive_mode"] else {}),
-            })
+            }
+            players.append(public_player)
+            if activity:
+                public_player["player_id"] = player.get("player_ref") or public_player_ref(player_id)
+                public_player["name"] = player.get("name") or "Player"
+                events.extend(_public_activity(player, public_player, missions))
 
         counts["attempts"] = attempts
         players.sort(key=lambda item: (
@@ -267,6 +277,15 @@ class Dashboard:
         quest_versions = set(versions)
         if current:
             quest_versions.add(current)
+
+        if activity:
+            events.sort(key=lambda event: event["at"], reverse=True)
+            return {
+                "players": players,
+                "quest_versions": sorted(quest_versions),
+                "counts": counts,
+                "events": events[:ACTIVITY_LIMIT],
+            }
 
         return {
             "game": game,
@@ -315,6 +334,40 @@ class Dashboard:
 
 # ---------- ASGI app -------------------------------------------------------
 
+def _public_activity(
+    player: dict[str, Any], public_player: dict[str, Any], missions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+
+    def record(kind: str, at: str | None, **details: str) -> None:
+        if at:
+            events.append({
+                "kind": kind, "at": at, "name": public_player["name"],
+                "quest": public_player["quest_name"], **details,
+            })
+
+    # Finish comes first when the final answer and finish share a timestamp.
+    record("finished", player.get("completed_at"))
+    transport_by_mission = {}
+    for result in reversed(player.get("mission_results") or []):
+        index = int(result.get("mission_index", 0) or 0)
+        if not 0 <= index < len(missions):
+            continue
+        mission = missions[index]
+        at = result.get("completed_at")
+        if mission["type"] == "move":
+            answer = str(result.get("answer") or "").strip().lower()
+            transport = answer if answer in PUBLIC_TRANSPORT else ""
+            transport_by_mission[index] = transport
+            record("travel", at, transport=transport, destination=mission.get("end_address") or "")
+        else:
+            record("clue", at)
+    record("joined", player.get("started_at"))
+    for result in public_player["mission_results"]:
+        result["transport"] = transport_by_mission.get(result["mission_index"], "")
+    return events
+
+
 dashboard = Dashboard()
 
 
@@ -332,6 +385,22 @@ async def dashboard_data(request: Request) -> JSONResponse:
     if not game:
         return JSONResponse({"error": f"Game '{slug}' not found"}, status_code=404)
     return JSONResponse(dashboard.build_data(game))
+
+
+async def dashboard_v2_page(request: Request) -> HTMLResponse | JSONResponse:
+    slug = request.path_params["slug"]
+    game = storage.get_game(slug)
+    if not game:
+        return JSONResponse({"error": f"Game '{slug}' not found"}, status_code=404)
+    return HTMLResponse(dashboard.render_html(game, activity=True))
+
+
+async def dashboard_v2_data(request: Request) -> JSONResponse:
+    slug = request.path_params["slug"]
+    game = storage.get_game(slug)
+    if not game:
+        return JSONResponse({"error": f"Game '{slug}' not found"}, status_code=404)
+    return JSONResponse(dashboard.build_data(game, activity=True))
 
 
 async def dashboard_quests(request: Request) -> JSONResponse:
@@ -523,6 +592,8 @@ def build_app() -> Starlette:
         Route("/{slug}/dashboard/data", endpoint=dashboard_data),
         Route("/{slug}/dashboard/quests", endpoint=dashboard_quests),
         Route("/{slug}/dashboard/routes/{code}", endpoint=dashboard_route),
+        Route("/{slug}/dashboard-v2", endpoint=dashboard_v2_page),
+        Route("/{slug}/dashboard-v2/data", endpoint=dashboard_v2_data),
         Route("/api/games/{slug}/players", endpoint=register_public_player, methods=["POST"]),
         Route("/api/games/{slug}/player", endpoint=public_player_state),
         Route(

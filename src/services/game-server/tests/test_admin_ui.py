@@ -431,8 +431,11 @@ class AdminUITests(unittest.TestCase):
         expect(self.page.get_by_role("link", name="Open player")).to_have_attribute(
             "href", "https://dashboard.example.test/san-francisco/player"
         )
-        expect(self.page.get_by_role("link", name="Open display")).to_have_attribute(
+        expect(self.page.get_by_role("link", name="Open display \u2197", exact=True)).to_have_attribute(
             "href", "https://dashboard.example.test/san-francisco/dashboard"
+        )
+        expect(self.page.get_by_role("link", name="Open display v2")).to_have_attribute(
+            "href", "https://dashboard.example.test/san-francisco/dashboard-v2"
         )
         self.page.get_by_role("button", name="Close", exact=True).click()
         expect(self.page.locator("#game-assets-dialog")).not_to_be_visible()
@@ -694,6 +697,120 @@ class AdminUITests(unittest.TestCase):
         self.page.evaluate("refreshDashboard()")
         expect(self.page.locator("#player-welcome-overlay")).to_be_visible()
         expect(self.page.locator("#player-welcome-name")).to_have_text("City Fox")
+
+    def test_dashboard_v2_shows_activity_and_labels_only_moving_players(self) -> None:
+        self.page.goto(f"{ORIGIN}/login")
+        self.page.clock.install()
+        self.page.clock.pause_at(self.page.evaluate("Date.now()") + 1000)
+        now = self.page.evaluate("new Date().toISOString()")
+        payload = {
+            "players": [
+                {"player_id": "henk", "name": "Henk", "status": "mission",
+                 "location": {"lng": -122.39, "lat": 37.79},
+                 "mission_results": [{"mission_index": 1, "transport": "bike", "completed_at": now,
+                                      "route_ref": "abcdefghijklmno"}]},
+                {"player_id": "sam", "name": "Sam", "status": "registered",
+                 "location": {"lng": -122.39, "lat": 37.79}},
+                {"player_id": "maya", "name": "Maya", "status": "complete", "completed_at": now},
+                {"player_id": "noor", "name": "Noor", "status": "mission",
+                 "location": {"lng": -122.395, "lat": 37.79}},
+            ],
+            "events": [
+                {"name": "Henk", "kind": "travel", "transport": "bike", "destination": "Ferry Building",
+                 "at": now, "quest": "Waterfront"},
+                {"name": "Sam", "kind": "joined", "at": now, "quest": "Waterfront"},
+            ],
+            "quest_versions": [1],
+        }
+
+        def serve_dashboard(route: Route) -> None:
+            path = route.request.url
+            if path.endswith("/dashboard-v2/data"):
+                route.fulfill(json=payload)
+            elif path.endswith("/quests"):
+                route.fulfill(json={"versions": [1], "quests": [{"name": "Waterfront", "points": [
+                    {"lng": -122.42, "lat": 37.77, "kind": "start", "label": "Start"},
+                    {"lng": -122.40, "lat": 37.78, "kind": "mission", "label": "Mission 1"},
+                    {"lng": -122.39, "lat": 37.79, "kind": "end", "label": "End"},
+                ]}]})
+            else:
+                route.fulfill(json={"raw_route": {"routes": [{"legs": [{"points": [
+                    {"longitude": -122.42, "latitude": 37.77}, {"longitude": -122.39, "latitude": 37.79},
+                ]}]}]}})
+
+        self.page.route(f"{ORIGIN}/city/dashboard*/**", serve_dashboard)
+        dashboard_html = self.templates.get_template("dashboard_v2.html").render(
+            slug="city", display_name="Test City", azure_maps_key="test-key",
+        )
+        body = dashboard_html.split("<body", 1)[1].split("<script", 1)[0]
+        self.page.set_content("<body" + body + "</body>")
+        self.page.add_style_tag(path=ROOT / "static/css/dashboard.css")
+        self.page.evaluate("""() => {
+            window.atlas = {
+                Map: class {
+                    events = {add: (event, callback) => { if (event === 'ready') queueMicrotask(callback); }};
+                    markers = {
+                        add: marker => document.getElementById('map').append(marker.el),
+                        remove: marker => marker.el.remove(),
+                    };
+                    setCamera() {}
+                },
+                HtmlMarker: class {
+                    el = document.createElement('div');
+                    constructor(options) { this.setOptions(options); }
+                    setOptions(options) {
+                        if (options.htmlContent) this.el.innerHTML = options.htmlContent;
+                        if (options.position) this.el.dataset.position = options.position.join(',');
+                    }
+                },
+                Popup: class {},
+                data: {BoundingBox: {fromPositions: positions => positions}},
+            };
+        }""")
+        self.page.add_script_tag(path=ROOT / "static/js/dashboard.js")
+        expect(self.page.locator("#activity-count")).to_have_text("4 players")
+        celebration = self.page.locator("#quest-celebration")
+        message = self.page.locator("#quest-celebration-message")
+        stamp = message.locator(".quest-postcard-stamp")
+        recipient = message.locator(".quest-postcard-player")
+        expect(celebration).to_have_attribute("data-showing", "false")
+        panel = self.page.get_by_role("complementary", name="Recent activity").bounding_box()
+        map_box = self.page.get_by_role("region", name="Game map").bounding_box()
+        self.assertAlmostEqual(panel["width"] / (panel["width"] + map_box["width"]), 1 / 3, places=2)
+        self.assertAlmostEqual(panel["x"] + panel["width"], map_box["x"])
+        expect(self.page.locator(".activity-event").first).to_contain_text("Henk biked to Ferry Building")
+        expect(self.page.locator(".activity-event").last).to_contain_text("Sam joined the quest")
+        expect(self.page.locator(".quest-pin.quest-pin--start")).to_have_count(1)
+        expect(self.page.locator(".quest-pin.quest-pin--mission")).to_have_text("1")
+        expect(self.page.locator(".quest-pin.quest-pin--end")).to_have_count(1)
+        expect(self.page.locator(".activity-player")).to_have_count(2)
+        expect(self.page.locator(".activity-player-name")).to_have_text("Henk")
+        expect(self.page.locator('.activity-player[title="Sam"]')).to_have_count(0)
+        expect(self.page.locator('.activity-player[title="Noor"]')).to_be_visible()
+        expect(self.page.locator(".activity-player--moving")).to_contain_text("\U0001f6b2")
+        self.page.clock.run_for(4200)
+        position = self.page.locator(".activity-player--moving").locator("..").get_attribute("data-position")
+        self.assertAlmostEqual(float(position.split(",")[0]), -122.405, places=2)
+        self.page.clock.run_for(4200)
+        expect(self.page.locator(".activity-player-name")).to_have_count(0)
+        expect(self.page.locator('.activity-player[title="Henk"]')).to_have_count(0)
+        expect(self.page.locator(".activity-player")).to_have_count(1)
+        for player in payload["players"][:2]:
+            player.update(status="complete", completed_at=now)
+        self.page.evaluate("refreshDashboard()")
+        expect(recipient).to_have_text("Henk")
+        expect(stamp).to_have_text("Destination reached")
+        expect(message.locator(".quest-postcard-city")).to_have_text("Test City")
+        self.assertEqual(stamp.evaluate("(el) => getComputedStyle(el).animationName"), "quest-postcard-stamp")
+        self.page.emulate_media(reduced_motion="reduce")
+        self.page.clock.run_for(4100)
+        expect(recipient).to_have_text("Sam")
+        expect(stamp).to_be_visible()
+        self.assertEqual(stamp.evaluate("(el) => getComputedStyle(el).animationName"), "none")
+        self.page.clock.run_for(4100)
+        expect(message).to_be_empty()
+        self.page.evaluate("refreshDashboard()")
+        expect(celebration).to_have_attribute("data-showing", "false")
 
     def test_login_and_password_change_forms(self) -> None:
         self.page.goto(f"{ORIGIN}/login")
