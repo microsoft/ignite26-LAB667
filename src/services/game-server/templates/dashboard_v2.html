@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ display_name }} Live Quest Map{% endblock %}
+{% block body_class %}h-screen overflow-hidden bg-ink text-paper antialiased{% endblock %}
+{% block body_attrs %} data-slug="{{ slug }}" data-azure-maps-key="{{ azure_maps_key }}" data-dashboard-v2{% endblock %}
+{% block head %}
+  <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" />
+  <link rel="stylesheet" href="/static/css/dashboard.css?v=postcard-v1" />
+  <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+{% endblock %}
+{% block content %}
+<main class="dashboard-layout activity-layout">
+  <aside class="activity-panel" aria-labelledby="activity-title">
+    <header class="activity-header">
+      <p class="activity-kicker">Live quest map</p>
+      <h1>{{ display_name }}</h1>
+      <div class="activity-heading">
+        <h2 id="activity-title">Recent activity</h2>
+        <span id="activity-count"></span>
+      </div>
+    </header>
+    <p id="activity-status" class="activity-status" role="status">Loading quest activity&hellip;</p>
+    <ol id="activity-events" class="activity-events"></ol>
+  </aside>
+  <section class="dashboard-map bg-paper" aria-label="Game map">
+    <div id="map" class="absolute inset-0"></div>
+    <div id="map-status" class="pointer-events-none absolute left-4 top-4 hidden bg-ink/85 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-paper"></div>
+    <div class="activity-legend" aria-label="Map legend">
+      <span><i class="quest-pin--start" aria-hidden="true"></i> Start</span>
+      <span><i class="quest-pin--mission" aria-hidden="true"></i> Checkpoint</span>
+      <span><i class="quest-pin--end" aria-hidden="true"></i> Finish</span>
+    </div>
+    <div id="quest-celebration" class="quest-celebration" data-showing="false">
+      <div id="quest-celebration-message" class="quest-celebration-card" role="status"></div>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block scripts %}
+<script src="/static/js/dashboard.js?v=quest-pins-v1"></script>
+{% endblock %}
